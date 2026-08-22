@@ -184,10 +184,10 @@
                                 else
                                 {
                                     <div class="bento-criteria-card d-flex align-items-start gap-3">
-                                        <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">
+                                        <span class="badge badge-ac fs-xs mt-0.5">
                                             @(criterion.StartsWith("AC-") ? criterion.Split(':')[0] : $"AC-{(i + 1)}")
                                         </span>
-                                        <div class="text-on-surface lh-base fs-sm text-white">
+                                        <div class="text-on-surface lh-base fs-sm">
                                             @(criterion.StartsWith("AC-") && criterion.Contains(":") ? criterion.Substring(criterion.IndexOf(':') + 1).Trim() : criterion)
                                         </div>
                                     </div>
