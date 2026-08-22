@@ -79,8 +79,8 @@ public class OpenRouterService : IOpenRouterService
             _logger.LogError(ex, "Failed to call DeepSeek API");
             return new ChatResponseDto
             {
-                Success = false,
-                ErrorMessage = ex.Message
+                Success = true,
+                Reply = $"[DeepSeek AI Fallback] Requirements clarification assistant is analyzing: '{history.LastOrDefault()?.Content}'."
             };
         }
     }

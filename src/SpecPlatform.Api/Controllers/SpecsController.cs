@@ -349,12 +349,57 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/draft/chat")]
     public async Task<ActionResult<ChatResponseDto>> BrainstormChat([FromBody] ChatRequestDto request)
     {
-        var project = await _db.Projects.FindAsync(request.ProjectId);
+        var project = await _db.Projects
+            .Include(p => p.Specs)
+                .ThenInclude(s => s.Versions)
+                    .ThenInclude(v => v.AcceptanceCriteria)
+            .FirstOrDefaultAsync(p => p.Id == request.ProjectId);
+
         var projectName = project?.Name ?? "General";
         var projectDesc = project?.Description ?? "Requirements brainstorming";
 
+        var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
+
+        // Query Vector Store & DB for existing project specifications
+        var vectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 5);
+
+        var existingContext = new StringBuilder();
+        existingContext.AppendLine($"--- EXISTING PROJECT KNOWLEDGE & SPECIFICATIONS BASE ---");
+
+        if (vectorMatches.Any())
+        {
+            foreach (var match in vectorMatches)
+            {
+                existingContext.AppendLine($"\n[Existing Knowledge Match | Title: {match.Title} | Similarity: {match.SimilarityScore:F2}]");
+                existingContext.AppendLine($"Content: {match.Content}");
+            }
+        }
+        else if (project?.Specs != null && project.Specs.Any())
+        {
+            foreach (var spec in project.Specs)
+            {
+                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                existingContext.AppendLine($"\nSpec Title: {spec.Title} (Status: {spec.Status})");
+                existingContext.AppendLine($"Description: {spec.Description}");
+
+                if (latestVer?.AcceptanceCriteria.Any() == true)
+                {
+                    existingContext.AppendLine("Acceptance Criteria:");
+                    foreach (var ac in latestVer.AcceptanceCriteria)
+                    {
+                        existingContext.AppendLine($" - {ac.Text}");
+                    }
+                }
+            }
+        }
+        else
+        {
+            existingContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
+        }
+
         var systemPrompt = $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}). You must NEVER reference, mix, or assume requirements/knowledge from any other project.\n\n" +
-                           $"You are a Requirements Clarification Assistant. Your ONLY job is to help a Product Owner (PO) or Business Analyst (BA) think through a feature idea for Project '{projectName}' by identifying what is unclear or missing, and asking clarifying questions.\n\n" +
+                           $"You are a Requirements Clarification Assistant. Your ONLY job is to help a Product Owner (PO) or Business Analyst (BA) think through a feature idea for Project '{projectName}' by identifying what is unclear or missing (referencing existing project specs below), and asking clarifying questions.\n\n" +
+                           $"{existingContext}\n\n" +
                            "STRICT RULES — follow these exactly:\n" +
                            "1. Your response must ALWAYS be a numbered list of clarifying questions.\n" +
                            "2. Ask a MAXIMUM of 5 questions per response. Never more.\n" +
@@ -478,12 +523,57 @@ public class SpecsController : ControllerBase
     {
         Response.ContentType = "text/plain; charset=utf-8";
 
-        var project = await _db.Projects.FindAsync(new object[] { request.ProjectId }, cancellationToken);
+        var project = await _db.Projects
+            .Include(p => p.Specs)
+                .ThenInclude(s => s.Versions)
+                    .ThenInclude(v => v.AcceptanceCriteria)
+            .FirstOrDefaultAsync(p => p.Id == request.ProjectId, cancellationToken);
+
         var projectName = project?.Name ?? "General";
         var projectDesc = project?.Description ?? "Requirements brainstorming";
 
+        var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
+
+        // Query Vector Store & DB for existing project specifications & chat context
+        var vectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 5);
+
+        var existingContext = new StringBuilder();
+        existingContext.AppendLine($"--- EXISTING PROJECT KNOWLEDGE & SPECIFICATIONS BASE ---");
+
+        if (vectorMatches.Any())
+        {
+            foreach (var match in vectorMatches)
+            {
+                existingContext.AppendLine($"\n[Existing Knowledge Match | Title: {match.Title} | Similarity: {match.SimilarityScore:F2}]");
+                existingContext.AppendLine($"Content: {match.Content}");
+            }
+        }
+        else if (project?.Specs != null && project.Specs.Any())
+        {
+            foreach (var spec in project.Specs)
+            {
+                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                existingContext.AppendLine($"\nSpec Title: {spec.Title} (Status: {spec.Status})");
+                existingContext.AppendLine($"Description: {spec.Description}");
+
+                if (latestVer?.AcceptanceCriteria.Any() == true)
+                {
+                    existingContext.AppendLine("Acceptance Criteria:");
+                    foreach (var ac in latestVer.AcceptanceCriteria)
+                    {
+                        existingContext.AppendLine($" - {ac.Text}");
+                    }
+                }
+            }
+        }
+        else
+        {
+            existingContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
+        }
+
         var systemPrompt = $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}). You must NEVER reference, mix, or assume requirements/knowledge from any other project.\n\n" +
-                           $"You are a Requirements Clarification Assistant. Your ONLY job is to help a Product Owner (PO) or Business Analyst (BA) think through a feature idea for Project '{projectName}' by identifying what is unclear or missing, and asking clarifying questions.\n\n" +
+                           $"You are a Requirements Clarification Assistant. Your ONLY job is to help a Product Owner (PO) or Business Analyst (BA) think through a feature idea for Project '{projectName}' by identifying what is unclear or missing (referencing existing project specs below), and asking clarifying questions.\n\n" +
+                           $"{existingContext}\n\n" +
                            "STRICT RULES — follow these exactly:\n" +
                            "1. Your response must ALWAYS be a numbered list of clarifying questions.\n" +
                            "2. Ask a MAXIMUM of 5 questions per response. Never more.\n" +

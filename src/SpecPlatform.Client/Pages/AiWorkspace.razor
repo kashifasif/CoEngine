@@ -257,6 +257,14 @@
 
     private string PersonaModeKey => "po_brainstorming";
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (chatMessages.Any())
+        {
+            await ScrollToBottom();
+        }
+    }
+
     private async Task LoadDbChatSession()
     {
         if (selectedProjectId == 0) return;
@@ -278,6 +286,8 @@
         {
             isLoadingChat = false;
             StateHasChanged();
+            await Task.Delay(100);
+            await ScrollToBottom();
         }
     }
 

@@ -78,12 +78,12 @@ using (var scope = app.Services.CreateScope())
     catch { }
 }
 
+app.UseCors("AllowAll");
+
 // Serve Blazor WebAssembly static framework files and fallback route
 app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 
-app.UseCors("AllowAll");
-app.UseAuthorization();
 app.MapControllers();
 app.MapFallbackToFile("index.html");
 

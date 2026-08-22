@@ -86,11 +86,13 @@ dotnet test
 ### 3. Run the Application
 Launch the unified server host (API + Blazor WASM Frontend):
 ```bash
-dotnet run --project src/SpecPlatform.Api/SpecPlatform.Api.csproj --urls "http://localhost:5000"
+dotnet run --project src/SpecPlatform.Api/SpecPlatform.Api.csproj --urls "http://localhost:5005"
 ```
 
+Open your browser at **`http://localhost:5005`** to launch SpecEngine!
+
 Open your browser and navigate to:
-👉 **`http://localhost:5000`**
+👉 **`http://localhost:5005`**
 
 ---
 
