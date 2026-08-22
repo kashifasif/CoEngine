@@ -298,21 +298,31 @@
         </div>
 
         <!-- Footer Action Button (Publish to Master Specification) -->
-        <div class="pt-3 border-top border-outline-variant mt-4 d-flex justify-content-between align-items-center">
+        <div class="pt-3 border-top border-outline-variant mt-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="font-mono text-on-surface-variant fs-xs">Status: <strong class="text-secondary-custom">Brainstorming Workbench Active</strong></span>
             
-            <button class="btn btn-primary-spec font-mono py-2.5 px-4 d-flex align-items-center gap-2" @onclick="StructureIntoSpec" disabled="@isStructuring">
-                @if (isStructuring)
+            <div class="d-flex align-items-center gap-2">
+                @if (GetUnansweredQuestions().Any())
                 {
-                    <span class="spinner-border spinner-border-sm me-1"></span>
-                    <span>Publishing Master Spec...</span>
+                    var pendingCount = GetUnansweredQuestions().Count;
+                    <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2.5 py-1.5" title="Answer or skip all pending questions to unlock publishing">
+                        ⚠️ @pendingCount Pending Question@(pendingCount > 1 ? "s" : "") Remaining
+                    </span>
                 }
-                else
-                {
-                    <span class="material-symbols-outlined">publish</span>
-                    <span>Structure & Publish Spec</span>
-                }
-            </button>
+
+                <button class="btn btn-primary-spec font-mono py-2.5 px-4 d-flex align-items-center gap-2" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any())" title="@(GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+                    @if (isStructuring)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span>Publishing Master Spec...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined">publish</span>
+                        <span>Structure & Publish Spec</span>
+                    }
+                </button>
+            </div>
         </div>
 
     </section>
@@ -627,9 +637,36 @@
         draftCriteria.Add("");
     }
 
+    private List<ParsedQuestion> GetUnansweredQuestions()
+    {
+        var assistantMsg = chatMessages.LastOrDefault(m => m.Role == "assistant" && ParseQuestionOptions(m.Content).Any());
+        if (assistantMsg != null)
+        {
+            var questions = ParseQuestionOptions(assistantMsg.Content);
+            return questions.Where(q => string.IsNullOrEmpty(q.SelectedAnswer)).ToList();
+        }
+        return new List<ParsedQuestion>();
+    }
+
     private async Task StructureIntoSpec()
     {
         if (selectedProjectId == 0) return;
+
+        // Block publishing if there are remaining unanswered questions in the active clarification round
+        var unanswered = GetUnansweredQuestions();
+        if (unanswered.Any())
+        {
+            var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
+            chatMessages.Add(new ChatMessageDto
+            {
+                Role = "assistant",
+                Content = $"⚠️ **Cannot Publish Specification:** You have unanswered clarifying question(s) remaining (**{qNumbers}**). Please select an option or click **⏭️ Skip (\"Not sure yet\")** for all pending questions before publishing."
+            });
+            await SaveDbChatSession();
+            StateHasChanged();
+            await ScrollToBottom();
+            return;
+        }
 
         isStructuring = true;
         StateHasChanged();
