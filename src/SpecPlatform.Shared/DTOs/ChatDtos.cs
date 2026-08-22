@@ -9,6 +9,7 @@ public class ChatMessageDto
 public class ChatRequestDto
 {
     public int ProjectId { get; set; }
+    public bool IsClarificationPhase { get; set; } = false;
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 

@@ -175,11 +175,17 @@ public class SpecApiClient
         int projectId,
         List<ChatMessageDto> messages,
         Action<string> onChunkReceived,
+        bool isClarificationPhase = false,
         CancellationToken cancellationToken = default)
     {
         try
         {
-            var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
+            var request = new ChatRequestDto
+            {
+                ProjectId = projectId,
+                IsClarificationPhase = isClarificationPhase,
+                Messages = messages
+            };
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/draft/chat/stream")
             {
                 Content = JsonContent.Create(request)

@@ -91,7 +91,46 @@
                             }
                             else
                             {
-                                <div style="white-space: pre-wrap;" class="small lh-base">@msg.Content</div>
+                                <div style="white-space: pre-wrap;" class="small lh-base mb-2">@msg.Content</div>
+
+                                @if (msg.Role == "assistant" && !isThinking)
+                                {
+                                    var parsedQuestions = ParseQuestionOptions(msg.Content);
+                                    if (parsedQuestions.Any())
+                                    {
+                                        <div class="mt-3 pt-2 border-top border-outline-variant d-flex flex-column gap-3">
+                                            @foreach (var q in parsedQuestions)
+                                            {
+                                                <div class="p-2.5 bg-surface-container-lowest border border-outline-variant rounded-3">
+                                                    <div class="fw-semibold text-on-surface fs-xs mb-2">
+                                                        <span class="badge bg-primary-container text-on-primary-container font-mono me-1">Q@q.Number</span>
+                                                        @q.QuestionText
+                                                    </div>
+                                                    
+                                                    <!-- Suggested Options & Actions -->
+                                                    <div class="d-flex flex-wrap gap-1.5 align-items-center">
+                                                        @foreach (var opt in q.Options)
+                                                        {
+                                                            <button class="btn btn-sm btn-outline-secondary font-mono fs-xs py-1 px-2.5 rounded-pill" @onclick="() => SelectOptionAnswer(q.Number, opt)" disabled="@isThinking">
+                                                                @opt
+                                                            </button>
+                                                        }
+                                                        
+                                                        <!-- Manual Answer Option -->
+                                                        <button class="btn btn-sm btn-outline-primary font-mono fs-xs py-1 px-2.5 rounded-pill d-flex align-items-center gap-1" @onclick="() => SelectManualAnswer(q.Number)" disabled="@isThinking" title="Type custom manual response">
+                                                            <span>✍️ Manual Answer</span>
+                                                        </button>
+
+                                                        <!-- Skip Question Option -->
+                                                        <button class="btn btn-sm btn-outline-warning font-mono fs-xs py-1 px-2.5 rounded-pill d-flex align-items-center gap-1" @onclick="() => SkipQuestion(q.Number)" disabled="@isThinking" title="Mark as Not sure yet">
+                                                            <span>⏭️ Skip ("Not sure yet")</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
                             }
                         </div>
                     </div>
@@ -110,15 +149,20 @@
 
         <!-- Chat Input Bar -->
         <div class="p-3 border-top border-outline-variant bg-surface-container-lowest">
-            <div class="input-group">
-                <textarea class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe a requirement or ask a question..." @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="SendChatMessage" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
+            <div class="input-group mb-2">
+                <textarea class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe your feature idea freely in Phase 1 (Listening Mode)..." @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="() => SendChatMessage(false)" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))" title="Send brainstorming text (Phase 1 Listening Mode)">
                     <span class="material-symbols-outlined">send</span>
                 </button>
             </div>
-            <div class="d-flex justify-content-between align-items-center mt-2 font-mono fs-xs text-on-surface-variant">
-                <span><span class="material-symbols-outlined" style="font-size: 14px;">keyboard</span> Press Enter to send (Shift + Enter for new line)</span>
-                <span class="badge bg-surface-container border border-outline-variant">/suggest</span>
+
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 font-mono fs-xs text-on-surface-variant">
+                <span><span class="material-symbols-outlined" style="font-size: 14px;">keyboard</span> Enter to send (Listening Mode)</span>
+
+                <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-3 d-flex align-items-center justify-content-center gap-1.5 shadow-sm" @onclick="TriggerClarificationRound" disabled="@(isThinking || !chatMessages.Any())" title="Trigger Phase 2 Clarification Round to ask up to 5 clarifying questions">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">help_center</span>
+                    <strong>Start Clarification Round</strong>
+                </button>
             </div>
         </div>
 
@@ -324,7 +368,7 @@
         }
     }
 
-    private async Task SendChatMessage()
+    private async Task SendChatMessage(bool isClarificationPhase = false)
     {
         if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
 
@@ -351,7 +395,52 @@
                     assistantMsg.Content = currentStreamingResponse;
                     StateHasChanged();
                     _ = ScrollToBottom();
-                });
+                },
+                isClarificationPhase: isClarificationPhase);
+        }
+        finally
+        {
+            isThinking = false;
+            await SaveDbChatSession();
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task TriggerClarificationRound()
+    {
+        if (selectedProjectId == 0 || isThinking) return;
+
+        if (!string.IsNullOrWhiteSpace(userPromptInput))
+        {
+            var prompt = userPromptInput.Trim();
+            userPromptInput = "";
+            chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
+        }
+
+        if (!chatMessages.Any()) return;
+
+        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        chatMessages.Add(assistantMsg);
+
+        isThinking = true;
+        currentStreamingResponse = "";
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            await ApiClient.SendChatStreamAsync(
+                selectedProjectId,
+                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                chunk =>
+                {
+                    currentStreamingResponse += chunk;
+                    assistantMsg.Content = currentStreamingResponse;
+                    StateHasChanged();
+                    _ = ScrollToBottom();
+                },
+                isClarificationPhase: true);
         }
         finally
         {
@@ -463,5 +552,74 @@
         {
             await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
         }
+    }
+
+    public class ParsedQuestion
+    {
+        public int Number { get; set; }
+        public string QuestionText { get; set; } = "";
+        public List<string> Options { get; set; } = new();
+    }
+
+    private static List<ParsedQuestion> ParseQuestionOptions(string content)
+    {
+        var list = new List<ParsedQuestion>();
+        if (string.IsNullOrWhiteSpace(content)) return list;
+
+        var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        ParsedQuestion? currentQuestion = null;
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            var matchQ = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(\d+)[\.\)]\s*(.+)");
+            if (matchQ.Success)
+            {
+                if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
+                {
+                    list.Add(currentQuestion);
+                }
+                currentQuestion = new ParsedQuestion
+                {
+                    Number = int.Parse(matchQ.Groups[1].Value),
+                    QuestionText = matchQ.Groups[2].Value
+                };
+                continue;
+            }
+
+            var matchOpt = System.Text.RegularExpressions.Regex.Match(trimmed, @"^[-*\s]*([A-D])[\.\)]\s*(.+)");
+            if (matchOpt.Success && currentQuestion != null)
+            {
+                var letter = matchOpt.Groups[1].Value;
+                var optText = matchOpt.Groups[2].Value;
+                currentQuestion.Options.Add($"{letter}) {optText}");
+            }
+        }
+
+        if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
+        {
+            list.Add(currentQuestion);
+        }
+
+        return list;
+    }
+
+    private async Task SelectOptionAnswer(int qNum, string optionText)
+    {
+        if (isThinking) return;
+        userPromptInput = $"Q{qNum}: {optionText}";
+        await SendChatMessage(false);
+    }
+
+    private void SelectManualAnswer(int qNum)
+    {
+        userPromptInput = $"Q{qNum}: ";
+    }
+
+    private async Task SkipQuestion(int qNum)
+    {
+        if (isThinking) return;
+        userPromptInput = $"Q{qNum}: Not sure yet";
+        await SendChatMessage(false);
     }
 }
