@@ -1,0 +1,379 @@
+@page "/ai-assistant"
+@page "/ai-assistant/{ProjectId:int}"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="d-flex flex-column gap-4 vh-100 pb-5">
+
+    <!-- Page Header & Project Context Toolbar -->
+    <div class="glass-card p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-lightbulb-fill text-warning fs-3"></i>
+                <h3 class="fw-bold text-adaptive-heading mb-0">BA & Product Owner Spec Brainstorming Studio</h3>
+                <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 fs-xs">BA / PO Persona</span>
+            </div>
+            <p class="text-adaptive-muted small mb-0 mt-1">Brainstorm new features, refine user stories & acceptance criteria, and auto-structure them into official project specifications.</p>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <!-- Project Selector -->
+            <div class="d-flex align-items-center gap-2 me-2">
+                <span class="text-adaptive-muted small font-mono">Project:</span>
+                <select class="form-select form-select-sm form-control-adaptive font-mono" style="min-width: 200px;" value="@selectedProjectId" @onchange="OnProjectSelected">
+                    @if (!projects.Any())
+                    {
+                        <option value="0">Loading projects...</option>
+                    }
+                    else
+                    {
+                        @foreach (var proj in projects)
+                        {
+                            <option value="@proj.Id">@proj.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <button class="btn btn-sm btn-secondary-dark px-3 py-1.5 rounded-3" @onclick="ClearChat" title="Clear DB Chat Session">
+                <i class="bi bi-trash me-1"></i> Clear DB Memory
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="row g-4 flex-grow-1 overflow-hidden">
+        
+        <!-- Left Column: Chat Stream Studio -->
+        <div class="col-12 col-lg-6 d-flex flex-column h-100">
+            <div class="glass-card p-4 flex-grow-1 d-flex flex-column justify-content-between overflow-hidden position-relative">
+                
+                <!-- Chat Header -->
+                <div class="d-flex align-items-center justify-content-between pb-3 border-bottom mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="spinner-grow spinner-grow-sm text-success" role="status"></span>
+                        <span class="text-adaptive-muted fs-xs font-mono">Session Active: @(selectedProject?.Name ?? "Selected Project")</span>
+                    </div>
+                    <span class="text-adaptive-muted fs-xs font-mono">OpenRouter Model: <strong class="text-primary">z-ai/glm-5.2:free</strong></span>
+                </div>
+
+                <!-- Messages Stream Window -->
+                <div class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3" style="min-height: 350px;">
+                    @if (isLoadingChat)
+                    {
+                        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
+                            <div class="spinner-border text-primary mb-2" role="status"></div>
+                            <span class="text-adaptive-muted small font-mono">Loading DB Chat Transcript...</span>
+                        </div>
+                    }
+                    else if (!chatMessages.Any())
+                    {
+                        <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
+                            <div class="rounded-circle p-3 mb-3 bg-gradient-primary d-flex align-items-center justify-content-center" style="width: 64px; height: 64px;">
+                                <i class="bi bi-robot fs-2 text-white"></i>
+                            </div>
+                            <h5 class="fw-bold text-adaptive-heading">SpecAI Brainstorming Assistant</h5>
+                            <p class="text-adaptive-muted small max-w-md" style="max-width: 450px;">
+                                Discuss new requirements, user stories, security bounds, or API payload rules for <strong>@(selectedProject?.Name ?? "this project")</strong>. Transcripts are persisted directly to EF Core DB.
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var msg in chatMessages)
+                        {
+                            <div class="d-flex @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
+                                <div class="p-3 shadow-sm @(msg.Role == "user" ? "chat-bubble-user" : "chat-bubble-ai")" style="max-width: 85%;">
+                                    <div class="d-flex align-items-center justify-content-between mb-1 opacity-75 fs-xs fw-semibold">
+                                        <span>
+                                            <i class="bi @(msg.Role == "user" ? "bi-person-fill" : "bi-robot text-primary") me-1"></i>
+                                            @(msg.Role == "user" ? "Product Owner / BA" : "SpecAI Assistant")
+                                        </span>
+                                    </div>
+                                    <div style="white-space: pre-wrap;" class="small lh-base">@msg.Content</div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+                        {
+                            <div class="d-flex justify-content-start">
+                                <div class="p-3 chat-bubble-ai text-adaptive-muted small d-flex align-items-center gap-2">
+                                    <span class="spinner-border spinner-border-sm text-primary"></span>
+                                    <span>AI is reasoning and streaming response...</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <!-- Input Box -->
+                <div class="pt-2 border-top">
+                    <div class="input-group input-group-lg">
+                        <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="Describe a requirement, user story, or API constraint..." @bind="userPromptInput" @bind:event="oninput" @onkeyup="HandleKeyUp" disabled="@isThinking"></textarea>
+                        <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendChatMessage" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
+                            @if (isThinking)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                <span>Streaming...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-send-fill fs-5"></i>
+                                <span class="fw-bold d-none d-sm-inline">Send</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Right Column: Live Structured Draft Preview -->
+        <div class="col-12 col-lg-6 d-flex flex-column h-100">
+            <div class="glass-card p-4 flex-grow-1 d-flex flex-column justify-content-between overflow-hidden">
+                <div class="d-flex align-items-center justify-content-between pb-3 border-bottom mb-3">
+                    <h5 class="fw-bold text-adaptive-heading mb-0 d-flex align-items-center gap-2">
+                        <i class="bi bi-file-earmark-text text-primary"></i> Live Spec Draft Preview
+                    </h5>
+                    <button class="btn btn-sm btn-primary-gradient font-mono px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || !chatMessages.Any())">
+                        @if (isStructuring)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Structuring...</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-magic me-1"></i>
+                            <span>Structure into Spec Form</span>
+                        }
+                    </button>
+                </div>
+
+                <div class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3">
+                    <div>
+                        <label class="form-label text-adaptive-muted small font-mono fw-semibold">Spec Title</label>
+                        <input type="text" class="form-control form-control-adaptive font-mono fw-bold fs-5" @bind="draftTitle" placeholder="Spec Title" />
+                    </div>
+
+                    <div>
+                        <label class="form-label text-adaptive-muted small font-mono fw-semibold">Description / User Story Overview</label>
+                        <textarea class="form-control form-control-adaptive font-sans fs-6" rows="4" @bind="draftDesc" placeholder="Description"></textarea>
+                    </div>
+
+                    <div>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <label class="form-label text-adaptive-muted small font-mono fw-semibold mb-0">Acceptance Criteria</label>
+                            <button class="btn btn-sm btn-link text-primary text-decoration-none font-mono fs-xs" @onclick="AddDraftCriterion">+ Add Criterion</button>
+                        </div>
+                        @for (int i = 0; i < draftCriteria.Count; i++)
+                        {
+                            var idx = i;
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-secondary-dark border-secondary text-adaptive-muted font-mono fs-xs">#(idx+1)</span>
+                                <input type="text" class="form-control form-control-adaptive" @bind="draftCriteria[idx]" />
+                                <button class="btn btn-outline-danger" @onclick="() => draftCriteria.RemoveAt(idx)"><i class="bi bi-trash"></i></button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="pt-3 border-top d-flex justify-content-between align-items-center">
+                    <span class="text-adaptive-muted fs-xs font-mono">Status: <strong>Ready to Save Draft</strong></span>
+                    <button class="btn btn-success px-4 font-mono fw-bold" @onclick="SaveStructuredDraftSpec" disabled="@(selectedProjectId == 0 || string.IsNullOrWhiteSpace(draftTitle))">
+                        <i class="bi bi-check-circle me-1"></i> Save Official Spec Draft
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+    [Parameter] public int? ProjectId { get; set; }
+
+    private List<ProjectDto> projects = new();
+    private ProjectDto? selectedProject;
+    private int selectedProjectId = 0;
+
+    private List<ChatMessageDto> chatMessages = new();
+    private string userPromptInput = "";
+    private bool isThinking = false;
+    private bool isLoadingChat = false;
+    private string currentStreamingResponse = "";
+
+    // Draft Preview state
+    private string draftTitle = "Loan Approval Security & Workflow";
+    private string draftDesc = "Specifies loan decision rules, MFA step-up authentication, and error handling.";
+    private List<string> draftCriteria = new List<string>
+    {
+        "MFA via Entra ID required for loan approvals > $10,000.",
+        "Return standard 400 Bad Request if income validation fails."
+    };
+
+    private bool isStructuring = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        projects = await ApiClient.GetProjectsAsync();
+        if (projects.Any())
+        {
+            if (ProjectId.HasValue && projects.Any(p => p.Id == ProjectId.Value))
+            {
+                selectedProjectId = ProjectId.Value;
+            }
+            else
+            {
+                selectedProjectId = projects.First().Id;
+            }
+            selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
+            await LoadDbChatSession();
+        }
+    }
+
+    private async Task OnProjectSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int pId))
+        {
+            selectedProjectId = pId;
+            selectedProject = projects.FirstOrDefault(p => p.Id == pId);
+            await LoadDbChatSession();
+        }
+    }
+
+    private string PersonaModeKey => "po_brainstorming";
+
+    private async Task LoadDbChatSession()
+    {
+        if (selectedProjectId == 0) return;
+        isLoadingChat = true;
+        StateHasChanged();
+        try
+        {
+            var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
+            if (session != null && session.Messages.Any())
+            {
+                chatMessages = session.Messages;
+            }
+            else
+            {
+                chatMessages = new();
+            }
+        }
+        finally
+        {
+            isLoadingChat = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveDbChatSession()
+    {
+        if (selectedProjectId == 0) return;
+        await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, chatMessages);
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendChatMessage();
+        }
+    }
+
+    private async Task SendChatMessage()
+    {
+        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
+
+        var prompt = userPromptInput.Trim();
+        userPromptInput = "";
+
+        chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
+        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        chatMessages.Add(assistantMsg);
+
+        isThinking = true;
+        currentStreamingResponse = "";
+        StateHasChanged();
+
+        try
+        {
+            await ApiClient.SendChatStreamAsync(
+                selectedProjectId,
+                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                chunk =>
+                {
+                    currentStreamingResponse += chunk;
+                    assistantMsg.Content = currentStreamingResponse;
+                    StateHasChanged();
+                });
+        }
+        finally
+        {
+            isThinking = false;
+            await SaveDbChatSession();
+            StateHasChanged();
+        }
+    }
+
+    private void AddDraftCriterion()
+    {
+        draftCriteria.Add("");
+    }
+
+    private async Task StructureIntoSpec()
+    {
+        if (selectedProjectId == 0) return;
+
+        isStructuring = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ApiClient.StructureChatAsync(selectedProjectId, chatMessages);
+            if (result != null)
+            {
+                if (!string.IsNullOrWhiteSpace(result.Title)) draftTitle = result.Title;
+                if (!string.IsNullOrWhiteSpace(result.Description)) draftDesc = result.Description;
+                if (result.AcceptanceCriteria.Any()) draftCriteria = result.AcceptanceCriteria;
+            }
+        }
+        finally
+        {
+            isStructuring = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveStructuredDraftSpec()
+    {
+        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(draftTitle)) return;
+
+        await ApiClient.CreateSpecAsync(selectedProjectId, new CreateSpecDto
+        {
+            Title = draftTitle,
+            Description = draftDesc,
+            AcceptanceCriteria = draftCriteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
+            ScopeTags = new List<string> { "api", "security", "bff" }
+        });
+
+        Nav.NavigateTo($"/specs/{selectedProjectId}");
+    }
+
+    private async Task ClearChat()
+    {
+        chatMessages.Clear();
+        if (selectedProjectId > 0)
+        {
+            await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
+        }
+    }
+}

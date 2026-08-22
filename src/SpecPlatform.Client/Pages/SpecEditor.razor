@@ -1,0 +1,240 @@
+@page "/spec-editor"
+@page "/spec-editor/{SpecId:int}"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+
+<div class="d-flex h-100 bg-background overflow-hidden" style="min-height: calc(100vh - 64px);">
+
+    <!-- Left Editor Canvas Column (Matching theme/spec_editor_versioning/code.html) -->
+    <main class="flex-grow-1 p-4 overflow-auto d-flex flex-column align-items-center" style="max-width: calc(100% - 320px);">
+        <div class="w-100" style="max-width: 880px;">
+
+            @if (isLoadingSpec)
+            {
+                <div class="text-center py-5 font-mono text-on-surface-variant">
+                    <div class="spinner-border spinner-border-sm text-primary me-2"></div> Loading specification editor...
+                </div>
+            }
+            else if (spec != null)
+            {
+                <!-- Header Actions Bar -->
+                <div class="d-flex justify-content-between align-items-center pb-3 border-bottom border-outline-variant mb-4">
+                    <div class="d-flex align-items-center gap-2 font-mono fs-xs">
+                        <span class="status-badge-success">v@(spec.CurrentVersionNumber).(spec.Status == "Published" ? "0" : "draft")</span>
+                        <span class="text-on-surface-variant">&bull; ID: LA-REQ-00@spec.Id</span>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-secondary-spec font-mono py-1.5 px-3" @onclick="SaveDraft" disabled="@isSaving">
+                            Save Draft
+                        </button>
+                        <button class="btn btn-primary-spec font-mono py-1.5 px-3 d-flex align-items-center gap-1" @onclick="PublishSpec" disabled="@isPublishing">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">publish</span> Publish
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Editor Canvas -->
+                <div class="d-flex flex-column gap-4">
+                    
+                    <!-- Spec Title -->
+                    <div>
+                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">SPECIFICATION TITLE</label>
+                        <input type="text" class="form-control form-control-adaptive fw-bold fs-4 text-on-surface" placeholder="Specification Title" @bind="title" />
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">DESCRIPTION</label>
+                        <textarea class="form-control form-control-adaptive" rows="4" placeholder="Detailed description of specification intent..." @bind="description"></textarea>
+                    </div>
+
+                    <!-- Acceptance Criteria Section -->
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-outline-variant">
+                            <h5 class="fw-bold text-on-surface mb-0 d-flex align-items-center gap-2">
+                                <span class="material-symbols-outlined text-primary-custom">fact_check</span> Acceptance Criteria
+                            </h5>
+                            <button class="btn btn-sm btn-link text-primary-custom font-mono text-decoration-none p-0 fs-xs" @onclick="AddCriterion">+ Add Criterion</button>
+                        </div>
+
+                        <div class="d-flex flex-column gap-3">
+                            @for (int i = 0; i < criteria.Count; i++)
+                            {
+                                var idx = i;
+                                <div class="bg-surface-container-low border border-outline-variant rounded p-3 d-flex gap-3 align-items-start position-relative">
+                                    <span class="font-mono text-outline-variant fs-xs mt-1">0@(idx+1)</span>
+                                    
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex gap-1.5 mb-2">
+                                            <span class="scope-tag-item fs-xs">⚙️ api</span>
+                                            <span class="scope-tag-item fs-xs">🔒 security</span>
+                                        </div>
+                                        <input type="text" class="form-control form-control-adaptive font-mono fs-xs" @bind="criteria[idx]" />
+                                    </div>
+
+                                    <button class="btn p-0 text-on-surface-variant hover-danger" @onclick="() => criteria.RemoveAt(idx)">
+                                        <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Scope Tags Section -->
+                    <div>
+                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">SCOPE TAGS (Comma-separated)</label>
+                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="api, bff, security" @bind="tagsRaw" />
+                    </div>
+
+                </div>
+            }
+            else
+            {
+                <div class="p-5 text-center text-on-surface-variant font-mono">
+                    Select a specification to view and edit version history.
+                </div>
+            }
+
+        </div>
+    </main>
+
+    <!-- Right Inspector Panel: Version History Timeline (Matching theme/spec_editor_versioning/code.html - 320px) -->
+    <aside class="w-100 bg-surface-container-lowest border-start border-outline-variant d-flex flex-column h-100" style="width: 320px; min-width: 320px;">
+        <div class="p-3 border-bottom border-outline-variant d-flex align-items-center gap-2">
+            <span class="material-symbols-outlined text-primary-custom">history</span>
+            <h6 class="fw-bold text-on-surface mb-0 font-ui">Version History Log</h6>
+        </div>
+
+        <div class="flex-grow-1 overflow-auto p-3 position-relative">
+            <!-- Timeline Line -->
+            <div class="position-absolute bg-outline-variant" style="left: 27px; top: 16px; bottom: 16px; width: 1px;"></div>
+
+            @if (spec?.Versions != null && spec.Versions.Any())
+            {
+                @foreach (var ver in spec.Versions.OrderByDescending(v => v.VersionNumber))
+                {
+                    <div class="position-relative ps-4 mb-4">
+                        <!-- Glowing Timeline Node Dot -->
+                        <div class="position-absolute rounded-circle bg-primary-custom border border-dark" style="left: -4px; top: 4px; width: 10px; height: 10px;"></div>
+
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="font-mono text-primary-custom fw-bold fs-xs">v@ver.VersionNumber</span>
+                            <span class="font-mono text-on-surface-variant fs-xs opacity-75">@ver.PublishedAt.ToLocalTime().ToString("g")</span>
+                        </div>
+
+                        <div class="glass-panel p-2 rounded text-on-surface font-mono fs-xs">
+                            <div class="fw-semibold mb-1">Snapshot Published</div>
+                            <div class="text-on-surface-variant fs-xs">Criteria Count: @ver.AcceptanceCriteria.Count &bull; Scope Tags: @ver.ScopeTags.Count</div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-on-surface-variant font-mono fs-xs p-3">
+                    No version history entries available yet.
+                </div>
+            }
+        </div>
+    </aside>
+
+</div>
+
+@code {
+    [Parameter] public int? SpecId { get; set; }
+
+    private SpecDto? spec;
+    private bool isLoadingSpec = false;
+    private bool isSaving = false;
+    private bool isPublishing = false;
+
+    private string title = "";
+    private string description = "";
+    private List<string> criteria = new();
+    private string tagsRaw = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSpec();
+    }
+
+    private async Task LoadSpec()
+    {
+        if (SpecId.HasValue)
+        {
+            isLoadingSpec = true;
+            try
+            {
+                spec = await ApiClient.GetSpecAsync(SpecId.Value);
+                if (spec != null)
+                {
+                    title = spec.Title;
+                    description = spec.Description;
+                    criteria = spec.CurrentAcceptanceCriteria.ToList();
+                    tagsRaw = string.Join(", ", spec.CurrentScopeTags);
+                }
+            }
+            finally
+            {
+                isLoadingSpec = false;
+            }
+        }
+        else
+        {
+            var projects = await ApiClient.GetProjectsAsync();
+            if (projects.Any())
+            {
+                var specs = await ApiClient.GetSpecsForProjectAsync(projects.First().Id);
+                if (specs.Any())
+                {
+                    SpecId = specs.First().Id;
+                    await LoadSpec();
+                }
+            }
+        }
+    }
+
+    private void AddCriterion()
+    {
+        criteria.Add("");
+    }
+
+    private async Task SaveDraft()
+    {
+        if (!SpecId.HasValue || string.IsNullOrWhiteSpace(title)) return;
+        isSaving = true;
+        try
+        {
+            var tags = tagsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToList();
+            await ApiClient.UpdateSpecAsync(SpecId.Value, new UpdateSpecDto
+            {
+                Title = title.Trim(),
+                Description = description.Trim(),
+                AcceptanceCriteria = criteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
+                ScopeTags = tags
+            });
+            await LoadSpec();
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task PublishSpec()
+    {
+        if (!SpecId.HasValue) return;
+        isPublishing = true;
+        try
+        {
+            await SaveDraft();
+            await ApiClient.PublishSpecAsync(SpecId.Value);
+            await LoadSpec();
+        }
+        finally
+        {
+            isPublishing = false;
+        }
+    }
+}

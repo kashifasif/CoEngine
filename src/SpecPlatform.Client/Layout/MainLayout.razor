@@ -1,0 +1,272 @@
+@inherits LayoutComponentBase
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="min-vh-100 flex-column bg-surface-dim">
+
+    <!-- TopNavBar (Matching theme/project_dashboard/code.html) -->
+    <nav class="fixed-top w-100 z-3 d-flex justify-content-between align-items-center px-4 bg-surface-custom border-bottom border-outline-variant" style="height: 64px;">
+        <div class="d-flex align-items-center gap-4">
+            <a class="text-decoration-none d-flex align-items-center gap-2" href="">
+                <span class="fs-4 font-bold text-primary-custom" style="font-family: var(--font-ui); font-weight: 700;">SpecPlatform</span>
+            </a>
+
+            <div class="d-none d-md-flex align-items-center gap-3 font-ui text-on-surface-variant">
+                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="" Match="NavLinkMatch.All">
+                    Projects
+                </NavLink>
+                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="specs">
+                    Specifications
+                </NavLink>
+                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="ai-workspace">
+                    AI Workspace
+                </NavLink>
+                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="published-specs-qa">
+                    Published Q&A
+                </NavLink>
+                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="versions">
+                    Version History
+                </NavLink>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <!-- Search bar (with shortcut hint ⌘K) -->
+            <div class="d-none d-lg-flex align-items-center bg-surface-container rounded-3 px-3 py-1 border border-outline-variant">
+                <span class="material-symbols-outlined text-on-surface-variant me-2" style="font-size: 18px;">search</span>
+                <input type="text" class="bg-transparent border-0 text-on-surface text-sm font-mono placeholder-on-surface-variant focus-ring-none" style="outline: none; width: 160px;" placeholder="Search specs, APIs..." />
+                <span class="badge bg-surface-container-high border border-outline-variant font-mono text-on-surface-variant ms-2" style="font-size: 10px;">⌘K</span>
+            </div>
+
+            <!-- Notification Drawer Button -->
+            <button class="btn p-1.5 text-on-surface-variant hover-primary position-relative" @onclick="ToggleNotificationsDrawer" title="Notifications Log">
+                <span class="material-symbols-outlined">notifications</span>
+                @if (notifications.Any())
+                {
+                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
+                }
+            </button>
+
+            <!-- Theme Switcher Button -->
+            <button class="btn p-1.5 text-on-surface-variant hover-primary" @onclick="ToggleTheme" title="Toggle Light/Dark Theme">
+                @if (currentTheme == "light")
+                {
+                    <span class="material-symbols-outlined text-warning">light_mode</span>
+                }
+                else
+                {
+                    <span class="material-symbols-outlined text-primary-custom">dark_mode</span>
+                }
+            </button>
+
+            <!-- User SSO Avatar -->
+            <div class="d-flex align-items-center gap-2 border-start border-outline-variant ps-3">
+                <div class="position-relative">
+                    <div class="rounded-circle bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 34px; height: 34px; font-size: 13px;">
+                        PO
+                    </div>
+                    <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-dark rounded-circle" title="Single-Tenant SSO Active"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="d-flex" style="padding-top: 64px; min-height: 100vh;">
+
+        <!-- SideNavBar (280px Fixed Rail) -->
+        <aside class="position-fixed start-0 top-0 bottom-0 d-flex flex-column border-end border-outline-variant p-3 bg-surface-container" style="width: 280px; margin-top: 64px; height: calc(100vh - 64px); z-index: 2;">
+
+            <!-- Project Space Header Card -->
+            <div class="d-flex align-items-center gap-3 mb-3 p-2 rounded bg-surface-container-low border border-outline-variant">
+                <div class="rounded bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 40px; height: 40px; font-size: 16px;">
+                    @(selectedProjectName.Length >= 2 ? selectedProjectName.Substring(0, 2).ToUpper() : "SP")
+                </div>
+                <div class="overflow-hidden">
+                    <h6 class="fw-bold text-on-surface mb-0 text-truncate">Project Space</h6>
+                    <p class="text-on-surface-variant small mb-0 text-truncate font-mono">@selectedProjectName</p>
+                </div>
+            </div>
+
+            <!-- New Spec CTA Button -->
+            <button class="btn btn-primary-spec w-100 d-flex align-items-center justify-content-center gap-2 font-mono py-2 mb-3" @onclick="TriggerNewSpec">
+                <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                <span>New Specification</span>
+            </button>
+
+            <!-- Navigation Links -->
+            <nav class="d-flex flex-column gap-1 flex-grow-1">
+                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="" Match="NavLinkMatch.All">
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span>Dashboard</span>
+                </NavLink>
+
+                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="specs">
+                    <span class="material-symbols-outlined">description</span>
+                    <span>Specifications</span>
+                </NavLink>
+
+                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="ai-workspace">
+                    <span class="material-symbols-outlined">psychology</span>
+                    <span>AI Workspace</span>
+                </NavLink>
+
+                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="published-specs-qa">
+                    <span class="material-symbols-outlined">search</span>
+                    <span>Published Specs Q&A</span>
+                </NavLink>
+
+                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="versions">
+                    <span class="material-symbols-outlined">history</span>
+                    <span>Version History</span>
+                </NavLink>
+            </nav>
+
+            <!-- Bottom CTA Section -->
+            <div class="mt-auto pt-3 border-top border-outline-variant d-flex flex-column gap-1 text-on-surface-variant small font-mono">
+                <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">help</span>
+                    <span>Documentation</span>
+                </div>
+                <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">contact_support</span>
+                    <span>Support</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow-1 bg-surface-dim" style="margin-left: 280px; min-height: calc(100vh - 64px);">
+            @Body
+        </main>
+
+    </div>
+
+    <!-- Notification Bell Drawer Modal -->
+    @if (showNotificationsDrawer)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content modal-content-adaptive">
+                    <div class="modal-header border-bottom border-outline-variant">
+                        <h5 class="modal-title fw-bold text-on-surface d-flex align-items-center gap-2">
+                            <span class="material-symbols-outlined text-warning">notifications</span> Publish Release Audit Feed
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" @onclick="() => showNotificationsDrawer = false"></button>
+                    </div>
+                    <div class="modal-body p-0">
+                        @if (!notifications.Any())
+                        {
+                            <div class="p-4 text-center text-on-surface-variant small font-mono">
+                                No published release logs found.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var notif in notifications)
+                                {
+                                    <div class="list-group-item bg-transparent text-on-surface p-3 border-bottom border-outline-variant">
+                                        <div class="d-flex align-items-center justify-content-between mb-1">
+                                            <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs">@notif.ProjectName &bull; v@notif.VersionNumber</span>
+                                            <span class="text-on-surface-variant fs-xs font-mono">@notif.CreatedAt.ToLocalTime().ToString("g")</span>
+                                        </div>
+                                        <div class="fw-semibold small text-on-surface">@notif.SpecTitle</div>
+                                        <div class="text-on-surface-variant fs-xs mt-1 font-mono">@notif.SummaryText</div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer border-top border-outline-variant">
+                        <button type="button" class="btn btn-secondary-spec" @onclick="() => showNotificationsDrawer = false">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    private HealthCheckResponse? healthResponse;
+    private string currentTheme = "dark";
+    private bool showNotificationsDrawer = false;
+    private List<NotificationDto> notifications = new();
+    private string selectedProjectName = "Loan Approval Feature";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CheckHealth();
+        await LoadNotifications();
+        await LoadProjectSpace();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                currentTheme = await JS.InvokeAsync<string>("themeManager.getTheme");
+                StateHasChanged();
+            }
+            catch { }
+        }
+    }
+
+    private async Task LoadProjectSpace()
+    {
+        try
+        {
+            var projects = await ApiClient.GetProjectsAsync();
+            if (projects.Any())
+            {
+                selectedProjectName = projects.First().Name;
+            }
+        }
+        catch { }
+    }
+
+    private async Task ToggleTheme()
+    {
+        currentTheme = currentTheme == "light" ? "dark" : "light";
+        await JS.InvokeVoidAsync("themeManager.setTheme", currentTheme);
+        StateHasChanged();
+    }
+
+    private async Task CheckHealth()
+    {
+        try
+        {
+            healthResponse = await ApiClient.GetHealthAsync();
+        }
+        catch
+        {
+            healthResponse = null;
+        }
+    }
+
+    private async Task ToggleNotificationsDrawer()
+    {
+        showNotificationsDrawer = !showNotificationsDrawer;
+        if (showNotificationsDrawer)
+        {
+            await LoadNotifications();
+        }
+    }
+
+    private async Task LoadNotifications()
+    {
+        try
+        {
+            notifications = await ApiClient.GetNotificationsAsync();
+        }
+        catch { }
+    }
+
+    private void TriggerNewSpec()
+    {
+        Nav.NavigateTo("/specs");
+    }
+}

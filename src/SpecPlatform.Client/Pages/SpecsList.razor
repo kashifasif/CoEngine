@@ -1,0 +1,347 @@
+@page "/specs"
+@page "/specs/{ProjectId:int}"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+
+<div class="p-4 d-flex flex-column gap-4">
+
+    <!-- Header & Breadcrumbs Section (Matching theme/project_specifications/code.html) -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end pb-3 border-bottom border-outline-variant gap-3">
+        <div>
+            <!-- Breadcrumbs -->
+            <div class="d-flex align-items-center gap-2 text-on-surface-variant mb-2 font-mono fs-xs">
+                <a href="" class="text-on-surface-variant text-decoration-none hover-primary">Projects</a>
+                <span class="material-symbols-outlined" style="font-size: 14px;">chevron_right</span>
+                <span class="text-on-surface fw-semibold">@(selectedProject?.Name ?? "Select Project")</span>
+            </div>
+
+            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 38px; letter-spacing: -0.02em;">Specifications</h1>
+            <p class="text-on-surface-variant mb-0 small">Manage and review technical requirements for the loan approval flow.</p>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <!-- Project Dropdown Selector -->
+            <select class="form-select form-select-sm form-control-adaptive font-mono me-1" style="min-width: 220px;" value="@selectedProjectId" @onchange="OnProjectSelected">
+                @if (!projects.Any())
+                {
+                    <option value="0">Loading projects...</option>
+                }
+                else
+                {
+                    @foreach (var proj in projects)
+                    {
+                        <option value="@proj.Id">📁 @proj.Name (@proj.SpecCount specs)</option>
+                    }
+                }
+            </select>
+
+            <button class="btn btn-secondary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenAiWorkspace">
+                <span class="material-symbols-outlined" style="font-size: 18px;">psychology</span>
+                <span>AI Workspace</span>
+            </button>
+
+            <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenCreateSpecModal" disabled="@(selectedProject == null)">
+                <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                <span>New Specification</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Milestone 4 Notification Alert Banner -->
+    @if (!string.IsNullOrEmpty(notificationAlert))
+    {
+        <div class="alert bg-surface-container-high border border-success text-on-surface d-flex align-items-center justify-content-between p-3 rounded-3 shadow-sm mb-0">
+            <div class="d-flex align-items-center gap-2">
+                <span class="material-symbols-outlined text-secondary">check_circle</span>
+                <div class="font-mono fs-xs">
+                    <strong>Publish Release:</strong> @notificationAlert
+                </div>
+            </div>
+            <button class="btn-close btn-close-white" @onclick="() => notificationAlert = null"></button>
+        </div>
+    }
+
+    <!-- Content Area - Specs List Grid (Matching theme/project_specifications/code.html) -->
+    @if (selectedProject != null)
+    {
+        <div class="spec-table-container shadow-sm">
+            <!-- Table Header -->
+            <div class="row g-0 p-3 spec-table-header">
+                <div class="col-5">Spec Title</div>
+                <div class="col-2">Status</div>
+                <div class="col-2">Version</div>
+                <div class="col-3">Scope Tags</div>
+            </div>
+
+            <!-- Table Rows -->
+            @if (isLoadingSpecs)
+            {
+                <div class="p-5 text-center text-on-surface-variant font-mono">
+                    <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                    <div>Loading specifications for @selectedProject.Name...</div>
+                </div>
+            }
+            else if (!specs.Any())
+            {
+                <div class="p-5 text-center border-dashed my-3">
+                    <span class="material-symbols-outlined text-on-surface-variant mb-2" style="font-size: 48px;">description</span>
+                    <h6 class="fw-bold text-on-surface mb-1">No specifications created yet in @selectedProject.Name</h6>
+                    <p class="text-on-surface-variant small font-mono mb-3">Create your first specification or use the AI Workspace to brainstorm requirements.</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button class="btn btn-secondary-spec font-mono" @onclick="OpenAiWorkspace">
+                            💡 Open AI Workspace
+                        </button>
+                        <button class="btn btn-primary-spec font-mono" @onclick="OpenCreateSpecModal">
+                            + Create First Spec
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var spec in specs)
+                {
+                    <div class="row g-0 p-3 items-center spec-table-row">
+                        <!-- Title & ID -->
+                        <div class="col-5 d-flex flex-column pe-2 cursor-pointer" @onclick="() => OpenSpecEditor(spec.Id)">
+                            <span class="fw-medium text-on-surface fs-6 mb-1 text-primary-hover">@spec.Title</span>
+                            <span class="font-mono text-on-surface-variant fs-xs">ID: LA-REQ-00@spec.Id</span>
+                        </div>
+
+                        <!-- Status Badge -->
+                        <div class="col-2">
+                            <span class="@(spec.Status == "Published" ? "badge-published" : "badge-draft")">
+                                @spec.Status
+                            </span>
+                        </div>
+
+                        <!-- Version Number -->
+                        <div class="col-2 font-mono text-on-surface">
+                            v@(spec.CurrentVersionNumber).(spec.Status == "Published" ? "0" : "draft")
+                        </div>
+
+                        <!-- Scope Tags & Actions -->
+                        <div class="col-3 d-flex align-items-center justify-content-between">
+                            <div class="d-flex gap-1.5 flex-wrap">
+                                @foreach (var tag in spec.CurrentScopeTags.Take(3))
+                                {
+                                    <span class="scope-tag-item">
+                                        @GetTagIcon(tag) @tag
+                                    </span>
+                                }
+                            </div>
+
+                            <div class="d-flex gap-1 ms-2">
+                                <button class="btn btn-sm btn-secondary-spec p-1.5" @onclick="() => OpenSpecEditor(spec.Id)" title="Edit Spec & View Version History">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                                </button>
+                                <button class="btn btn-sm btn-success text-white p-1.5" @onclick="() => PublishSpec(spec.Id)" disabled="@isPublishing" title="Publish Spec Version">
+                                    <span class="material-symbols-outlined" style="font-size: 16px;">publish</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    }
+
+</div>
+
+<!-- Create / Edit Spec Modal -->
+@if (showSpecModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content modal-content-adaptive">
+                <div class="modal-header border-bottom border-outline-variant">
+                    <h5 class="modal-title fw-bold text-on-surface">Create New Specification</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showSpecModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Spec Title</label>
+                        <input type="text" class="form-control form-control-adaptive" placeholder="e.g. Submit Loan Application" @bind="specFormTitle" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Description</label>
+                        <textarea class="form-control form-control-adaptive" rows="4" placeholder="Detailed technical scope and user story..." @bind="specFormDesc"></textarea>
+                    </div>
+
+                    <!-- Acceptance Criteria -->
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <label class="form-label text-on-surface-variant small font-mono fw-semibold mb-0">Acceptance Criteria</label>
+                            <button class="btn btn-sm btn-link text-primary-custom text-decoration-none font-mono fs-xs" @onclick="AddCriterionRow">+ Add Criterion</button>
+                        </div>
+                        @for (int i = 0; i < specFormCriteria.Count; i++)
+                        {
+                            var idx = i;
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-surface-container-low border-outline-variant text-on-surface-variant font-mono fs-xs">#(idx+1)</span>
+                                <input type="text" class="form-control form-control-adaptive" placeholder="Criterion rule..." @bind="specFormCriteria[idx]" />
+                                <button class="btn btn-outline-danger" @onclick="() => specFormCriteria.RemoveAt(idx)"><i class="bi bi-trash"></i></button>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Scope Tags -->
+                    <div class="mb-3">
+                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Scope Tags (Comma-separated)</label>
+                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="e.g. api, bff, mfe, db" @bind="specFormTagsRaw" />
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-outline-variant">
+                    <button type="button" class="btn btn-secondary-spec" @onclick="() => showSpecModal = false">Cancel</button>
+                    <button type="button" class="btn btn-primary-spec font-mono" @onclick="SaveSpecForm" disabled="@string.IsNullOrWhiteSpace(specFormTitle)">Save Spec Draft</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? ProjectId { get; set; }
+
+    private List<ProjectDto> projects = new();
+    private ProjectDto? selectedProject;
+    private int selectedProjectId = 0;
+    private List<SpecDto> specs = new();
+
+    private bool isLoadingSpecs = false;
+    private bool isPublishing = false;
+    private string? notificationAlert;
+
+    private bool showSpecModal = false;
+    private string specFormTitle = "";
+    private string specFormDesc = "";
+    private List<string> specFormCriteria = new();
+    private string specFormTagsRaw = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        try
+        {
+            projects = await ApiClient.GetProjectsAsync();
+            if (projects.Any())
+            {
+                if (ProjectId.HasValue && projects.Any(p => p.Id == ProjectId.Value))
+                {
+                    selectedProjectId = ProjectId.Value;
+                }
+                else
+                {
+                    selectedProjectId = projects.First().Id;
+                }
+                selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
+                await LoadSpecs();
+            }
+        }
+        catch { }
+    }
+
+    private async Task OnProjectSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int pId))
+        {
+            selectedProjectId = pId;
+            selectedProject = projects.FirstOrDefault(p => p.Id == pId);
+            await LoadSpecs();
+        }
+    }
+
+    private async Task LoadSpecs()
+    {
+        if (selectedProjectId == 0) return;
+        isLoadingSpecs = true;
+        try
+        {
+            specs = await ApiClient.GetSpecsForProjectAsync(selectedProjectId);
+        }
+        finally
+        {
+            isLoadingSpecs = false;
+        }
+    }
+
+    private void OpenAiWorkspace()
+    {
+        Nav.NavigateTo($"/ai-workspace/{selectedProjectId}");
+    }
+
+    private void OpenSpecEditor(int specId)
+    {
+        Nav.NavigateTo($"/spec-editor/{specId}");
+    }
+
+    private void OpenCreateSpecModal()
+    {
+        specFormTitle = "";
+        specFormDesc = "";
+        specFormCriteria = new List<string> { "" };
+        specFormTagsRaw = "api, bff";
+        showSpecModal = true;
+    }
+
+    private void AddCriterionRow()
+    {
+        specFormCriteria.Add("");
+    }
+
+    private async Task SaveSpecForm()
+    {
+        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(specFormTitle)) return;
+
+        var tags = specFormTagsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(t => t.Trim())
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .ToList();
+
+        var criteria = specFormCriteria.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).ToList();
+
+        await ApiClient.CreateSpecAsync(selectedProjectId, new CreateSpecDto
+        {
+            Title = specFormTitle.Trim(),
+            Description = specFormDesc.Trim(),
+            AcceptanceCriteria = criteria,
+            ScopeTags = tags
+        });
+
+        showSpecModal = false;
+        await LoadSpecs();
+    }
+
+    private async Task PublishSpec(int specId)
+    {
+        isPublishing = true;
+        try
+        {
+            var result = await ApiClient.PublishSpecAsync(specId);
+            if (result != null)
+            {
+                notificationAlert = result.NotificationSummary;
+                await LoadSpecs();
+            }
+        }
+        finally
+        {
+            isPublishing = false;
+        }
+    }
+
+    private static string GetTagIcon(string tag)
+    {
+        var lower = tag.ToLowerInvariant();
+        if (lower.Contains("api")) return "⚙️";
+        if (lower.Contains("mfe")) return "🎨";
+        if (lower.Contains("auth")) return "🔒";
+        if (lower.Contains("bus") || lower.Contains("event")) return "🔗";
+        return "🏷️";
+    }
+}

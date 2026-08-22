@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Spec Editor &amp; Version History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#ffb2b7",
+                        "surface-container-highest": "#2d3449",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "outline-variant": "#464554",
+                        "tertiary-container": "#ff516a",
+                        "surface-container-low": "#131b2e",
+                        "on-error-container": "#ffdad6",
+                        "outline": "#908fa0",
+                        "surface-tint": "#c0c1ff",
+                        "surface-container-high": "#222a3d",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#40000d",
+                        "on-primary-fixed": "#07006c",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-primary": "#1000a9",
+                        "inverse-on-surface": "#283044",
+                        "on-primary-container": "#0d0096",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-tertiary-fixed-variant": "#92002a",
+                        "on-secondary": "#003824",
+                        "on-tertiary": "#67001b",
+                        "primary": "#c0c1ff",
+                        "tertiary-fixed": "#ffdadb",
+                        "surface-container-lowest": "#060e20",
+                        "secondary-fixed-dim": "#4edea3",
+                        "primary-container": "#8083ff",
+                        "tertiary": "#ffb2b7",
+                        "surface-bright": "#31394d",
+                        "inverse-primary": "#494bd6",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#6ffbbe",
+                        "secondary-container": "#00a572",
+                        "surface-dim": "#0b1326",
+                        "surface": "#0b1326",
+                        "secondary": "#4edea3",
+                        "on-tertiary-container": "#5b0017",
+                        "surface-variant": "#2d3449",
+                        "primary-fixed": "#e1e0ff",
+                        "on-surface": "#dae2fd",
+                        "on-secondary-fixed": "#002113",
+                        "on-background": "#dae2fd",
+                        "surface-container": "#171f33",
+                        "inverse-surface": "#dae2fd",
+                        "on-secondary-container": "#00311f",
+                        "background": "#0b1326",
+                        "on-surface-variant": "#c7c4d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xl": "40px",
+                        "container-max": "1440px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "gutter": "20px",
+                        "xs": "4px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "code-sm": ["JetBrains Mono"],
+                        "code-md": ["JetBrains Mono"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-sm": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "code-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #020617; color: #dae2fd; } /* Deep Slate base */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(70, 69, 84, 0.5);
+        }
+        .status-badge-success { background: rgba(78, 222, 163, 0.1); border: 1px solid #4edea3; color: #4edea3; }
+        .input-glow:focus { border-color: #8083ff; box-shadow: 0 0 0 1px #8083ff; outline: none; }
+        
+        /* Custom Scrollbar for inner areas */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #464554; }
+    </style>
+</head>
+<body class="font-body-sm antialiased h-screen flex flex-col overflow-hidden bg-background selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-lg h-16 bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant font-body-lg text-body-lg">
+<div class="flex items-center gap-md">
+<div class="text-headline-sm font-headline-md font-bold text-primary dark:text-primary mr-xl">SpecPlatform</div>
+<!-- Search Bar (on_left) -->
+<div class="relative hidden md:block w-64">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-high border border-outline-variant rounded pl-xl pr-sm py-[6px] text-body-sm text-on-surface placeholder-on-surface-variant input-glow font-code-md" placeholder="Search specs..." type="text"/>
+</div>
+</div>
+<div class="hidden md:flex items-center gap-lg h-full">
+<a class="h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors cursor-pointer active:opacity-70" href="#">Projects</a>
+<a class="h-full flex items-center text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors cursor-pointer active:opacity-70" href="#">Team</a>
+<a class="h-full flex items-center text-primary dark:text-primary border-b-2 border-primary pb-1 cursor-pointer active:opacity-70" href="#">Templates</a>
+</div>
+<div class="flex items-center gap-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-sm rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined" data-weight="fill" style="font-variation-settings: 'FILL' 1;">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-sm rounded hover:bg-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded bg-surface-container-high border border-outline-variant overflow-hidden ml-sm cursor-pointer hover:border-primary transition-colors flex items-center justify-center">
+<img class="w-full h-full object-cover" data-alt="User profile avatar with SSO status. A highly professional, minimalist corporate headshot of a software engineer against a pure dark slate background. The lighting is crisp and studio-quality, emphasizing technical competence and modern corporate aesthetics. A small green status indicator dot is subtly integrated into the bottom right corner of the avatar frame." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2zcqW8NYQw2SkZA77-e5gX6z6Hb5cb2j5f7suJb-_nBGj4PQgFMAm4y5szLbGcyEen2ZJcPZH9B69nX5DQAWnKKKEpqMh8utQ9UL4AGFBjd0uPtMOj3EALemI7uvuU7Gxssg_8a2f2wcJlEicmSoep_3Kk8oiBaqz2KzKf5DFJuwr9GnotPr1bBYFaPeKdvwVw8ODoeW2P09Ri6bfSzfGbRHgPGC8ckEgF8YTzLEaTYpqO-Ynexnm3Q"/>
+</div>
+</div>
+</nav>
+<div class="flex flex-1 pt-16 h-full overflow-hidden">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface-container dark:bg-surface-container border-r border-outline-variant dark:border-outline-variant flex flex-col p-md z-40">
+<div class="mb-lg pb-md border-b border-outline-variant">
+<div class="flex items-center gap-sm mb-sm">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md">
+                        PS
+                    </div>
+<div>
+<h2 class="text-headline-sm font-headline-md text-on-surface leading-tight">Project Space</h2>
+<p class="text-code-sm font-code-sm text-on-surface-variant">Loan Approval Feature</p>
+</div>
+</div>
+<button class="w-full mt-md bg-primary hover:bg-primary-fixed text-on-primary font-body-sm font-medium py-2 rounded transition-colors flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    New Specification
+                </button>
+</div>
+<nav class="flex-1 flex flex-col gap-xs font-body-sm text-body-sm">
+<a class="flex items-center gap-sm px-sm py-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span> Dashboard
+                </a>
+<a class="flex items-center gap-sm px-sm py-2 rounded bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container font-bold transition-all active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">description</span> Specifications
+                </a>
+<a class="flex items-center gap-sm px-sm py-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">psychology</span> AI Workspace
+                </a>
+<a class="flex items-center gap-sm px-sm py-2 rounded text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]">history</span> Version History
+                </a>
+</nav>
+<div class="mt-auto pt-md border-t border-outline-variant flex flex-col gap-xs font-body-sm text-body-sm">
+<a class="flex items-center gap-sm px-sm py-2 rounded text-on-surface-variant hover:bg-surface-variant transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span> Documentation
+                </a>
+<a class="flex items-center gap-sm px-sm py-2 rounded text-on-surface-variant hover:bg-surface-variant transition-all" href="#">
+<span class="material-symbols-outlined text-[20px]">contact_support</span> Support
+                </a>
+</div>
+</aside>
+<!-- Main Workspace (Editor + Inspector) -->
+<main class="ml-[280px] flex-1 flex h-full overflow-hidden bg-background relative">
+<!-- Editor Column -->
+<div class="flex-1 flex flex-col h-full overflow-y-auto px-lg py-xl pb-32">
+<!-- Editor Header Actions -->
+<div class="flex justify-between items-start mb-lg max-w-4xl mx-auto w-full">
+<div class="flex items-center gap-sm text-code-sm font-code-sm text-on-surface-variant">
+<span class="status-badge-success px-2 py-0.5 rounded font-code-sm">v2.1-draft</span>
+<span>•</span>
+<span>Last saved 2m ago</span>
+</div>
+<div class="flex gap-sm">
+<button class="px-md py-1.5 rounded border border-primary text-primary hover:bg-primary hover:text-on-primary transition-colors font-body-sm font-medium">
+                            Save Draft
+                        </button>
+<button class="px-md py-1.5 rounded bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm font-medium flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">publish</span> Publish
+                        </button>
+</div>
+</div>
+<!-- Editor Canvas -->
+<div class="max-w-4xl mx-auto w-full flex flex-col gap-xl">
+<!-- Title & Desc -->
+<section class="flex flex-col gap-md">
+<input class="bg-transparent border-none text-display-lg font-display-lg font-bold text-on-surface focus:ring-0 p-0 placeholder-outline-variant w-full" placeholder="Specification Title" type="text" value="Submit Loan Application"/>
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-md">
+<textarea class="w-full bg-transparent border-none text-body-lg font-body-lg text-on-surface-variant focus:ring-0 p-0 resize-none min-h-[100px]" placeholder="Detailed description of the specification intent..."></textarea>
+</div>
+</section>
+<!-- Acceptance Criteria -->
+<section>
+<div class="flex items-center justify-between mb-md border-b border-outline-variant pb-sm">
+<h3 class="text-headline-sm font-headline-sm text-on-surface flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary">fact_check</span>
+                                Acceptance Criteria
+                            </h3>
+<button class="text-code-sm font-code-sm text-primary hover:text-primary-fixed flex items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]">add_circle</span> Add Criterion
+                            </button>
+</div>
+<div class="flex flex-col gap-sm">
+<!-- Criterion 1 -->
+<div class="bg-[#0F172A] border border-[#1E293B] rounded p-md flex gap-md items-start group hover:border-outline-variant transition-colors">
+<div class="text-outline-variant font-code-sm mt-1">01</div>
+<div class="flex-1">
+<div class="flex items-center gap-xs mb-sm">
+<span class="px-1.5 py-0.5 rounded border border-outline-variant text-code-sm font-code-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">api</span> api
+                                        </span>
+<span class="px-1.5 py-0.5 rounded border border-outline-variant text-code-sm font-code-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">database</span> db
+                                        </span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface">System must validate user credit score synchronously before initiating loan record creation.</p>
+</div>
+<button class="opacity-0 group-hover:opacity-100 text-outline-variant hover:text-error transition-all">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+<!-- Criterion 2 -->
+<div class="bg-[#0F172A] border border-[#1E293B] rounded p-md flex gap-md items-start group hover:border-outline-variant transition-colors">
+<div class="text-outline-variant font-code-sm mt-1">02</div>
+<div class="flex-1">
+<div class="flex items-center gap-xs mb-sm">
+<span class="px-1.5 py-0.5 rounded border border-outline-variant text-code-sm font-code-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">dns</span> bff
+                                        </span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface">Return standard 400 Bad Request with standardized error object if income verification fails.</p>
+</div>
+<button class="opacity-0 group-hover:opacity-100 text-outline-variant hover:text-error transition-all">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Version History Inspector (Right Panel) -->
+<aside class="w-[320px] bg-surface-container-lowest border-l border-[#1E293B] flex flex-col h-full flex-shrink-0">
+<div class="p-md border-b border-[#1E293B] flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary">history</span>
+<h3 class="text-headline-sm font-headline-sm text-on-surface">Version History</h3>
+</div>
+<div class="flex-1 overflow-y-auto p-md flex flex-col gap-lg relative">
+<!-- Timeline Line -->
+<div class="absolute left-[31px] top-md bottom-md w-px bg-[#1E293B]"></div>
+<!-- Version Item (Current) -->
+<div class="relative pl-xl cursor-pointer group">
+<div class="absolute left-[-5px] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background z-10 group-hover:scale-125 transition-transform"></div>
+<div class="mb-xs flex items-center justify-between">
+<span class="font-code-sm text-primary font-bold">v2.1 (Draft)</span>
+<span class="font-code-sm text-on-surface-variant text-[10px]">Just now</span>
+</div>
+<div class="glass-panel p-sm rounded text-code-sm text-on-surface-variant">
+                            Unsaved changes in Acceptance Criteria.
+                        </div>
+</div>
+<!-- Version Item v2 -->
+<div class="relative pl-xl cursor-pointer group opacity-80 hover:opacity-100 transition-opacity">
+<div class="absolute left-[-5px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-background z-10 group-hover:bg-primary transition-colors"></div>
+<div class="mb-xs flex items-center justify-between">
+<span class="font-code-sm text-on-surface font-medium">v2.0</span>
+<span class="font-code-sm text-on-surface-variant text-[10px]">2 hrs ago</span>
+</div>
+<div class="bg-[#0F172A] border border-[#1E293B] p-sm rounded group-hover:border-primary-container transition-colors">
+<p class="text-body-sm font-body-sm text-on-surface mb-2">Added 2 new criteria for edge case handling.</p>
+<div class="flex flex-col gap-1">
+<div class="text-code-sm text-secondary-fixed-dim flex items-start gap-1">
+<span class="material-symbols-outlined text-[14px]">add</span>
+<span>[api] Validate credit score...</span>
+</div>
+<div class="text-code-sm text-secondary-fixed-dim flex items-start gap-1">
+<span class="material-symbols-outlined text-[14px]">add</span>
+<span>[bff] Return standard 400...</span>
+</div>
+</div>
+</div>
+<div class="mt-2 text-code-sm text-on-surface-variant flex items-center gap-1">
+<img class="w-4 h-4 rounded-full object-cover" data-alt="A microscopic, hyper-detailed UI avatar representing a senior backend developer. The tiny image features a sharp, serious professional against a dark, moody background lit by faint neon blue rim lighting, emphasizing technical expertise and intense focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZK4jg50jQngwSqbYSDpgRVGDJ4Uykokw4H7RmdM3nHxnhEnxI4ckAWnMYq8dADgTqFxqg7faG-ZvFjI3rtFrvo3ZC_cvcxqHVZEtTe4j38DLRp4_iqyd1B-globCSMT-b85Jq0Wr5EXsyw7XyGwHQ4Cq60qX_nz2UtQvoURLkTVwyTIPlaVsH0XV9ejme4ZgnzKAUORb9Dl14zpQrFI21NTh5-ACqFWm4u-Pen4kPwRkqOvC1lTPOog"/>
+                             by Sarah J.
+                        </div>
+</div>
+<!-- Version Item v1 -->
+<div class="relative pl-xl cursor-pointer group opacity-60 hover:opacity-100 transition-opacity">
+<div class="absolute left-[-5px] top-1 w-3 h-3 rounded-full bg-outline-variant border-2 border-background z-10 group-hover:bg-primary transition-colors"></div>
+<div class="mb-xs flex items-center justify-between">
+<span class="font-code-sm text-on-surface font-medium">v1.0</span>
+<span class="font-code-sm text-on-surface-variant text-[10px]">Yesterday</span>
+</div>
+<div class="bg-[#0F172A] border border-[#1E293B] p-sm rounded group-hover:border-primary-container transition-colors text-body-sm font-body-sm text-on-surface-variant">
+                            Initial specification creation. Basic happy path outlined.
+                        </div>
+</div>
+</div>
+</aside>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,339 @@
+@page "/published-specs-qa"
+@page "/published-specs-qa/{ProjectId:int}"
+@page "/dev-qa-assistant"
+@page "/dev-qa-assistant/{ProjectId:int}"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="d-flex flex-column gap-4 vh-100 pb-5">
+
+    <!-- Page Header & Role / Project Controls Toolbar -->
+    <div class="glass-card p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-search text-cyan fs-3" style="color: #06b6d4;"></i>
+                <h3 class="fw-bold text-adaptive-heading mb-0">Published Specifications Q&A Assistant</h3>
+                <span class="badge bg-cyan bg-opacity-15 text-cyan border border-cyan border-opacity-30 fs-xs" style="color: #06b6d4;">
+                    Dev & QA Q&A Persona
+                </span>
+            </div>
+            <p class="text-adaptive-muted small mb-0 mt-1">
+                Ask questions grounded strictly in published project specifications to clarify requirements, verify API behavior, and generate test suites.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap align-items-center gap-3">
+            <!-- Role Toggle Pills -->
+            <div class="btn-group btn-group-sm p-1 bg-secondary bg-opacity-10 rounded-pill border">
+                <button class="btn @(roleMode == "dev" ? "btn-primary-gradient" : "btn-link text-adaptive-muted") rounded-pill px-3 fw-semibold text-decoration-none" @onclick='() => SetRoleMode("dev")'>
+                    <i class="bi bi-code-square me-1"></i> Developer Mode
+                </button>
+                <button class="btn @(roleMode == "qa" ? "btn-primary-gradient" : "btn-link text-adaptive-muted") rounded-pill px-3 fw-semibold text-decoration-none" @onclick='() => SetRoleMode("qa")'>
+                    <i class="bi bi-shield-check me-1"></i> QA Engineer Mode
+                </button>
+            </div>
+
+            <!-- Project Selector -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-adaptive-muted small font-mono">Project:</span>
+                <select class="form-select form-select-sm form-control-adaptive font-mono" style="min-width: 200px;" value="@selectedProjectId" @onchange="OnProjectSelected">
+                    @if (!projects.Any())
+                    {
+                        <option value="0">Loading projects...</option>
+                    }
+                    else
+                    {
+                        @foreach (var proj in projects)
+                        {
+                            <option value="@proj.Id">@proj.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <button class="btn btn-sm btn-secondary-dark px-3 py-1.5 rounded-3" @onclick="ClearChat" title="Clear DB Chat Session">
+                <i class="bi bi-trash me-1"></i> Clear DB Memory
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Chat Workspace -->
+    <div class="glass-card flex-grow-1 p-4 d-flex flex-column justify-content-between overflow-hidden position-relative">
+
+        <!-- Top Action Bar -->
+        <div class="d-flex align-items-center justify-content-between pb-3 border-bottom mb-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-secondary bg-opacity-25 text-adaptive-muted font-mono fs-xs">
+                    Published Context: @(selectedProject?.Name ?? "Selected Project Specs")
+                </span>
+                <span class="badge bg-primary bg-opacity-15 text-indigo border border-indigo border-opacity-30 font-mono fs-xs">
+                    <i class="bi bi-cpu me-1"></i> Local Vector DB Active (@(vectorStats?.TotalVectorCount ?? 0) Vectors Indexed)
+                </span>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-adaptive-muted fs-xs font-mono">Active Mode: <strong>@(roleMode == "dev" ? "Software Developer (Technical Implementation)" : "QA Engineer (Test Scenarios & Gherkin)")</strong></span>
+            </div>
+        </div>
+
+        <!-- Chat Stream Window -->
+        <div class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3" style="min-height: 350px;">
+
+            @if (isLoadingChat)
+            {
+                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
+                    <div class="spinner-border text-cyan mb-2" role="status"></div>
+                    <span class="text-adaptive-muted small font-mono">Loading Vector DB Knowledge Base...</span>
+                </div>
+            }
+            else if (!chatMessages.Any())
+            {
+                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
+                    <div class="rounded-circle p-3 mb-3 bg-gradient-primary d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);">
+                        <i class="bi bi-search fs-2 text-white"></i>
+                    </div>
+                    <h5 class="fw-bold text-adaptive-heading">
+                        Published Specifications Vector Q&A Studio
+                    </h5>
+                    <p class="text-adaptive-muted small max-w-md" style="max-width: 550px;">
+                        Query published specifications & brainstorming memory for <strong>@(selectedProject?.Name ?? "this project")</strong>. Answers are calculated using <strong>Cosine Similarity Vector Search</strong>.
+                    </p>
+
+                    <!-- Role-Based Prompt Suggestion Pills -->
+                    <div class="d-flex flex-wrap justify-content-center gap-2 mt-3" style="max-width: 700px;">
+                        @if (roleMode == "dev")
+                        {
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("What API endpoint contracts and payload formats are specified for this project?")'>
+                                💡 "What API contracts & payloads are specified?"
+                            </button>
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("List error handling scenarios, HTTP status codes, and exception boundaries.")'>
+                                💡 "List error codes & HTTP status mapping"
+                            </button>
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("Suggest unit test class structure and mock dependencies for this service.")'>
+                                💡 "Suggest unit test class structure & mocks"
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("Generate Given-When-Then Gherkin syntax feature files for all published acceptance criteria.")'>
+                                🧪 "Generate Given-When-Then Gherkin test scenarios"
+                            </button>
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("What are the negative test cases and boundary value limits to test?")'>
+                                🧪 "List boundary value & negative test cases"
+                            </button>
+                            <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("Create a QA regression test suite checklist based on published specs.")'>
+                                🧪 "Create QA regression test suite checklist"
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in chatMessages)
+                {
+                    <div class="d-flex @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
+                        <div class="p-3 shadow-sm @(msg.Role == "user" ? "chat-bubble-user" : "chat-bubble-ai")" style="max-width: 85%;">
+                            <div class="d-flex align-items-center justify-content-between mb-1 opacity-75 fs-xs fw-semibold">
+                                <span>
+                                    <i class="bi @(msg.Role == "user" ? "bi-person-fill" : (roleMode == "dev" ? "bi-code-square text-indigo" : "bi-shield-check text-emerald")) me-1"></i>
+                                    @(msg.Role == "user" ? "Engineer / Tester" : (roleMode == "dev" ? "Dev Tech Lead AI" : "QA Automation AI Lead"))
+                                </span>
+                            </div>
+                            <div style="white-space: pre-wrap; font-family: var(--font-sans);" class="small lh-base">@msg.Content</div>
+                        </div>
+                    </div>
+                }
+
+                @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+                {
+                    <div class="d-flex justify-content-start">
+                        <div class="p-3 chat-bubble-ai text-adaptive-muted small d-flex align-items-center gap-2">
+                            <span class="spinner-border spinner-border-sm text-cyan"></span>
+                            <span>Running Vector DB similarity search & streaming answer...</span>
+                        </div>
+                    </div>
+                }
+            }
+
+        </div>
+
+        <!-- Chat Input & Controls Bar -->
+        <div class="pt-2 border-top">
+            <div class="input-group input-group-lg">
+                <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @bind:event="oninput" @onkeyup="HandleKeyUp" disabled="@isThinking"></textarea>
+                <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendDevQaQuery" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
+                    @if (isThinking)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        <span>Streaming...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-send-fill fs-5"></i>
+                        <span class="fw-bold d-none d-sm-inline">Ask</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+    [Parameter] public int? ProjectId { get; set; }
+
+    private List<ProjectDto> projects = new();
+    private ProjectDto? selectedProject;
+    private int selectedProjectId = 0;
+    private string roleMode = "dev";
+
+    private List<ChatMessageDto> chatMessages = new();
+    private VectorStoreStatsDto? vectorStats;
+    private string userPromptInput = "";
+    private bool isThinking = false;
+    private bool isLoadingChat = false;
+    private string currentStreamingResponse = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        projects = await ApiClient.GetProjectsAsync();
+        if (projects.Any())
+        {
+            if (ProjectId.HasValue && projects.Any(p => p.Id == ProjectId.Value))
+            {
+                selectedProjectId = ProjectId.Value;
+            }
+            else
+            {
+                selectedProjectId = projects.First().Id;
+            }
+            selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
+            await LoadDbChatSession();
+            await LoadVectorStats();
+        }
+    }
+
+    private async Task OnProjectSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int pId))
+        {
+            selectedProjectId = pId;
+            selectedProject = projects.FirstOrDefault(p => p.Id == pId);
+            await LoadDbChatSession();
+            await LoadVectorStats();
+        }
+    }
+
+    private async Task SetRoleMode(string mode)
+    {
+        roleMode = mode;
+        await LoadDbChatSession();
+    }
+
+    private string PersonaModeKey => $"dev_qa_{roleMode}";
+
+    private async Task LoadVectorStats()
+    {
+        if (selectedProjectId == 0) return;
+        vectorStats = await ApiClient.GetVectorStoreStatsAsync(selectedProjectId);
+    }
+
+    private async Task LoadDbChatSession()
+    {
+        if (selectedProjectId == 0) return;
+        isLoadingChat = true;
+        StateHasChanged();
+        try
+        {
+            var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
+            if (session != null && session.Messages.Any())
+            {
+                chatMessages = session.Messages;
+            }
+            else
+            {
+                chatMessages = new();
+            }
+        }
+        finally
+        {
+            isLoadingChat = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveDbChatSession()
+    {
+        if (selectedProjectId == 0) return;
+        await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, chatMessages);
+        await LoadVectorStats();
+    }
+
+    private void UsePrompt(string promptText)
+    {
+        userPromptInput = promptText;
+    }
+
+    private async Task HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendDevQaQuery();
+        }
+    }
+
+    private async Task SendDevQaQuery()
+    {
+        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
+
+        var prompt = userPromptInput.Trim();
+        userPromptInput = "";
+
+        chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
+
+        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        chatMessages.Add(assistantMsg);
+
+        isThinking = true;
+        currentStreamingResponse = "";
+        StateHasChanged();
+
+        try
+        {
+            await ApiClient.SendDevQaQueryStreamAsync(
+                selectedProjectId,
+                roleMode,
+                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                chunk =>
+                {
+                    currentStreamingResponse += chunk;
+                    assistantMsg.Content = currentStreamingResponse;
+                    StateHasChanged();
+                });
+        }
+        finally
+        {
+            isThinking = false;
+            await SaveDbChatSession();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearChat()
+    {
+        chatMessages.Clear();
+        if (selectedProjectId > 0)
+        {
+            await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
+            await LoadVectorStats();
+        }
+    }
+}

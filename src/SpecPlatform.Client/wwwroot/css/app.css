@@ -1,0 +1,275 @@
+/* "Technical Precision" Design System — SpecPlatform IDE Theme */
+
+:root {
+    --bg-background: #0b1326;
+    --surface: #0b1326;
+    --surface-dim: #0b1326;
+    --surface-bright: #31394d;
+    --surface-container-lowest: #060e20;
+    --surface-container-low: #131b2e;
+    --surface-container: #171f33;
+    --surface-container-high: #222a3d;
+    --surface-container-highest: #2d3449;
+    --surface-variant: #2d3449;
+    --on-surface: #dae2fd;
+    --on-surface-variant: #c7c4d7;
+    --outline: #908fa0;
+    --outline-variant: #464554;
+    --primary: #c0c1ff;
+    --primary-container: #8083ff;
+    --on-primary-container: #0d0096;
+    --inverse-primary: #494bd6;
+    --on-primary-fixed: #07006c;
+    --secondary: #4edea3;
+    --secondary-container: #00a572;
+    --tertiary: #ffb2b7;
+    --error: #ffb4ab;
+    --error-container: #93000a;
+
+    --font-ui: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+}
+
+[data-theme="light"] {
+    --bg-background: #f8fafc;
+    --surface: #ffffff;
+    --surface-dim: #f1f5f9;
+    --surface-bright: #ffffff;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f8fafc;
+    --surface-container: #ffffff;
+    --surface-container-high: #f1f5f9;
+    --surface-container-highest: #e2e8f0;
+    --surface-variant: #e2e8f0;
+    --on-surface: #0f172a;
+    --on-surface-variant: #475569;
+    --outline: #94a3b8;
+    --outline-variant: #cbd5e1;
+    --primary: #494bd6;
+    --primary-container: #e0e7ff;
+    --on-primary-container: #3730a3;
+    --inverse-primary: #6366f1;
+    --on-primary-fixed: #ffffff;
+    --secondary: #059669;
+    --secondary-container: #d1fae5;
+    --tertiary: #e11d48;
+    --error: #dc2626;
+    --error-container: #fee2e2;
+}
+
+body {
+    background-color: var(--bg-background);
+    color: var(--on-surface);
+    font-family: var(--font-ui);
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+}
+
+.font-mono, .font-code-sm, .font-code-md, .font-label-caps {
+    font-family: var(--font-mono);
+}
+
+.bg-surface-custom {
+    background-color: var(--surface);
+}
+
+.bg-surface-container {
+    background-color: var(--surface-container);
+}
+
+.bg-surface-container-low {
+    background-color: var(--surface-container-low);
+}
+
+.bg-surface-container-high {
+    background-color: var(--surface-container-high);
+}
+
+.bg-surface-container-highest {
+    background-color: var(--surface-container-highest);
+}
+
+.bg-surface-dim {
+    background-color: var(--surface-dim);
+}
+
+.text-on-surface {
+    color: var(--on-surface) !important;
+}
+
+.text-on-surface-variant {
+    color: var(--on-surface-variant) !important;
+}
+
+.text-primary-custom {
+    color: var(--primary) !important;
+}
+
+.text-secondary-custom {
+    color: var(--secondary) !important;
+}
+
+.border-outline-variant {
+    border-color: var(--outline-variant) !important;
+}
+
+/* Material Symbols Outlined Icon Styling */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 20px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+    vertical-align: middle;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(70, 69, 84, 0.5);
+}
+
+/* Buttons */
+.btn-primary-spec {
+    background-color: var(--inverse-primary);
+    color: #ffffff;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-primary-spec:hover {
+    background-color: var(--primary-container);
+    color: #ffffff;
+}
+
+.btn-secondary-spec {
+    background-color: var(--surface-variant);
+    color: var(--on-surface);
+    border: 1px solid var(--outline-variant);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary-spec:hover {
+    background-color: var(--surface-container-high);
+    color: var(--primary);
+}
+
+/* Badges */
+.badge-published, .status-badge-success {
+    background-color: rgba(78, 222, 163, 0.12);
+    border: 1px solid rgba(78, 222, 163, 0.3);
+    color: var(--secondary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.badge-draft {
+    background-color: rgba(255, 180, 171, 0.12);
+    border: 1px solid rgba(255, 180, 171, 0.3);
+    color: var(--error);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.scope-tag-item {
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Table Grid Styling */
+.spec-table-container {
+    background-color: var(--surface-container-highest);
+    border: 1px solid var(--outline-variant);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.spec-table-header {
+    background-color: var(--surface-container-low);
+    border-bottom: 1px solid var(--outline-variant);
+    color: var(--on-surface-variant);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.spec-table-row {
+    border-bottom: 1px solid var(--outline-variant);
+    transition: background-color 0.15s ease;
+}
+
+.spec-table-row:hover {
+    background-color: var(--surface-container);
+}
+
+/* Chat bubble styling */
+.chat-bubble-user {
+    background-color: var(--surface-container-highest);
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface);
+    border-radius: 12px 12px 2px 12px;
+}
+
+.chat-bubble-ai {
+    background-color: var(--surface-container-low);
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface);
+    border-radius: 12px 12px 12px 2px;
+}
+
+/* Bento Acceptance Criteria Card */
+.bento-criteria-card {
+    background-color: #0F172A;
+    border: 1px solid #1E293B;
+    border-left: 3px solid var(--secondary);
+    border-radius: 0 8px 8px 0;
+    padding: 1rem;
+}
+
+/* Modal Adaptive */
+.modal-content-adaptive {
+    background-color: var(--surface-container-highest);
+    border: 1px solid var(--outline-variant);
+    color: var(--on-surface);
+}
+
+.form-control-adaptive {
+    background-color: var(--surface-container-low) !important;
+    border: 1px solid var(--outline-variant) !important;
+    color: var(--on-surface) !important;
+}
+
+.form-control-adaptive:focus {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 0.2rem rgba(192, 193, 255, 0.15) !important;
+}

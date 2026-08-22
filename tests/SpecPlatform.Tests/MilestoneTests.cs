@@ -1,0 +1,246 @@
+using System.Net;
+using System.Net.Http.Json;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SpecPlatform.Api.Data;
+using SpecPlatform.Shared.DTOs;
+using Xunit;
+
+namespace SpecPlatform.Tests;
+
+public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+{
+    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"test_spec_{Guid.NewGuid():N}.db");
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.ConfigureServices(services =>
+        {
+            var descriptor1 = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
+            if (descriptor1 != null) services.Remove(descriptor1);
+
+            var descriptor2 = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions));
+            if (descriptor2 != null) services.Remove(descriptor2);
+
+            services.AddDbContext<AppDbContext>(options =>
+                options.UseSqlite($"Data Source={_dbPath}"));
+
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Database.EnsureDeleted();
+            db.Database.EnsureCreated();
+        });
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (File.Exists(_dbPath))
+        {
+            try { File.Delete(_dbPath); } catch { }
+        }
+    }
+}
+
+public class MilestoneTests : IClassFixture<CustomWebApplicationFactory>
+{
+    private readonly HttpClient _client;
+
+    public MilestoneTests(CustomWebApplicationFactory factory)
+    {
+        _client = factory.CreateClient();
+    }
+
+    [Fact]
+    public async Task Milestone0_HealthCheck_Returns200OK_And_AliveMessage()
+    {
+        var response = await _client.GetAsync("/api/health");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var health = await response.Content.ReadFromJsonAsync<HealthCheckResponse>();
+        Assert.NotNull(health);
+        Assert.Equal("Healthy", health.Status);
+        Assert.Equal("API is alive", health.Message);
+    }
+
+    [Fact]
+    public async Task Milestone1_Project_And_Spec_CRUD_And_Version_Isolation()
+    {
+        var proj1Res = await _client.PostAsJsonAsync("/api/projects", new CreateProjectDto
+        {
+            Name = "Loan Approval Feature",
+            Description = "Automated credit risk decisioning engine"
+        });
+        Assert.Equal(HttpStatusCode.Created, proj1Res.StatusCode);
+        var proj1 = await proj1Res.Content.ReadFromJsonAsync<ProjectDto>();
+        Assert.NotNull(proj1);
+
+        var proj2Res = await _client.PostAsJsonAsync("/api/projects", new CreateProjectDto
+        {
+            Name = "PrivateLendingCommon MFE",
+            Description = "Shared microfrontend components"
+        });
+        Assert.Equal(HttpStatusCode.Created, proj2Res.StatusCode);
+        var proj2 = await proj2Res.Content.ReadFromJsonAsync<ProjectDto>();
+        Assert.NotNull(proj2);
+
+        var spec1Res = await _client.PostAsJsonAsync($"/api/projects/{proj1.Id}/specs", new CreateSpecDto
+        {
+            Title = "Risk Rule Engine API",
+            Description = "Evaluates borrower risk tier",
+            AcceptanceCriteria = new List<string> { "Calculates DTI score", "Rejects DTI > 50%" },
+            ScopeTags = new List<string> { "api", "bff" }
+        });
+        Assert.Equal(HttpStatusCode.Created, spec1Res.StatusCode);
+        var spec1 = await spec1Res.Content.ReadFromJsonAsync<SpecDto>();
+        Assert.NotNull(spec1);
+        Assert.Equal(proj1.Id, spec1.ProjectId);
+        Assert.Equal("Draft", spec1.Status);
+
+        var proj2Specs = await _client.GetFromJsonAsync<List<SpecDto>>($"/api/projects/{proj2.Id}/specs");
+        Assert.NotNull(proj2Specs);
+        Assert.Empty(proj2Specs);
+
+        var pub1Res = await _client.PostAsync($"/api/specs/{spec1.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, pub1Res.StatusCode);
+        var pub1Result = await pub1Res.Content.ReadFromJsonAsync<PublishResultDto>();
+        Assert.NotNull(pub1Result);
+        Assert.Equal("Published", pub1Result.Spec.Status);
+        Assert.Equal(1, pub1Result.Spec.CurrentVersionNumber);
+
+        await _client.PutAsJsonAsync($"/api/specs/{spec1.Id}", new UpdateSpecDto
+        {
+            Title = "Risk Rule Engine API v2",
+            Description = "Evaluates borrower risk tier with updated limits",
+            AcceptanceCriteria = new List<string> { "Calculates DTI score", "Rejects DTI > 50%", "Supports collateral override" },
+            ScopeTags = new List<string> { "api", "bff", "v2" }
+        });
+
+        var pub2Res = await _client.PostAsync($"/api/specs/{spec1.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, pub2Res.StatusCode);
+        var pub2Result = await pub2Res.Content.ReadFromJsonAsync<PublishResultDto>();
+        Assert.NotNull(pub2Result);
+        Assert.Equal(2, pub2Result.Spec.CurrentVersionNumber);
+        Assert.Equal(2, pub2Result.Spec.Versions.Count);
+    }
+
+    [Fact]
+    public async Task Milestone2_AiBrainstorming_Chat_And_Structure_Workflows()
+    {
+        var projRes = await _client.PostAsJsonAsync("/api/projects", new CreateProjectDto
+        {
+            Name = "Daily Standup Bot",
+            Description = "Automated Slack/Teams standup summary bot"
+        });
+        var proj = await projRes.Content.ReadFromJsonAsync<ProjectDto>();
+        Assert.NotNull(proj);
+
+        var chatRes = await _client.PostAsJsonAsync("/api/specs/draft/chat", new ChatRequestDto
+        {
+            ProjectId = proj.Id,
+            Messages = new List<ChatMessageDto>
+            {
+                new ChatMessageDto { Role = "user", Content = "We need a standup bot that prompts users at 9 AM." }
+            }
+        });
+        Assert.Equal(HttpStatusCode.OK, chatRes.StatusCode);
+        var chatResult = await chatRes.Content.ReadFromJsonAsync<ChatResponseDto>();
+        Assert.NotNull(chatResult);
+        Assert.True(chatResult.Success);
+        Assert.NotEmpty(chatResult.Reply);
+
+        var structRes = await _client.PostAsJsonAsync("/api/specs/draft/structure", new ChatRequestDto
+        {
+            ProjectId = proj.Id,
+            Messages = new List<ChatMessageDto>
+            {
+                new ChatMessageDto { Role = "user", Content = "We need a standup bot that prompts users at 9 AM." }
+            }
+        });
+        Assert.Equal(HttpStatusCode.OK, structRes.StatusCode);
+        var structResult = await structRes.Content.ReadFromJsonAsync<StructuredSpecResultDto>();
+        Assert.NotNull(structResult);
+        Assert.NotEmpty(structResult.Title);
+        Assert.NotEmpty(structResult.AcceptanceCriteria);
+    }
+
+    [Fact]
+    public async Task Milestone4_Publish_Generates_Notification_Summary()
+    {
+        var projRes = await _client.PostAsJsonAsync("/api/projects", new CreateProjectDto
+        {
+            Name = "Notification Test Project",
+            Description = "Test project"
+        });
+        var proj = await projRes.Content.ReadFromJsonAsync<ProjectDto>();
+        Assert.NotNull(proj);
+
+        var specRes = await _client.PostAsJsonAsync($"/api/projects/{proj.Id}/specs", new CreateSpecDto
+        {
+            Title = "Notification Spec",
+            Description = "Spec description",
+            AcceptanceCriteria = new List<string> { "Criterion 1", "Criterion 2" },
+            ScopeTags = new List<string> { "tag1" }
+        });
+        var spec = await specRes.Content.ReadFromJsonAsync<SpecDto>();
+        Assert.NotNull(spec);
+
+        var pubRes = await _client.PostAsync($"/api/specs/{spec.Id}/publish", null);
+        Assert.Equal(HttpStatusCode.OK, pubRes.StatusCode);
+        var pubResult = await pubRes.Content.ReadFromJsonAsync<PublishResultDto>();
+        Assert.NotNull(pubResult);
+        Assert.Contains("[NOTIFICATION]", pubResult.NotificationSummary);
+        Assert.Contains("Notification Spec", pubResult.NotificationSummary);
+
+        var notifs = await _client.GetFromJsonAsync<List<NotificationDto>>("/api/notifications");
+        Assert.NotNull(notifs);
+        Assert.NotEmpty(notifs);
+        Assert.Contains(notifs, n => n.SpecId == spec.Id);
+    }
+
+    [Fact]
+    public async Task Milestone4_VersionDiff_Calculates_Added_And_Removed_Items()
+    {
+        var projRes = await _client.PostAsJsonAsync("/api/projects", new CreateProjectDto
+        {
+            Name = "Diff Project",
+            Description = "Diff test"
+        });
+        var proj = await projRes.Content.ReadFromJsonAsync<ProjectDto>();
+        Assert.NotNull(proj);
+
+        var specRes = await _client.PostAsJsonAsync($"/api/projects/{proj.Id}/specs", new CreateSpecDto
+        {
+            Title = "Diff Spec",
+            Description = "Initial",
+            AcceptanceCriteria = new List<string> { "Base Criterion" },
+            ScopeTags = new List<string> { "v1tag" }
+        });
+        var spec = await specRes.Content.ReadFromJsonAsync<SpecDto>();
+        Assert.NotNull(spec);
+
+        // Publish v1
+        await _client.PostAsync($"/api/specs/{spec.Id}/publish", null);
+
+        // Update draft and publish v2
+        await _client.PutAsJsonAsync($"/api/specs/{spec.Id}", new UpdateSpecDto
+        {
+            Title = "Diff Spec Updated",
+            Description = "Updated",
+            AcceptanceCriteria = new List<string> { "Base Criterion", "New Criterion Added" },
+            ScopeTags = new List<string> { "v1tag", "v2tag" }
+        });
+        await _client.PostAsync($"/api/specs/{spec.Id}/publish", null);
+
+        // Call Diff endpoint
+        var diff = await _client.GetFromJsonAsync<SpecDiffDto>($"/api/specs/{spec.Id}/versions/1/diff/2");
+        Assert.NotNull(diff);
+        Assert.Equal(1, diff.FromVersion);
+        Assert.Equal(2, diff.ToVersion);
+        Assert.Contains("New Criterion Added", diff.AddedCriteria);
+        Assert.Contains("v2tag", diff.AddedScopeTags);
+    }
+}

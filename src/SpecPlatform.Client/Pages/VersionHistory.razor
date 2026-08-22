@@ -1,0 +1,222 @@
+@page "/versions"
+@page "/versions/{SpecId:int}"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+
+<div class="d-flex flex-column gap-4">
+
+    <!-- Header Section -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end pb-3 border-bottom border-outline-variant gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 text-on-surface-variant mb-2 font-mono fs-xs">
+                <span>Specifications</span>
+                <span class="material-symbols-outlined" style="font-size: 14px;">chevron_right</span>
+                <span class="text-on-surface fw-semibold">Version History & Diff Inspector</span>
+            </div>
+            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 34px; letter-spacing: -0.02em;">Version History & Release Diff</h1>
+            <p class="text-on-surface-variant mb-0 small">Compare published version snapshots side-by-side to review criteria additions, scope tag changes, and AI release summaries.</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="text-on-surface-variant small font-mono">Select Spec:</span>
+            <select class="form-select form-select-sm form-control-adaptive font-mono" style="min-width: 250px;" value="@selectedSpecId" @onchange="OnSpecSelected">
+                @if (!specs.Any())
+                {
+                    <option value="0">Loading specifications...</option>
+                }
+                else
+                {
+                    @foreach (var s in specs)
+                    {
+                        <option value="@s.Id">@s.Title (v@s.CurrentVersionNumber)</option>
+                    }
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (selectedSpec != null)
+    {
+        <!-- Version Diff Selection Control Bar -->
+        <div class="bg-surface-container p-3 rounded-3 border border-outline-variant d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h5 class="fw-bold text-on-surface mb-1">Spec: @selectedSpec.Title</h5>
+                <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs">Project: @selectedSpec.ProjectName</span>
+            </div>
+
+            <!-- Version Range Compare Selectors -->
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-on-surface-variant small font-mono">From Version:</span>
+                <select class="form-select form-select-sm form-control-adaptive font-mono" style="width: 90px;" @bind="v1">
+                    @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
+                    {
+                        <option value="@v.VersionNumber">v@v.VersionNumber</option>
+                    }
+                </select>
+
+                <span class="text-on-surface-variant font-mono">&rarr;</span>
+
+                <span class="text-on-surface-variant small font-mono">To Version:</span>
+                <select class="form-select form-select-sm form-control-adaptive font-mono" style="width: 90px;" @bind="v2">
+                    @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
+                    {
+                        <option value="@v.VersionNumber">v@v.VersionNumber</option>
+                    }
+                </select>
+
+                <button class="btn btn-primary-spec font-mono ms-2" @onclick="CompareVersions" disabled="@(v1 == v2)">
+                    <span class="material-symbols-outlined me-1" style="font-size: 16px;">compare_arrows</span> Compare Diff
+                </button>
+            </div>
+        </div>
+
+        <!-- Diff Inspection Results Card -->
+        @if (isLoadingDiff)
+        {
+            <div class="p-5 text-center text-on-surface-variant font-mono">
+                <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                Analyzing version diff between v@v1 and v@v2...
+            </div>
+        }
+        else if (diffResult != null)
+        {
+            <div class="row g-3">
+                <!-- Added Criteria -->
+                <div class="col-12 col-md-6">
+                    <div class="bg-surface-container-highest p-3 rounded-3 border border-outline-variant h-100">
+                        <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-outline-variant">
+                            <span class="fw-bold text-secondary font-mono d-flex align-items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">add_circle</span> Added Criteria (+@diffResult.AddedCriteria.Count)
+                            </span>
+                        </div>
+                        @if (!diffResult.AddedCriteria.Any())
+                        {
+                            <span class="text-on-surface-variant small font-mono">No criteria added in this version step.</span>
+                        }
+                        else
+                        {
+                            <ul class="mb-0 ps-3 text-on-surface small font-mono">
+                                @foreach (var item in diffResult.AddedCriteria)
+                                {
+                                    <li class="mb-1 text-secondary">+ @item</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+
+                <!-- Removed Criteria -->
+                <div class="col-12 col-md-6">
+                    <div class="bg-surface-container-highest p-3 rounded-3 border border-outline-variant h-100">
+                        <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom border-outline-variant">
+                            <span class="fw-bold text-error font-mono d-flex align-items-center gap-1">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">remove_circle</span> Removed Criteria (-@diffResult.RemovedCriteria.Count)
+                            </span>
+                        </div>
+                        @if (!diffResult.RemovedCriteria.Any())
+                        {
+                            <span class="text-on-surface-variant small font-mono">No criteria removed in this version step.</span>
+                        }
+                        else
+                        {
+                            <ul class="mb-0 ps-3 text-on-surface small font-mono">
+                                @foreach (var item in diffResult.RemovedCriteria)
+                                {
+                                    <li class="mb-1 text-error">- @item</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Version Timeline History Card -->
+            <div class="bg-surface-container p-4 rounded-3 border border-outline-variant mt-3">
+                <h6 class="fw-bold text-on-surface mb-3 font-mono">Published Version History Log</h6>
+                <div class="list-group list-group-flush">
+                    @foreach (var ver in selectedSpec.Versions.OrderByDescending(v => v.VersionNumber))
+                    {
+                        <div class="list-group-item bg-transparent text-on-surface p-3 border-bottom border-outline-variant d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="badge bg-primary-container text-on-primary-container font-mono me-2">v@ver.VersionNumber</span>
+                                <span class="fw-semibold small">@ver.Content</span>
+                            </div>
+                            <span class="text-on-surface-variant font-mono fs-xs">@ver.PublishedAt.ToLocalTime().ToString("g")</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+
+</div>
+
+@code {
+    [Parameter] public int? SpecId { get; set; }
+
+    private List<SpecDto> specs = new();
+    private SpecDto? selectedSpec;
+    private int selectedSpecId = 0;
+    private int v1 = 1;
+    private int v2 = 1;
+
+    private SpecDiffDto? diffResult;
+    private bool isLoadingDiff = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSpecs();
+    }
+
+    private async Task LoadSpecs()
+    {
+        var projects = await ApiClient.GetProjectsAsync();
+        if (projects.Any())
+        {
+            var pSpecs = await ApiClient.GetSpecsForProjectAsync(projects.First().Id);
+            if (pSpecs.Any())
+            {
+                specs = pSpecs;
+                selectedSpecId = SpecId.HasValue && specs.Any(s => s.Id == SpecId.Value) ? SpecId.Value : specs.First().Id;
+                await SelectSpec(selectedSpecId);
+            }
+        }
+    }
+
+    private async Task OnSpecSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int sId))
+        {
+            await SelectSpec(sId);
+        }
+    }
+
+    private async Task SelectSpec(int specId)
+    {
+        selectedSpecId = specId;
+        selectedSpec = specs.FirstOrDefault(s => s.Id == specId);
+        if (selectedSpec != null && selectedSpec.Versions.Any())
+        {
+            var vers = selectedSpec.Versions.OrderBy(v => v.VersionNumber).ToList();
+            v1 = vers.First().VersionNumber;
+            v2 = vers.Last().VersionNumber;
+            await CompareVersions();
+        }
+    }
+
+    private async Task CompareVersions()
+    {
+        if (selectedSpecId == 0 || v1 == 0 || v2 == 0) return;
+        isLoadingDiff = true;
+        StateHasChanged();
+        try
+        {
+            diffResult = await ApiClient.CompareVersionsAsync(selectedSpecId, v1, v2);
+        }
+        finally
+        {
+            isLoadingDiff = false;
+            StateHasChanged();
+        }
+    }
+}

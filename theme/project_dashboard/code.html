@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SpecPlatform - Project Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#ffb2b7",
+                        "surface-container-highest": "#2d3449",
+                        "on-primary-fixed-variant": "#2f2ebe",
+                        "outline-variant": "#464554",
+                        "tertiary-container": "#ff516a",
+                        "surface-container-low": "#131b2e",
+                        "on-error-container": "#ffdad6",
+                        "outline": "#908fa0",
+                        "surface-tint": "#c0c1ff",
+                        "surface-container-high": "#222a3d",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed": "#40000d",
+                        "on-primary-fixed": "#07006c",
+                        "error": "#ffb4ab",
+                        "primary-fixed-dim": "#c0c1ff",
+                        "on-primary": "#1000a9",
+                        "inverse-on-surface": "#283044",
+                        "on-primary-container": "#0d0096",
+                        "on-secondary-fixed-variant": "#005236",
+                        "on-tertiary-fixed-variant": "#92002a",
+                        "on-secondary": "#003824",
+                        "on-tertiary": "#67001b",
+                        "primary": "#c0c1ff",
+                        "tertiary-fixed": "#ffdadb",
+                        "surface-container-lowest": "#060e20",
+                        "secondary-fixed-dim": "#4edea3",
+                        "primary-container": "#8083ff",
+                        "tertiary": "#ffb2b7",
+                        "surface-bright": "#31394d",
+                        "inverse-primary": "#494bd6",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#6ffbbe",
+                        "secondary-container": "#00a572",
+                        "surface-dim": "#0b1326",
+                        "surface": "#0b1326",
+                        "secondary": "#4edea3",
+                        "on-tertiary-container": "#5b0017",
+                        "surface-variant": "#2d3449",
+                        "primary-fixed": "#e1e0ff",
+                        "on-surface": "#dae2fd",
+                        "on-secondary-fixed": "#002113",
+                        "on-background": "#dae2fd",
+                        "surface-container": "#171f33",
+                        "inverse-surface": "#dae2fd",
+                        "on-secondary-container": "#00311f",
+                        "background": "#0b1326",
+                        "on-surface-variant": "#c7c4d7"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "xl": "40px",
+                        "container-max": "1440px",
+                        "md": "16px",
+                        "sm": "8px",
+                        "gutter": "20px",
+                        "xs": "4px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Hanken Grotesk"],
+                        "headline-sm": ["Hanken Grotesk"],
+                        "code-sm": ["JetBrains Mono"],
+                        "code-md": ["JetBrains Mono"],
+                        "display-lg": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "label-caps": ["JetBrains Mono"],
+                        "body-sm": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "code-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "16px", "fontWeight": "700" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+        
+        /* Utility for glowing borders on focus/hover for technical feel */
+        .tech-focus-ring:focus-within {
+            box-shadow: 0 0 0 1px theme('colors.primary');
+            border-color: theme('colors.primary');
+        }
+        
+        /* Subtle scrollbar for dense interfaces */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.surface-container-highest');
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.outline');
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-sm text-body-sm selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-lg h-16 bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline-variant text-primary dark:text-primary font-body-lg text-body-lg">
+<div class="flex items-center gap-lg">
+<span class="text-headline-sm font-headline-md font-bold text-primary dark:text-primary tracking-tight">SpecPlatform</span>
+<div class="hidden md:flex gap-md h-full items-end">
+<a class="text-primary dark:text-primary border-b-2 border-primary pb-1 h-full flex items-center pt-[2px]" href="#">Projects</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors h-full flex items-center cursor-pointer active:opacity-70" href="#">Team</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-primary dark:hover:text-primary transition-colors h-full flex items-center cursor-pointer active:opacity-70" href="#">Templates</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative tech-focus-ring hidden md:flex items-center bg-surface-container-high rounded border border-outline-variant px-sm py-[6px]">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant mr-sm" data-icon="search">search</span>
+<input class="bg-transparent border-none outline-none text-on-surface font-code-sm text-code-sm placeholder-on-surface-variant w-48 p-0 h-4" placeholder="Search specs, APIs..." type="text"/>
+<div class="flex items-center gap-xs ml-sm">
+<span class="bg-surface-container px-xs rounded font-code-sm text-code-sm text-on-surface-variant border border-outline-variant">⌘</span>
+<span class="bg-surface-container px-xs rounded font-code-sm text-code-sm text-on-surface-variant border border-outline-variant">K</span>
+</div>
+</div>
+<button class="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden ml-sm cursor-pointer">
+<img alt="User profile avatar with SSO status" class="w-full h-full object-cover" data-alt="A detailed digital avatar of a software engineer, hyper-realistic, dark theme lighting, glowing blue accents, modern minimalist aesthetic, isolated on a deep slate background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlDl2OSf9B2ggIP9OdsF72uFOs69oa_a-oFozKdPPR5lNWPnbE3ZGGWOJPybkELDS-_QA-pmut9iqmr3h14tyEopPEaHGnMn5ranPxjY5QqAm7C2Cuzu-9ds6EUvMNAw79Zeee2QJgcDMVcC2k2LgSo7oBrZtvucTwnrJiMs_ava371hUhllL0qCw5shPjXyam0Hau9mLo55o5Jr9-eamiq2hLMq_y7Fy6-n_FkTfGOZ6z2Ja-YX7AWw"/>
+</div>
+</div>
+</nav>
+<!-- App Layout -->
+<div class="pt-16 flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col border-r border-outline-variant dark:border-outline-variant p-md bg-surface-container dark:bg-surface-container fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] z-40">
+<div class="flex items-center gap-sm mb-xl p-sm">
+<div class="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container font-headline-md">
+                    S
+                </div>
+<div>
+<h2 class="text-headline-sm font-headline-md text-on-surface m-0 leading-tight">Project Space</h2>
+<p class="font-code-sm text-code-sm text-on-surface-variant m-0">Platform Overview</p>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary hover:bg-primary-fixed-dim transition-colors h-10 rounded flex items-center justify-center gap-sm font-headline-sm text-headline-sm mb-lg active:scale-[0.98]">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                New Specification
+            </button>
+<div class="flex-1 overflow-y-auto">
+<nav class="flex flex-col gap-[2px]">
+<a class="flex items-center gap-sm p-sm bg-primary-container dark:bg-primary-container text-on-primary-container dark:text-on-primary-container font-bold rounded-lg font-body-sm text-body-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+                        All Projects
+                    </a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all rounded-lg font-body-sm text-body-sm active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+                        Recent Specs
+                    </a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all rounded-lg font-body-sm text-body-sm active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="psychology">psychology</span>
+                        AI Workspace
+                    </a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-variant dark:hover:bg-surface-variant transition-all rounded-lg font-body-sm text-body-sm active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history">history</span>
+                        Version History
+                    </a>
+</nav>
+</div>
+<div class="mt-auto pt-lg border-t border-surface-container-low dark:border-surface-container-low">
+<nav class="flex flex-col gap-[2px]">
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg font-body-sm text-body-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="help">help</span>
+                        Documentation
+                    </a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-variant rounded-lg font-body-sm text-body-sm transition-colors" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="contact_support">contact_support</span>
+                        Support
+                    </a>
+</nav>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-[280px] p-lg md:p-xl bg-background min-h-[calc(100vh-64px)] overflow-x-hidden">
+<!-- Header Section -->
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-xl">
+<div>
+<h1 class="text-display-lg font-display-lg text-on-surface m-0 mb-xs">Projects Overview</h1>
+<p class="font-code-md text-code-md text-on-surface-variant m-0 flex items-center gap-sm">
+<span class="w-2 h-2 rounded-full bg-secondary"></span> System Status: Nominal
+                    </p>
+</div>
+<div class="flex items-center gap-md">
+<div class="flex items-center bg-surface-container-low rounded border border-outline-variant p-[2px]">
+<button class="p-xs rounded bg-surface-container-high text-on-surface border border-outline-variant shadow-sm transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="grid_view">grid_view</span>
+</button>
+<button class="p-xs rounded text-on-surface-variant hover:text-on-surface transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined text-[18px]" data-icon="view_list">view_list</span>
+</button>
+</div>
+<button class="bg-transparent border border-primary text-primary hover:bg-primary/10 transition-colors h-10 px-md rounded flex items-center justify-center gap-sm font-headline-sm text-headline-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="filter_list">filter_list</span>
+                        Filter
+                    </button>
+<button class="bg-primary text-on-primary hover:bg-primary-fixed-dim transition-colors h-10 px-md rounded flex items-center justify-center gap-sm font-headline-sm text-headline-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="add">add</span>
+                        New Project
+                    </button>
+</div>
+</header>
+<!-- Projects Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-lg">
+<!-- Project Card 1 -->
+<article class="bg-surface-container-low border border-outline-variant border-t-[2px] border-t-secondary rounded p-lg flex flex-col hover:border-outline transition-colors relative group">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-secondary-container/20 border border-secondary/30 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]" data-icon="account_balance">account_balance</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface m-0">Loan Approval Feature</h3>
+</div>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-lg flex-1">
+                        Automated decision engine for personal loan origination. Integrates with Experian API and internal risk models.
+                    </p>
+<div class="flex items-center gap-sm mb-md flex-wrap">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded border border-outline-variant text-on-surface-variant font-code-sm text-code-sm bg-surface-container">
+<span class="material-symbols-outlined text-[14px]" data-icon="api">api</span> REST
+                        </span>
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded border border-outline-variant text-on-surface-variant font-code-sm text-code-sm bg-surface-container">
+<span class="material-symbols-outlined text-[14px]" data-icon="security">security</span> High Risk
+                        </span>
+</div>
+<div class="pt-md border-t border-outline-variant/50 flex justify-between items-center">
+<div class="flex items-center gap-xs font-code-sm text-code-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="description">description</span>
+<span class="text-on-surface font-bold">12</span> active specs
+                        </div>
+<div class="font-code-sm text-code-sm text-on-surface-variant">
+                            v2.4.1
+                        </div>
+</div>
+</article>
+<!-- Project Card 2 -->
+<article class="bg-surface-container-low border border-outline-variant border-t-[2px] border-t-tertiary rounded p-lg flex flex-col hover:border-outline transition-colors relative group">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-8 h-8 rounded bg-tertiary-container/20 border border-tertiary/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[18px]" data-icon="router">router</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface m-0">Internal API Gateway</h3>
+</div>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-lg flex-1">
+                        Centralized routing and authentication layer for all internal microservices. Handles rate limiting and telemetry.
+                    </p>
+<div class="flex items-center gap-sm mb-md flex-wrap">
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded border border-outline-variant text-on-surface-variant font-code-sm text-code-sm bg-surface-container">
+<span class="material-symbols-outlined text-[14px]" data-icon="settings">settings</span> Config
+                        </span>
+<span class="inline-flex items-center gap-xs px-2 py-1 rounded border border-outline-variant text-on-surface-variant font-code-sm text-code-sm bg-surface-container">
+<span class="material-symbols-outlined text-[14px]" data-icon="dns">dns</span> Infra
+                        </span>
+</div>
+<div class="pt-md border-t border-outline-variant/50 flex justify-between items-center">
+<div class="flex items-center gap-xs font-code-sm text-code-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="description">description</span>
+<span class="text-on-surface font-bold">8</span> active specs
+                        </div>
+<div class="font-code-sm text-code-sm text-on-surface-variant">
+                            v1.0.0
+                        </div>
+</div>
+</article>
+<!-- Project Card 3 (Empty State / Create New) -->
+<button class="bg-surface-container-lowest border border-dashed border-outline-variant rounded p-lg flex flex-col items-center justify-center text-center hover:bg-surface-container-low hover:border-primary transition-colors min-h-[220px] group">
+<div class="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant group-hover:text-primary group-hover:bg-primary-container/20 transition-colors mb-md">
+<span class="material-symbols-outlined text-[24px]" data-icon="add">add</span>
+</div>
+<h3 class="text-headline-md font-headline-md text-on-surface m-0 mb-xs group-hover:text-primary transition-colors">Start New Project</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-[200px]">Create a new space for specifications and technical documentation.</p>
+</button>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,201 @@
+@page "/"
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+
+<div class="p-4 d-flex flex-column gap-4">
+
+    <!-- Header Section (Matching theme/project_dashboard/code.html) -->
+    <header class="d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-3 mb-2">
+        <div>
+            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 38px; letter-spacing: -0.02em;">Projects Overview</h1>
+            <p class="font-mono text-on-surface-variant mb-0 small d-flex align-items-center gap-2">
+                <span class="rounded-circle bg-success d-inline-block" style="width: 8px; height: 8px;"></span>
+                <span>System Status: Nominal</span>
+            </p>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <!-- View Mode Switcher -->
+            <div class="d-flex align-items-center bg-surface-container-low rounded border border-outline-variant p-1">
+                <button class="btn btn-sm p-1 rounded bg-surface-container-high text-on-surface border border-outline-variant shadow-sm me-1">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">grid_view</span>
+                </button>
+                <button class="btn btn-sm p-1 rounded text-on-surface-variant hover-surface">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">view_list</span>
+                </button>
+            </div>
+
+            <button class="btn btn-secondary-spec font-mono d-flex align-items-center gap-1.5 py-2">
+                <span class="material-symbols-outlined" style="font-size: 18px;">filter_list</span>
+                <span>Filter</span>
+            </button>
+
+            <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5 py-2" @onclick="OpenCreateProjectModal">
+                <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                <span>New Project</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Projects Grid (Matching theme/project_dashboard/code.html) -->
+    @if (isLoadingProjects)
+    {
+        <div class="p-5 text-center text-on-surface-variant font-mono">
+            <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+            <div>Loading projects space...</div>
+        </div>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+
+            @foreach (var proj in projects)
+            {
+                <div class="col">
+                    <div class="bg-surface-container-low border border-outline-variant rounded p-4 d-flex flex-column h-100 position-relative hover-border-outline" style="border-top: 3px solid var(--secondary) !important;">
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="rounded bg-secondary-container bg-opacity-20 border border-secondary border-opacity-30 d-flex align-items-center justify-content-center text-secondary" style="width: 34px; height: 34px;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">account_balance</span>
+                                </div>
+                                <h4 class="fw-bold text-on-surface mb-0" style="font-size: 18px;">@proj.Name</h4>
+                            </div>
+                            <button class="btn p-0 text-on-surface-variant hover-primary" @onclick="() => OpenProjectSpecs(proj.Id)">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">arrow_forward</span>
+                            </button>
+                        </div>
+
+                        <p class="text-on-surface-variant small mb-4 flex-grow-1">
+                            @proj.Description
+                        </p>
+
+                        <!-- Scope Tags -->
+                        <div class="d-flex items-center gap-2 mb-3 flex-wrap">
+                            <span class="scope-tag-item">
+                                ⚙️ REST API
+                            </span>
+                            <span class="scope-tag-item">
+                                🔒 Enterprise Security
+                            </span>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="pt-3 border-top border-outline-variant d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-1 font-mono fs-xs text-on-surface-variant">
+                                <span class="material-symbols-outlined text-primary-custom" style="font-size: 16px;">description</span>
+                                <span class="text-on-surface fw-bold">@proj.SpecCount</span> active specs
+                            </div>
+
+                            <button class="btn btn-sm btn-secondary-spec font-mono py-1 px-3" @onclick="() => OpenProjectSpecs(proj.Id)">
+                                View Specs &rarr;
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            }
+
+            <!-- Start New Project Button Card (Card 3 in theme) -->
+            <div class="col">
+                <button class="w-100 bg-surface-container-lowest border border-dashed border-outline-variant rounded p-4 d-flex flex-column align-items-center justify-content-center text-center hover-surface h-100" style="min-height: 220px;" @onclick="OpenCreateProjectModal">
+                    <div class="rounded-circle bg-surface-container d-flex align-items-center justify-content-center text-on-surface-variant mb-3" style="width: 48px; height: 48px;">
+                        <span class="material-symbols-outlined" style="font-size: 24px;">add</span>
+                    </div>
+                    <h5 class="fw-bold text-on-surface mb-1">Start New Project</h5>
+                    <p class="text-on-surface-variant small font-mono mb-0" style="max-width: 220px;">
+                        Create a new space for specifications and technical documentation.
+                    </p>
+                </button>
+            </div>
+
+        </div>
+    }
+
+</div>
+
+<!-- Create Project Modal -->
+@if (showCreateProjectModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-content-adaptive">
+                <div class="modal-header border-bottom border-outline-variant">
+                    <h5 class="modal-title fw-bold text-on-surface">Create Project Space</h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => showCreateProjectModal = false"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Project Name</label>
+                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="e.g. Loan Approval Feature" @bind="newProjectName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Description</label>
+                        <textarea class="form-control form-control-adaptive" rows="3" placeholder="Overview of technical scope and requirements..." @bind="newProjectDesc"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top border-outline-variant">
+                    <button type="button" class="btn btn-secondary-spec" @onclick="() => showCreateProjectModal = false">Cancel</button>
+                    <button type="button" class="btn btn-primary-spec font-mono" @onclick="SaveNewProject" disabled="@string.IsNullOrWhiteSpace(newProjectName)">Create Project</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProjectDto> projects = new();
+    private bool isLoadingProjects = true;
+
+    private bool showCreateProjectModal = false;
+    private string newProjectName = "";
+    private string newProjectDesc = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        isLoadingProjects = true;
+        try
+        {
+            projects = await ApiClient.GetProjectsAsync();
+        }
+        finally
+        {
+            isLoadingProjects = false;
+        }
+    }
+
+    private void OpenProjectSpecs(int projectId)
+    {
+        Nav.NavigateTo($"/specs/{projectId}");
+    }
+
+    private void OpenCreateProjectModal()
+    {
+        newProjectName = "";
+        newProjectDesc = "";
+        showCreateProjectModal = true;
+    }
+
+    private async Task SaveNewProject()
+    {
+        if (string.IsNullOrWhiteSpace(newProjectName)) return;
+
+        var created = await ApiClient.CreateProjectAsync(new CreateProjectDto
+        {
+            Name = newProjectName.Trim(),
+            Description = newProjectDesc.Trim()
+        });
+
+        showCreateProjectModal = false;
+
+        if (created != null)
+        {
+            await LoadProjects();
+        }
+    }
+}

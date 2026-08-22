@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SpecPlatform.Api/SpecPlatform.Api.csproj" />
+    <Project Path="src/SpecPlatform.Client/SpecPlatform.Client.csproj" />
+    <Project Path="src/SpecPlatform.Shared/SpecPlatform.Shared.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SpecPlatform.Tests/SpecPlatform.Tests.csproj" />
+  </Folder>
+</Solution>

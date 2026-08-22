@@ -1,0 +1,155 @@
+# MVP 1 — Milestone-Based Implementation Plan
+
+Purpose: give this to an AI coding assistant (Claude Code, Copilot, Cursor, etc.) **one milestone at a time**, not all at once. Each milestone is small, testable on its own, and builds on the previous one.
+
+Stack: ASP.NET Core Web API, Blazor WebAssembly, EF Core, Postgres/SQL Server, OpenRouter (GLM-5.2 for MVP1).
+
+---
+
+## Milestone 0 — Project Skeleton (no AI yet)
+
+**Goal:** Basic solution structure runs locally, nothing smart yet.
+
+**Scope:**
+
+- ASP.NET Core Web API project (`SpecPlatform.Api`)
+- Blazor WebAssembly project (`SpecPlatform.Client`)
+- Shared class library for DTOs (`SpecPlatform.Shared`)
+- EF Core + Postgres/SQL Server connection configured
+- One health-check endpoint (`GET /api/health`) returning `200 OK`
+- Blazor app can call the health-check endpoint and display "API is alive"
+
+**Test it yourself:**
+
+- Run API + Blazor app locally, see "API is alive" on screen
+- No auth, no AI, no real data yet — just confirming the skeleton wires together
+
+---
+
+## Milestone 1 — Project + Spec Data Model + CRUD (no AI yet)
+
+**Goal:** Can create a project/team container, then create/read/update specs under it (no brainstorming UI yet).
+
+**Scope:**
+
+- EF Core entities:
+  - `Project` (Id, Name, Description, CreatedAt) — the parent container for a team/product/feature area
+  - `Spec` (Id, ProjectId, Title, Description, Status, CreatedAt) — now belongs to a Project
+  - `SpecVersion` (SpecId, VersionNumber, Content, PublishedAt)
+  - `AcceptanceCriterion` (SpecVersionId, Text)
+  - `ScopeTag` (SpecVersionId, TagName e.g. "bff"/"api"/"mfe")
+- API endpoints:
+  - `POST /api/projects` (create a project), `GET /api/projects`, `GET /api/projects/{id}`
+  - `POST /api/projects/{projectId}/specs` (create a draft spec under a project), `GET /api/specs/{id}`, `PUT /api/specs/{id}` (edit draft), `POST /api/specs/{id}/publish` (creates a new version)
+- Simple Blazor UI:
+  - Project list/creation screen (name a project, e.g. "Loan Approval Feature" or "PrivateLendingCommon MFE")
+  - Selecting a project shows its specs (empty at first)
+  - "New Spec" only available _within_ a selected project — no orphan specs
+  - Create a spec, add acceptance criteria, add scope tags, save as draft, publish
+
+**Test it yourself:**
+
+- Create a project, confirm it appears in the list
+- Create a spec under that project, publish it, confirm version 1 exists and is correctly linked to the project
+- Create a second project, confirm its spec list is separate/isolated from the first project's specs
+- Edit and publish again, confirm version 2 is created and version 1 is preserved (not overwritten)
+
+---
+
+## Milestone 2 — AI-Assisted Brainstorming (first AI integration)
+
+**Goal:** Within a selected project, PO/BA can chat with an LLM to draft a spec instead of filling a blank form.
+
+**Note:** Brainstorming always happens _inside_ a chosen project — the chat session should know which project it's drafting for from the start (passed as context to the LLM, e.g. "You are helping draft a spec for project: {ProjectName} — {ProjectDescription}"), so the AI's questions and suggestions stay relevant to that project's context rather than generic.
+
+**Technical note — Semantic Kernel + OpenRouter setup:**
+
+- For local development/testing, use the free model **LiquidAI: LFM2.5-2.6B** (`liquid/lfm-2.5-2.6b:free`) — zero cost while building and testing the integration, so you're not spending anything during dev iteration:
+  ```csharp
+  var kernel = Kernel.CreateBuilder()
+      .AddOpenAIChatCompletion(
+          modelId: "liquid/lfm-2.5-2.6b:free",
+          apiKey: openRouterApiKey,
+          endpoint: new Uri("https://openrouter.ai/api/v1")
+      )
+      .Build();
+  ```
+  Swap `modelId` to a production model (e.g. `z-ai/glm-5.2`) once you're testing real output quality or preparing for release — free models are smaller and may be noticeably weaker at structuring specs reliably, so don't judge final output quality using the free model alone.
+- Use Semantic Kernel's existing OpenAI connector, just point it at OpenRouter's endpoint instead of OpenAI's:
+  ```csharp
+  var kernel = Kernel.CreateBuilder()
+      .AddOpenAIChatCompletion(
+          modelId: "z-ai/glm-5.2", // OpenRouter model string
+          apiKey: openRouterApiKey,
+          endpoint: new Uri("https://openrouter.ai/api/v1")
+      )
+      .Build();
+  ```
+- **Known gotcha:** OpenRouter sometimes returns HTTP 200 even when there's an underlying provider error, with the actual error nested inside the response body instead of a proper error status code. Don't rely on HTTP status alone to detect failures — check the response body for an `error` field too, or a failed call can silently look like an empty success.
+- For MVP1, a plain Semantic Kernel chat completion call is enough — full plugin/function-calling and planners aren't needed yet. Only add those later if the LLM needs to call functions during brainstorming (e.g. "look up existing scope tags").
+- Alternative if you want to skip Semantic Kernel entirely for MVP1: a direct `HttpClient` call to OpenRouter's `/chat/completions` endpoint, or a plain `Microsoft.Extensions.AI` `IChatClient`, is simpler and sufficient for "chat + structure into JSON."
+
+**Scope:**
+
+- Integrate OpenRouter API (GLM-5.2) into the backend
+- New endpoint: `POST /api/specs/draft/chat` — accepts conversation history + new message, returns AI response
+- Simple chat UI in Blazor (message list + input box)
+- A "Structure this into a spec" button — sends the full conversation to the LLM with a prompt asking it to output structured JSON matching your `Spec`/`AcceptanceCriterion`/`ScopeTag` schema
+- Parse that JSON response and pre-fill the spec form from Milestone 1 (PO/BA can still edit before publishing)
+
+**Test it yourself:**
+
+- Brainstorm a small feature (use the "Daily Standup Bot" test idea) through the chat
+- Click "structure this into a spec," confirm the form gets pre-filled sensibly
+- Edit if needed, publish, confirm it behaves like Milestone 1's publish flow
+
+---
+
+## Milestone 4 — Notifications on Publish
+
+**Goal:** When a spec is published, relevant people get notified (simple version — no subscriptions system yet).
+
+**Scope:**
+
+- On publish, send a simple notification: email (or just a webhook/console log for MVP) saying "{SpecTitle} updated to v{N}"
+- Hardcode the notification target for now (e.g. one email address or one webhook URL) — no per-user subscription management yet, that's a v2 feature
+- Notification includes a short AI-generated summary of what changed (reuse the diff logic from Milestone 3, feed it to GLM-5.2 to phrase it in plain English: "2 acceptance criteria changed in the auth section")
+
+**Test it yourself:**
+
+- Publish a new version, confirm the notification fires and the summary text is accurate and readable
+
+---
+
+## Milestone 5 — Basic Auth (Entra ID, single tenant to start)
+
+**Goal:** Only logged-in users can access the app — proves the SSO integration works before going multi-tenant.
+
+**Scope:**
+
+- Register the app in your own Entra ID tenant
+- Add Microsoft.Identity.Web to the API, MSAL-based auth to the Blazor WASM client
+- Require login to access any spec endpoint
+- No multi-tenant support yet, no per-company permissions — just "can I log in with my Microsoft 365 account at all"
+
+**Test it yourself:**
+
+- Confirm you can log in with your own Microsoft 365 account and reach the spec dashboard
+- Confirm an unauthenticated request to the API is rejected
+
+---
+
+## What's intentionally NOT in these milestones (comes after MVP1 is proven)
+
+- Multi-tenant SSO (any company's Entra ID)
+- Commenting/feedback loop
+- Jira integration
+- Team/role permissions
+- Blob storage / attachments
+- Polished CLI packaging (global tool, installer)
+
+---
+
+## How to use this with an AI assistant
+
+Give the assistant **one milestone section at a time**, in order. After each milestone, test it yourself against the "Test it yourself" checklist before moving to the next prompt. Don't paste the whole document as one instruction — that defeats the purpose of incremental, testable delivery.

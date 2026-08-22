@@ -1,0 +1,49 @@
+namespace SpecPlatform.Shared.DTOs;
+
+public class CreateSpecDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public List<string> AcceptanceCriteria { get; set; } = new();
+    public List<string> ScopeTags { get; set; } = new();
+}
+
+public class UpdateSpecDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public List<string> AcceptanceCriteria { get; set; } = new();
+    public List<string> ScopeTags { get; set; } = new();
+}
+
+public class SpecDto
+{
+    public int Id { get; set; }
+    public int ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Status { get; set; } = "Draft";
+    public DateTime CreatedAt { get; set; }
+    public int CurrentVersionNumber { get; set; }
+    public List<string> CurrentAcceptanceCriteria { get; set; } = new();
+    public List<string> CurrentScopeTags { get; set; } = new();
+    public List<SpecVersionDto> Versions { get; set; } = new();
+}
+
+public class SpecVersionDto
+{
+    public int Id { get; set; }
+    public int SpecId { get; set; }
+    public int VersionNumber { get; set; }
+    public string Content { get; set; } = string.Empty;
+    public DateTime PublishedAt { get; set; }
+    public List<string> AcceptanceCriteria { get; set; } = new();
+    public List<string> ScopeTags { get; set; } = new();
+}
+
+public class PublishResultDto
+{
+    public SpecDto Spec { get; set; } = default!;
+    public string NotificationSummary { get; set; } = string.Empty;
+}
