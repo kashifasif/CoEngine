@@ -800,37 +800,44 @@ public class SpecsController : ControllerBase
     {
         var existingSpec = await _db.Specs
             .Include(s => s.Versions)
-            .ThenInclude(v => v.AcceptanceCriteria)
+                .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
-            .ThenInclude(v => v.ScopeTags)
+                .ThenInclude(v => v.ScopeTags)
             .FirstOrDefaultAsync(s => s.ProjectId == projectId);
 
         if (existingSpec == null) return string.Empty;
 
-        var latestVer = existingSpec.Versions
+        var publishedVersions = existingSpec.Versions
             .Where(v => v.VersionNumber > 0)
-            .OrderByDescending(v => v.VersionNumber)
-            .FirstOrDefault();
+            .OrderBy(v => v.VersionNumber)
+            .ToList();
 
-        if (latestVer == null) return string.Empty;
+        if (!publishedVersions.Any()) return string.Empty;
 
-        var allAc = latestVer.AcceptanceCriteria.Select(a => a.Text).ToList();
-        var openQuestions = allAc.Where(a => a.StartsWith("❓"))
-            .Select(a => a.Replace("❓ **Open Question:**", "").Trim()).ToList();
-        var normalAc = allAc.Where(a => !a.StartsWith("❓")).ToList();
+        var sb = new StringBuilder();
+        sb.AppendLine("=== ALL PREVIOUS PUBLISHED SPECIFICATION VERSIONS (FROM v1 TO LATEST) ===");
+        sb.AppendLine($"Master Specification Title: {existingSpec.Title}");
 
-        var acText = normalAc.Any() ? string.Join("\n- ", normalAc) : "None";
-        var oqText = openQuestions.Any() ? string.Join("\n- ", openQuestions) : "None";
-        var tagsText = latestVer.ScopeTags.Any()
-            ? string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName))
-            : "bff, api, mfe";
+        foreach (var ver in publishedVersions)
+        {
+            var allAc = ver.AcceptanceCriteria.Select(a => a.Text).ToList();
+            var openQuestions = allAc.Where(a => a.StartsWith("❓"))
+                .Select(a => a.Replace("❓ **Open Question:**", "").Replace("❓ **Open Business Question:**", "").Trim()).ToList();
+            var normalAc = allAc.Where(a => !a.StartsWith("❓")).ToList();
 
-        return $"1. EXISTING SPEC (Last Published Version v{latestVer.VersionNumber}):\n" +
-               $"   epicTitle: {existingSpec.Title}\n" +
-               $"   epicDescription: {existingSpec.Description}\n" +
-               $"   acceptanceCriteria:\n- {acText}\n" +
-               $"   scopeTags: [{tagsText}]\n" +
-               $"   openQuestions:\n- {oqText}\n\n";
+            var acText = normalAc.Any() ? string.Join("\n  - ", normalAc) : "None";
+            var oqText = openQuestions.Any() ? string.Join("\n  - ", openQuestions) : "None";
+            var tagsText = ver.ScopeTags.Any() ? string.Join(", ", ver.ScopeTags.Select(t => t.TagName)) : "bff, api, mfe";
+
+            sb.AppendLine($"\n--- Published Version v{ver.VersionNumber} (Published: {ver.PublishedAt:g}) ---");
+            sb.AppendLine($"Description / SRS Narrative:\n{ver.Content}");
+            sb.AppendLine($"Acceptance Criteria & Requirements:\n  - {acText}");
+            sb.AppendLine($"Scope Tags: [{tagsText}]");
+            sb.AppendLine($"Unresolved Open Questions:\n  - {oqText}");
+        }
+
+        sb.AppendLine("\n========================================================================\n");
+        return sb.ToString();
     }
 
     [HttpPost("api/specs/draft/structure")]
@@ -842,9 +849,24 @@ public class SpecsController : ControllerBase
 
         var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
 
+        // Load complete DB Chat Session messages to guarantee 100% transcript coverage from start!
+        var dbSession = await _db.ChatSessions
+            .Include(cs => cs.Messages)
+            .FirstOrDefaultAsync(cs => cs.ProjectId == request.ProjectId && cs.PersonaMode == "po_brainstorming");
+
+        List<ChatMessageDto> messagesToUse = request.Messages;
+        if (dbSession != null && dbSession.Messages.Any() && dbSession.Messages.Count >= request.Messages.Count)
+        {
+            messagesToUse = dbSession.Messages.OrderBy(m => m.Timestamp).Select(m => new ChatMessageDto
+            {
+                Role = m.Role,
+                Content = m.Content
+            }).ToList();
+        }
+
         var systemPrompt = $"CONTEXT: Project: {projectName} — {projectDesc}\n\n{existingSpecContext}";
 
-        var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, request.Messages);
+        var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, messagesToUse);
         return Ok(result);
     }
 

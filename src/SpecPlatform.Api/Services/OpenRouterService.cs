@@ -190,17 +190,15 @@ public class OpenRouterService : IOpenRouterService
             "You are an expert Lead Requirements Architect and Technical Product Owner. Your ONLY job is to write a comprehensive, production-grade Software Requirements Specification (SRS) in Agile format — either creating a new SRS, or merging changes into an existing published version.\n\n" +
             systemPrompt + "\n\n" +
             "You will be given:\n" +
-            "1. EXISTING SPEC (if this is a revision — omit entirely if brand new): the last published version, including its current userStories, acceptanceCriteria, scopeTags, and unresolved openQuestions.\n" +
-            "2. NEW CONVERSATION: the full brainstorming transcript consisting of:\n" +
-            "   - Free-form feature brainstorming described by the PO/BA (Phase 1)\n" +
-            "   - Clarifying questions, answers, selected options (A, B, C...), and items marked 'Not sure yet' (Phase 2)\n\n" +
-            "YOUR TASK: Read the entire conversation history and existing specification very carefully. Produce a FULL, IN-DEPTH Software Requirements Specification (SRS) using ONLY the information actually provided or established in previous versions.\n\n" +
+            "1. EXISTING PUBLISHED SPECIFICATIONS HISTORY: all previously published versions (v1, v2, v3...), including their SRS narratives, user stories, acceptance criteria, scope tags, and open questions.\n" +
+            "2. FULL CHAT & Q&A TRANSCRIPT FROM START: the complete conversation history from the very beginning of brainstorming (Phase 1) through all rounds of clarifying Q&As, user option selections (A, B, C...), typed answers, and skips (Phase 2).\n\n" +
+            "YOUR TASK: Read the entire conversation history from start to finish alongside ALL previous version specifications. Synthesize everything into a SINGLE, complete, production-grade Software Requirements Specification (SRS) document in Agile format.\n\n" +
             "EXHAUSTIVE REQUIREMENT SYNTHESIS & MERGE RULES:\n" +
             "1. NO SUMMARIES: Do NOT generate brief overviews or short summaries. Produce full, detailed requirement documentation.\n" +
-            "2. Q&A SYNTHESIS: Convert EVERY answer, selected option (A, B, C...), and detail discussed in clarification Q&A into explicit, formal requirements and testable acceptance criteria.\n" +
-            "3. PRESERVE & MERGE PAST SCOPE: If an EXISTING SPEC is provided, preserve all existing requirements and user stories that were NOT contradicted or changed. Update or override previous rules if the new conversation specifies updated behavior.\n" +
-            "4. RESOLVE OPEN QUESTIONS: If a question in the existing spec's 'openQuestions' was answered, convert it into an acceptance criterion and remove it from 'openQuestions'.\n" +
-            "5. UNRESOLVED ITEMS: Any question marked 'Not sure yet' or left unanswered MUST appear in 'openQuestions'.\n" +
+            "2. EXHAUSTIVE CHAT & Q&A SYNTHESIS: Convert EVERY initial feature idea, every answered Q&A option (A, B, C...), typed user answer, and feature detail from the entire chat history into explicit, formal requirements and testable acceptance criteria.\n" +
+            "3. PRESERVE & MERGE PAST VERSIONS: Preserve all existing requirements and user stories from previous versions (v1, v2...) that were NOT contradicted or changed. Update or override previous rules if the new conversation specifies updated behavior.\n" +
+            "4. RESOLVE OPEN QUESTIONS: If a question in the existing spec's 'openQuestions' was answered in the Q&A transcript, convert it into an acceptance criterion and remove it from 'openQuestions'.\n" +
+            "5. UNRESOLVED ITEMS: Any question marked 'Not sure yet' or left unanswered MUST appear under 'openQuestions'.\n" +
             "6. CHANGE LOG: Track added, modified, or removed items in 'changeSummary'.\n\n" +
             "OUTPUT FORMAT — respond with ONLY valid JSON matching this exact schema (no markdown code fences, no preamble):\n\n" +
             "{\n" +
