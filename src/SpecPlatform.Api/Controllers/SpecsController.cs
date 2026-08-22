@@ -46,6 +46,32 @@ public class SpecsController : ControllerBase
         return Ok(specs.Select(MapToSpecDto).ToList());
     }
 
+    [HttpDelete("api/projects/{id:int}")]
+    public async Task<IActionResult> DeleteProject(int id)
+    {
+        var project = await _db.Projects.FindAsync(id);
+        if (project == null) return NotFound(new { message = $"Project {id} not found." });
+
+        _db.Projects.Remove(project);
+        await _db.SaveChangesAsync();
+
+        await _vectorStore.ClearProjectVectorsAsync(id);
+
+        return Ok(new { success = true, message = $"Project {id} deleted successfully." });
+    }
+
+    [HttpDelete("api/specs/{id:int}")]
+    public async Task<IActionResult> DeleteSpec(int id)
+    {
+        var spec = await _db.Specs.FindAsync(id);
+        if (spec == null) return NotFound(new { message = $"Spec {id} not found." });
+
+        _db.Specs.Remove(spec);
+        await _db.SaveChangesAsync();
+
+        return Ok(new { success = true, message = $"Spec {id} deleted successfully." });
+    }
+
     [HttpPost("api/projects/{projectId:int}/specs")]
     public async Task<ActionResult<SpecDto>> CreateSpec(int projectId, [FromBody] CreateSpecDto dto)
     {
@@ -91,7 +117,7 @@ public class SpecsController : ControllerBase
         _db.SpecVersions.Add(draftVersion);
         await _db.SaveChangesAsync();
 
-        // Index Draft into Vector Store
+        // Index Spec into Vector Store (instantly searchable for Dev/QA & BA)
         var criteriaText = string.Join(". ", dto.AcceptanceCriteria);
         var tagsText = string.Join(", ", dto.ScopeTags);
         await _vectorStore.IndexDocumentAsync(projectId, "spec", spec.Title, $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
@@ -171,10 +197,10 @@ public class SpecsController : ControllerBase
 
         await _db.SaveChangesAsync();
 
-        // Index Updated Spec into Vector Store
-        var criteriaText = string.Join(". ", dto.AcceptanceCriteria);
-        var tagsText = string.Join(", ", dto.ScopeTags);
-        await _vectorStore.IndexDocumentAsync(spec.ProjectId, "spec", spec.Title, $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
+        // Index Spec Update into Vector Store (instantly searchable for Dev/QA & BA)
+        var updatedCriteriaText = string.Join(". ", dto.AcceptanceCriteria);
+        var updatedTagsText = string.Join(", ", dto.ScopeTags);
+        await _vectorStore.IndexDocumentAsync(spec.ProjectId, "spec", spec.Title, $"{spec.Description}. Acceptance criteria: {updatedCriteriaText}. Scope tags: {updatedTagsText}");
 
         return Ok(MapToSpecDto(spec));
     }
@@ -235,10 +261,10 @@ public class SpecsController : ControllerBase
         _db.Notifications.Add(notification);
         await _db.SaveChangesAsync();
 
-        // Index Published Version into Vector Store
+        // Index Published Version into Vector Store (ONLY Published Specs are indexed for Dev/QA)
         var pubCriteria = string.Join(". ", newPublishedVersion.AcceptanceCriteria.Select(a => a.Text));
         var pubTags = string.Join(", ", newPublishedVersion.ScopeTags.Select(t => t.TagName));
-        await _vectorStore.IndexDocumentAsync(spec.ProjectId, "spec", $"{spec.Title} (v{nextVersionNumber})", $"{spec.Description}. Acceptance criteria: {pubCriteria}. Scope tags: {pubTags}");
+        await _vectorStore.IndexDocumentAsync(spec.ProjectId, "published_spec", $"{spec.Title} (v{nextVersionNumber})", $"{spec.Description}. Acceptance criteria: {pubCriteria}. Scope tags: {pubTags}");
 
         _logger.LogInformation(summaryText);
 
@@ -504,18 +530,18 @@ public class SpecsController : ControllerBase
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
 
-        // Query Vector Store for top semantically relevant document & chat chunks!
-        var vectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 5);
+        // Query Vector Store for top semantically relevant specs!
+        var allVectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 5);
+        var vectorMatches = allVectorMatches.Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
 
         var specContext = new StringBuilder();
-        specContext.AppendLine($"--- VECTOR STORE KNOWLEDGE BASE (PUBLISHED SPECS & CHAT MEMORY) ---");
+        specContext.AppendLine($"--- PROJECT SPECIFICATIONS KNOWLEDGE BASE ---");
 
         if (vectorMatches.Any())
         {
             foreach (var match in vectorMatches)
             {
-                specContext.AppendLine($"\n[Vector Match | Type: {match.DocType.ToUpper()} | Similarity Score: {match.SimilarityScore:F2}]");
-                specContext.AppendLine($"Title: {match.Title}");
+                specContext.AppendLine($"\n[Spec Match | Title: {match.Title} | Similarity Score: {match.SimilarityScore:F2}]");
                 specContext.AppendLine($"Content: {match.Content}");
             }
         }
@@ -523,10 +549,9 @@ public class SpecsController : ControllerBase
         {
             foreach (var spec in project.Specs)
             {
-                var latestVer = spec.Versions.Where(v => v.VersionNumber > 0).OrderByDescending(v => v.VersionNumber).FirstOrDefault()
-                                ?? spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
-                specContext.AppendLine($"\nSpec Title: {spec.Title} (Status: {spec.Status}, Version: v{latestVer?.VersionNumber ?? 1})");
+                specContext.AppendLine($"\nSpec Title: {spec.Title} (Status: {spec.Status})");
                 specContext.AppendLine($"Description: {spec.Description}");
 
                 if (latestVer?.AcceptanceCriteria.Any() == true)
@@ -537,15 +562,24 @@ public class SpecsController : ControllerBase
                         specContext.AppendLine($" - {ac.Text}");
                     }
                 }
+                if (latestVer?.ScopeTags.Any() == true)
+                {
+                    specContext.AppendLine("Scope Tags: " + string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName)));
+                }
             }
+        }
+        else
+        {
+            specContext.AppendLine("\n[Notice: No specifications exist for this project yet. Please create or enter a specification first.]");
         }
 
         string roleInstructions = request.RoleMode == "qa"
-            ? $"You are a Senior QA Test Automation Lead AI Assistant for Project: '{projectName}'. Help QA Engineers define test scenarios, edge cases, negative test conditions, Gherkin Given-When-Then syntax, and regression test suites based strictly on the Vector DB knowledge base above."
-            : $"You are a Lead Software Architect & Senior Developer AI Assistant for Project: '{projectName}'. Help Developers understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, and exception handling based strictly on the Vector DB knowledge base above.";
+            ? $"You are a Senior QA Test Automation Lead AI Assistant for Project: '{projectName}'. Help QA Engineers define test scenarios, edge cases, negative test conditions, Gherkin Given-When-Then syntax, and regression test suites BASED STRICTLY ON THE PROJECT SPECIFICATIONS ABOVE."
+            : $"You are a Lead Software Architect & Senior Developer AI Assistant for Project: '{projectName}'. Help Developers understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, and exception handling BASED STRICTLY ON THE PROJECT SPECIFICATIONS ABOVE.";
 
-        var systemPrompt = $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}). You must ONLY answer using the vector database records for Project '{projectName}' above. Never mix, reference, or assume data from any other project.\n\n" +
-                           $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\nGoal: Answer the Dev/QA query accurately based strictly on the Vector Database records for Project '{projectName}'.";
+        var systemPrompt = $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}).\n" +
+                           "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
+                           $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\nGoal: Answer the query accurately based strictly on the Specifications above.";
 
         await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, request.Messages, cancellationToken))
         {

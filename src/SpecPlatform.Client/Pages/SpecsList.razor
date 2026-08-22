@@ -2,6 +2,7 @@
 @page "/specs/{ProjectId:int}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="p-4 d-flex flex-column gap-4">
 
@@ -138,6 +139,9 @@
                                 </button>
                                 <button class="btn btn-sm btn-success text-white p-1.5" @onclick="() => PublishSpec(spec.Id)" disabled="@isPublishing" title="Publish Spec Version">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">publish</span>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger p-1.5" @onclick="() => ConfirmDeleteSpec(spec)" title="Delete Specification">
+                                    <span class="material-symbols-outlined text-danger" style="font-size: 16px;">delete</span>
                                 </button>
                             </div>
                         </div>
@@ -343,5 +347,15 @@
         if (lower.Contains("auth")) return "🔒";
         if (lower.Contains("bus") || lower.Contains("event")) return "🔗";
         return "🏷️";
+    }
+
+    private async Task ConfirmDeleteSpec(SpecDto spec)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete specification '{spec.Title}'?");
+        if (confirmed)
+        {
+            await ApiClient.DeleteSpecAsync(spec.Id);
+            await LoadSpecs();
+        }
     }
 }

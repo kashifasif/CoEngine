@@ -1,6 +1,7 @@
 @page "/"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="p-4 d-flex flex-column gap-4">
 
@@ -61,9 +62,14 @@
                                 </div>
                                 <h4 class="fw-bold text-on-surface mb-0" style="font-size: 18px;">@proj.Name</h4>
                             </div>
-                            <button class="btn p-0 text-on-surface-variant hover-primary" @onclick="() => OpenProjectSpecs(proj.Id)">
-                                <span class="material-symbols-outlined" style="font-size: 20px;">arrow_forward</span>
-                            </button>
+                            <div class="d-flex align-items-center gap-1">
+                                <button class="btn p-1 text-on-surface-variant hover-danger" @onclick="() => ConfirmDeleteProject(proj)" title="Delete Project Space">
+                                    <span class="material-symbols-outlined text-danger opacity-75" style="font-size: 18px;">delete</span>
+                                </button>
+                                <button class="btn p-1 text-on-surface-variant hover-primary" @onclick="() => OpenProjectSpecs(proj.Id)" title="Open Specifications">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">arrow_forward</span>
+                                </button>
+                            </div>
                         </div>
 
                         <p class="text-on-surface-variant small mb-4 flex-grow-1">
@@ -195,6 +201,16 @@
 
         if (created != null)
         {
+            await LoadProjects();
+        }
+    }
+
+    private async Task ConfirmDeleteProject(ProjectDto proj)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete project '{proj.Name}' and all its specifications?");
+        if (confirmed)
+        {
+            await ApiClient.DeleteProjectAsync(proj.Id);
             await LoadProjects();
         }
     }

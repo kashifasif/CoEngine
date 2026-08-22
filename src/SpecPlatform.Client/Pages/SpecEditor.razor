@@ -2,6 +2,7 @@
 @page "/spec-editor/{SpecId:int}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="d-flex h-100 bg-background overflow-hidden" style="min-height: calc(100vh - 64px);">
 
@@ -25,6 +26,9 @@
                     </div>
 
                     <div class="d-flex gap-2">
+                        <button class="btn btn-outline-danger font-mono py-1.5 px-3 d-flex align-items-center gap-1" @onclick="ConfirmDeleteSpec" title="Delete Specification">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">delete</span> Delete
+                        </button>
                         <button class="btn btn-secondary-spec font-mono py-1.5 px-3" @onclick="SaveDraft" disabled="@isSaving">
                             Save Draft
                         </button>
@@ -235,6 +239,18 @@
         finally
         {
             isPublishing = false;
+        }
+    }
+
+    private async Task ConfirmDeleteSpec()
+    {
+        if (!SpecId.HasValue) return;
+        var specTitle = spec?.Title ?? "this specification";
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{specTitle}'?");
+        if (confirmed)
+        {
+            await ApiClient.DeleteSpecAsync(SpecId.Value);
+            Nav.NavigateTo("/specs");
         }
     }
 }

@@ -46,6 +46,18 @@ public class SpecApiClient
         return null;
     }
 
+    public async Task<bool> DeleteProjectAsync(int projectId)
+    {
+        var response = await _http.DeleteAsync($"api/projects/{projectId}");
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteSpecAsync(int specId)
+    {
+        var response = await _http.DeleteAsync($"api/specs/{specId}");
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<List<SpecDto>> GetSpecsForProjectAsync(int projectId)
     {
         return await _http.GetFromJsonAsync<List<SpecDto>>($"api/projects/{projectId}/specs") ?? new();

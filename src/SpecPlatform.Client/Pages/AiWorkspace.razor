@@ -4,6 +4,7 @@
 @page "/po-brainstorming/{ProjectId:int}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <div class="d-flex flex-column flex-lg-row h-100 bg-background" style="min-height: calc(100vh - 64px);">
 
@@ -32,7 +33,7 @@
         </div>
 
         <!-- Chat Stream Window -->
-        <div class="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style="max-height: calc(100vh - 200px);">
+        <div id="aiWorkspaceChatStream" class="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style="max-height: calc(100vh - 200px);">
 
             @if (isLoadingChat)
             {
@@ -313,6 +314,7 @@
         isThinking = true;
         currentStreamingResponse = "";
         StateHasChanged();
+        await ScrollToBottom();
 
         try
         {
@@ -324,6 +326,7 @@
                     currentStreamingResponse += chunk;
                     assistantMsg.Content = currentStreamingResponse;
                     StateHasChanged();
+                    _ = ScrollToBottom();
                 });
         }
         finally
@@ -331,7 +334,17 @@
             isThinking = false;
             await SaveDbChatSession();
             StateHasChanged();
+            await ScrollToBottom();
         }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "const el = document.getElementById('aiWorkspaceChatStream'); if(el) { el.scrollTop = el.scrollHeight; }");
+        }
+        catch { }
     }
 
     private void AddDraftCriterion()

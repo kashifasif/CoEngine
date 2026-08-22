@@ -78,7 +78,7 @@
         </div>
 
         <!-- Chat Stream Window -->
-        <div class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3" style="min-height: 350px;">
+        <div id="devQaChatStream" class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3" style="min-height: 350px;">
 
             @if (isLoadingChat)
             {
@@ -305,6 +305,7 @@
         isThinking = true;
         currentStreamingResponse = "";
         StateHasChanged();
+        await ScrollToBottom();
 
         try
         {
@@ -317,6 +318,7 @@
                     currentStreamingResponse += chunk;
                     assistantMsg.Content = currentStreamingResponse;
                     StateHasChanged();
+                    _ = ScrollToBottom();
                 });
         }
         finally
@@ -324,7 +326,17 @@
             isThinking = false;
             await SaveDbChatSession();
             StateHasChanged();
+            await ScrollToBottom();
         }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "const el = document.getElementById('devQaChatStream'); if(el) { el.scrollTop = el.scrollHeight; }");
+        }
+        catch { }
     }
 
     private async Task ClearChat()
