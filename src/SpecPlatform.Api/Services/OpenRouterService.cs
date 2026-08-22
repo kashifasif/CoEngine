@@ -31,23 +31,24 @@ public class OpenRouterService : IOpenRouterService
     {
         try
         {
-            var apiKey = _configuration["OpenRouter:ApiKey"] ??
-                         Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
-            var model = _configuration["OpenRouter:Model"] ?? "z-ai/glm-5.2:free";
+            var apiKey = _configuration["DeepSeek:ApiKey"] ??
+                         Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ??
+                         "sk-cccd16c9552348cda60e0ed362840130";
+            var model = _configuration["DeepSeek:Model"] ?? "deepseek-chat";
+            var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
 
             if (string.IsNullOrWhiteSpace(apiKey))
             {
-                _logger.LogWarning("OpenRouter API key is not configured. Returning fallback response.");
+                _logger.LogWarning("DeepSeek API key is not configured. Returning fallback response.");
                 return new ChatResponseDto
                 {
                     Success = true,
-                    Reply =
-                        "[Dev Mode Simulation] I am ready to help you draft your spec! Please provide an OpenRouter API key in configuration to enable live AI chat."
+                    Reply = "[Dev Mode Simulation] I am ready to help you draft your spec! Please provide a DeepSeek API key in configuration."
                 };
             }
 
             var requestBody = BuildPayload(model, systemPrompt, history, stream: false);
-            using var request = new HttpRequestMessage(HttpMethod.Post, "https://openrouter.ai/api/v1/chat/completions");
+            using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
             request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
@@ -58,11 +59,11 @@ public class OpenRouterService : IOpenRouterService
             if (jsonNode?["error"] != null || !response.IsSuccessStatusCode)
             {
                 var errMessage = jsonNode?["error"]?["message"]?.ToString() ?? content;
-                _logger.LogWarning("OpenRouter response warning/error: {Error}. Providing fallback response.", errMessage);
+                _logger.LogWarning("DeepSeek API warning/error: {Error}. Providing fallback response.", errMessage);
                 return new ChatResponseDto
                 {
                     Success = true,
-                    Reply = $"[AI Assistant] Understood your request: '{history.LastOrDefault()?.Content}'. I am incorporating these rules into the project spec preview."
+                    Reply = $"[DeepSeek AI] Understood your request: '{history.LastOrDefault()?.Content}'. Incorporating these rules into project spec draft preview."
                 };
             }
 
@@ -75,7 +76,7 @@ public class OpenRouterService : IOpenRouterService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to call OpenRouter API");
+            _logger.LogError(ex, "Failed to call DeepSeek API");
             return new ChatResponseDto
             {
                 Success = false,
@@ -89,12 +90,13 @@ public class OpenRouterService : IOpenRouterService
         List<ChatMessageDto> history,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var apiKey = _configuration["OpenRouter:ApiKey"] ?? Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
-        var model = _configuration["OpenRouter:Model"] ?? "z-ai/glm-5.2:free";
+        var apiKey = _configuration["DeepSeek:ApiKey"] ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "sk-cccd16c9552348cda60e0ed362840130";
+        var model = _configuration["DeepSeek:Model"] ?? "deepseek-chat";
+        var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
-            var fallbackMessage = "[Dev Mode Simulation] Streaming AI response: I am ready to help you answer technical questions! Enter an OpenRouter API Key for live AI token streaming.";
+            var fallbackMessage = "[DeepSeek Simulation] Streaming response: Ready to assist with spec generation. Enter a DeepSeek API key to enable live streaming.";
             foreach (var word in fallbackMessage.Split(' '))
             {
                 yield return word + " ";
@@ -104,7 +106,7 @@ public class OpenRouterService : IOpenRouterService
         }
 
         var requestBody = BuildPayload(model, systemPrompt, history, stream: true);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://openrouter.ai/api/v1/chat/completions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
@@ -196,7 +198,7 @@ public class OpenRouterService : IOpenRouterService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not parse JSON output from AI response. Falling back to structured extraction.");
+            _logger.LogWarning(ex, "Could not parse JSON output from DeepSeek AI response. Falling back to structured extraction.");
         }
 
         return FallbackStructuredSpec(history);
