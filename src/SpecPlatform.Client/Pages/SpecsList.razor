@@ -48,6 +48,11 @@
                     <span class="material-symbols-outlined" style="font-size: 18px;">history</span>
                     <span>Version History (v@masterSpec.CurrentVersionNumber)</span>
                 </button>
+
+                <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="ExportPdfAsync" title="Download Complete Business Specification PDF">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">picture_as_pdf</span>
+                    <span>Export PDF Spec</span>
+                </button>
             }
         </div>
     </div>
@@ -112,6 +117,10 @@
                     </div>
 
                     <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="ExportPdfAsync" title="Download Complete Business Specification PDF">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">picture_as_pdf</span>
+                            <span>Download PDF</span>
+                        </button>
                         <button class="btn btn-sm btn-secondary-spec font-mono d-flex align-items-center gap-1" @onclick="OpenAiWorkspace">
                             <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
                             <span>Brainstorm Update</span>
@@ -160,8 +169,8 @@
                             {
                                 var criterion = masterSpec.CurrentAcceptanceCriteria[i];
                                 <div class="bento-criteria-card d-flex align-items-start gap-3">
-                                    <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">AC-@(i+1)</span>
-                                    <div class="text-on-surface lh-base fs-sm">@criterion</div>
+                                    <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">AC-@(i + 1)</span>
+                                    <div class="text-on-surface lh-base fs-sm text-white">@criterion</div>
                                 </div>
                             }
                         </div>
@@ -186,7 +195,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label text-on-surface-variant small font-mono fw-semibold">Spec Title</label>
-                        <input type="text" class="form-control form-control-adaptive" placeholder="e.g. Submit Loan Application" @bind="specFormTitle" />
+                        <input type="text" class="form-control form-control-adaptive" placeholder="e.g. Submit Loan Application" @bind="specFormTitle"/>
                     </div>
                     <div class="mb-3">
                         <label class="form-label text-on-surface-variant small font-mono fw-semibold">Description</label>
@@ -204,8 +213,10 @@
                             var idx = i;
                             <div class="input-group mb-2">
                                 <span class="input-group-text bg-surface-container-low border-outline-variant text-on-surface-variant font-mono fs-xs">#(idx+1)</span>
-                                <input type="text" class="form-control form-control-adaptive" placeholder="Criterion rule..." @bind="specFormCriteria[idx]" />
-                                <button class="btn btn-outline-danger" @onclick="() => specFormCriteria.RemoveAt(idx)"><i class="bi bi-trash"></i></button>
+                                <input type="text" class="form-control form-control-adaptive" placeholder="Criterion rule..." @bind="specFormCriteria[idx]"/>
+                                <button class="btn btn-outline-danger" @onclick="() => specFormCriteria.RemoveAt(idx)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </div>
                         }
                     </div>
@@ -213,7 +224,7 @@
                     <!-- Scope Tags -->
                     <div class="mb-3">
                         <label class="form-label text-on-surface-variant small font-mono fw-semibold">Scope Tags (Comma-separated)</label>
-                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="e.g. api, bff, mfe, db" @bind="specFormTagsRaw" />
+                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="e.g. api, bff, mfe, db" @bind="specFormTagsRaw"/>
                     </div>
                 </div>
                 <div class="modal-footer border-top border-outline-variant">
@@ -263,11 +274,14 @@
                 {
                     selectedProjectId = projects.First().Id;
                 }
+
                 selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
                 await LoadSpecs();
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async Task OnProjectSelected(ChangeEventArgs e)
@@ -392,4 +406,25 @@
             await LoadSpecs();
         }
     }
+
+    private async Task ExportPdfAsync()
+    {
+        if (masterSpec == null || selectedProject == null) return;
+
+        var payload = new
+        {
+            id = masterSpec.Id,
+            projectName = selectedProject.Name,
+            title = masterSpec.Title,
+            description = masterSpec.Description,
+            version = masterSpec.CurrentVersionNumber,
+            status = masterSpec.Status,
+            criteria = masterSpec.CurrentAcceptanceCriteria,
+            tags = masterSpec.CurrentScopeTags,
+            exportDate = DateTime.Now.ToString("dd MMM yyyy HH:mm")
+        };
+
+        await JS.InvokeVoidAsync("exportSpecToPdf", payload);
+    }
+
 }
