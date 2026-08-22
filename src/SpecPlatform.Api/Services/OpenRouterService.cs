@@ -376,7 +376,27 @@ public class OpenRouterService : IOpenRouterService
 
         foreach (var msg in history)
         {
-            messages.Add(new { role = msg.Role, content = msg.Content });
+            var content = msg.Content ?? "";
+            messages.Add(new { role = msg.Role, content = content });
+
+            // If assistant message contains MCQ answers, append an explicit User Answer message so the LLM sees the user's responses!
+            if (msg.Role == "assistant" && !string.IsNullOrWhiteSpace(content) && content.Contains("<!-- MCQ_ANSWER_"))
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(content, @"<!-- MCQ_ANSWER_(\d+): (.*?) -->");
+                if (matches.Count > 0)
+                {
+                    var userAnswers = new List<string>();
+                    foreach (System.Text.RegularExpressions.Match m in matches)
+                    {
+                        var qNum = m.Groups[1].Value;
+                        var ansText = m.Groups[2].Value;
+                        userAnswers.Add($"Question {qNum}: {ansText}");
+                    }
+
+                    var injectedUserMsg = $"[USER CONFIRMED ANSWERS & SELECTIONS FOR ABOVE QUESTIONS]:\n- " + string.Join("\n- ", userAnswers);
+                    messages.Add(new { role = "user", content = injectedUserMsg });
+                }
+            }
         }
 
         return new
