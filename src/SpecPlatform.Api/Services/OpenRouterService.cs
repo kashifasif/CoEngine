@@ -234,11 +234,25 @@ public class OpenRouterService : IOpenRouterService
             "5. If changeSummary is empty (brand new spec), omit it.\n" +
             "6. Output ONLY raw valid JSON matching the schema.";
 
-        var chatResult = await ChatAsync(promptText, history);
+        // Copy history and append explicit final User Action Prompt to trigger SRS JSON generation!
+        var historyWithTrigger = history.ToList();
+        historyWithTrigger.Add(new ChatMessageDto
+        {
+            Role = "user",
+            Content = "ACTION COMMAND: [Structure & Publish Specification]\n" +
+                      "Please analyze the ENTIRE conversation history above from the beginning, as well as ALL previous published version specifications (v1, v2, v3...).\n" +
+                      "Synthesize ALL brainstorming ideas, answered Q&A options, and previous version requirements into a SINGLE, exhaustive, production-grade Software Requirements Specification (SRS) JSON document matching the required schema now."
+        });
 
+        var chatResult = await ChatAsync(promptText, historyWithTrigger);
+        return ParseStructuredResult(chatResult, history, systemPrompt);
+    }
+
+    private StructuredSpecResultDto ParseStructuredResult(ChatResponseDto chatResult, List<ChatMessageDto> history, string systemPrompt = "")
+    {
         if (!chatResult.Success || string.IsNullOrWhiteSpace(chatResult.Reply))
         {
-            return FallbackStructuredSpec(history);
+            return FallbackStructuredSpec(history, systemPrompt);
         }
 
         try
@@ -351,7 +365,7 @@ public class OpenRouterService : IOpenRouterService
             _logger.LogWarning(ex, "Could not parse JSON output from DeepSeek AI response. Falling back to structured extraction.");
         }
 
-        return FallbackStructuredSpec(history);
+        return FallbackStructuredSpec(history, systemPrompt);
     }
 
     private static string CleanText(string text)
@@ -406,12 +420,12 @@ public class OpenRouterService : IOpenRouterService
         };
     }
 
-    private static StructuredSpecResultDto FallbackStructuredSpec(List<ChatMessageDto> history)
+    private static StructuredSpecResultDto FallbackStructuredSpec(List<ChatMessageDto> history, string systemPrompt = "")
     {
         var userMessages = history
             .Where(m => m.Role == "user" && !string.IsNullOrWhiteSpace(m.Content))
             .Select(m => m.Content.Trim())
-            .Where(u => !u.StartsWith("Option") && !u.StartsWith("Skip"))
+            .Where(u => !u.StartsWith("Option") && !u.StartsWith("Skip") && !u.StartsWith("ACTION COMMAND"))
             .ToList();
 
         var title = userMessages.FirstOrDefault() ?? "Master Feature Specification";
@@ -420,6 +434,7 @@ public class OpenRouterService : IOpenRouterService
         var summaryText = userMessages.Any() ? userMessages.First() : "Synthesized feature specification.";
         var extractedCriteria = new List<string>();
 
+        // 1. Extract requirements from chat history
         foreach (var msg in history)
         {
             if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.StartsWith("ℹ️") || msg.Content.StartsWith("⚠️"))
@@ -440,6 +455,24 @@ public class OpenRouterService : IOpenRouterService
             }
         }
 
+        // 2. Also extract requirements from systemPrompt (previous published versions v1, v2...)
+        if (!string.IsNullOrWhiteSpace(systemPrompt))
+        {
+            var promptLines = systemPrompt.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in promptLines)
+            {
+                var trimmed = line.Trim();
+                if (trimmed.StartsWith("- ") || trimmed.StartsWith("* ") || trimmed.StartsWith("AC-") || trimmed.StartsWith("👤") || trimmed.StartsWith("❓"))
+                {
+                    var cleanItem = System.Text.RegularExpressions.Regex.Replace(trimmed, @"^[-*\s]+", "").Trim();
+                    if (!string.IsNullOrWhiteSpace(cleanItem) && !extractedCriteria.Contains(cleanItem))
+                    {
+                        extractedCriteria.Add(cleanItem);
+                    }
+                }
+            }
+        }
+
         if (!extractedCriteria.Any())
         {
             extractedCriteria = userMessages.Skip(1).Select(u => u.Length > 120 ? u.Substring(0, 120) + "..." : u).ToList();
@@ -449,7 +482,7 @@ public class OpenRouterService : IOpenRouterService
         {
             Title = title,
             Description = summaryText,
-            AcceptanceCriteria = extractedCriteria.Take(10).ToList(),
+            AcceptanceCriteria = extractedCriteria.ToList(),
             ScopeTags = new List<string> { "api", "bff", "mfe" }
         };
     }
