@@ -9,13 +9,13 @@
 <div class="d-flex flex-column flex-lg-row h-100 bg-background" style="min-height: calc(100vh - 64px);">
 
     <!-- Left Panel: Chat Interface (Matching theme/ai_brainstorming_chat/code.html) -->
-    <section class="flex-grow-1 d-flex flex-column border-end border-outline-variant bg-surface-dim p-0" style="max-width: 48%; min-width: 360px;">
+    <section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all" style="@(isPreviewCollapsed ? "width: 100%; max-width: 100%; flex-grow: 1;" : $"width: calc(100% - {previewWidthPx}px); min-width: 340px; flex-grow: 1;")">
         
         <!-- Chat Header -->
         <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low">
             <div class="d-flex align-items-center gap-2">
                 <span class="material-symbols-outlined text-primary-custom" style="font-size: 22px;">psychology</span>
-                <h5 class="fw-bold text-on-surface mb-0 font-ui">SpecAI Assistant Studio</h5>
+                <h5 class="fw-bold text-on-surface mb-0 font-ui me-2">SpecAI Assistant Studio</h5>
             </div>
             
             <div class="d-flex align-items-center gap-2">
@@ -25,6 +25,12 @@
                         <option value="@p.Id">@p.Name</option>
                     }
                 </select>
+
+                <!-- Toggle Live Spec Preview Panel Button -->
+                <button class="btn btn-sm @(isPreviewCollapsed ? "btn-primary-spec" : "btn-outline-secondary") font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5" @onclick="TogglePreviewPanel" title="@(isPreviewCollapsed ? "Expand Live Spec Preview Panel" : "Collapse Live Spec Preview Panel")">
+                    <span class="material-symbols-outlined" style="font-size: 16px;">@(isPreviewCollapsed ? "dock_to_left" : "dock_to_right")</span>
+                    <span class="d-none d-sm-inline">@(isPreviewCollapsed ? "Show Spec Preview" : "Hide Spec Preview")</span>
+                </button>
 
                 <button class="btn btn-sm btn-secondary-spec p-1" @onclick="ClearChat" title="Clear DB History">
                     <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
@@ -66,7 +72,7 @@
             {
                 @foreach (var msg in chatMessages)
                 {
-                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || string.IsNullOrWhiteSpace(msg.Content));
+                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
                     <div class="d-flex gap-3 @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
                         @if (msg.Role != "user")
                         {
@@ -91,45 +97,91 @@
                             }
                             else
                             {
-                                <div style="white-space: pre-wrap;" class="small lh-base mb-2">@msg.Content</div>
+                                var parsedQuestions = (msg.Role == "assistant") ? ParseQuestionOptions(msg.Content) : new List<ParsedQuestion>();
 
-                                @if (msg.Role == "assistant" && !isThinking)
+                                @if (!parsedQuestions.Any())
                                 {
-                                    var parsedQuestions = ParseQuestionOptions(msg.Content);
-                                    if (parsedQuestions.Any())
-                                    {
-                                        <div class="mt-3 pt-2 border-top border-outline-variant d-flex flex-column gap-3">
-                                            @foreach (var q in parsedQuestions)
-                                            {
-                                                <div class="p-2.5 bg-surface-container-lowest border border-outline-variant rounded-3">
-                                                    <div class="fw-semibold text-on-surface fs-xs mb-2">
-                                                        <span class="badge bg-primary-container text-on-primary-container font-mono me-1">Q@q.Number</span>
+                                    <div style="white-space: pre-wrap;" class="small lh-base mb-2">@CleanAnswerTags(msg.Content)</div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex flex-column gap-3">
+                                        @foreach (var q in parsedQuestions)
+                                        {
+                                            var qKey = $"{msg.Content.GetHashCode()}_{q.Number}";
+                                            bool isEditingManual = activeManualInputQKey == qKey;
+
+                                            <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 shadow-xs">
+                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                    <div class="fw-semibold text-on-surface fs-xs">
+                                                        <span class="badge bg-primary-container text-on-primary-container font-mono me-1.5">Q@(q.Number)</span>
                                                         @q.QuestionText
                                                     </div>
                                                     
-                                                    <!-- Suggested Options & Actions -->
-                                                    <div class="d-flex flex-wrap gap-1.5 align-items-center">
-                                                        @foreach (var opt in q.Options)
-                                                        {
-                                                            <button class="btn btn-sm btn-outline-secondary font-mono fs-xs py-1 px-2.5 rounded-pill" @onclick="() => SelectOptionAnswer(q.Number, opt)" disabled="@isThinking">
-                                                                @opt
-                                                            </button>
-                                                        }
-                                                        
-                                                        <!-- Manual Answer Option -->
-                                                        <button class="btn btn-sm btn-outline-primary font-mono fs-xs py-1 px-2.5 rounded-pill d-flex align-items-center gap-1" @onclick="() => SelectManualAnswer(q.Number)" disabled="@isThinking" title="Type custom manual response">
-                                                            <span>✍️ Manual Answer</span>
+                                                    @if (!string.IsNullOrEmpty(q.SelectedAnswer))
+                                                    {
+                                                        <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-30 font-mono fs-xs">
+                                                            ✔ Answered
+                                                        </span>
+                                                    }
+                                                </div>
+                                                
+                                                <!-- Suggested Options & Action Buttons -->
+                                                <div class="d-flex flex-wrap gap-1.5 align-items-center">
+                                                    @foreach (var opt in q.Options)
+                                                    {
+                                                        bool isSelected = q.SelectedAnswer == opt;
+                                                        <button class="btn btn-sm @(isSelected ? "btn-success text-white fw-bold shadow-sm" : "btn-outline-secondary") font-mono fs-xs py-1 px-3 rounded-pill d-flex align-items-center gap-1"
+                                                                @onclick="() => SaveInlineMCQAnswer(msg, q.Number, opt)"
+                                                                disabled="@isThinking">
+                                                            @if (isSelected)
+                                                            {
+                                                                <span class="material-symbols-outlined" style="font-size: 14px;">check</span>
+                                                            }
+                                                            <span>@opt</span>
                                                         </button>
+                                                    }
+                                                    
+                                                    <!-- Manual Answer Option -->
+                                                    <button class="btn btn-sm @(q.SelectedAnswer.StartsWith("Manual:") ? "btn-primary text-white fw-bold shadow-sm" : "btn-outline-primary") font-mono fs-xs py-1 px-3 rounded-pill d-flex align-items-center gap-1"
+                                                            @onclick="() => ToggleManualInput(qKey)"
+                                                            disabled="@isThinking"
+                                                            title="Type custom manual response">
+                                                        <span class="material-symbols-outlined" style="font-size: 14px;">edit_note</span>
+                                                        <span>Manual Answer</span>
+                                                    </button>
 
-                                                        <!-- Skip Question Option -->
-                                                        <button class="btn btn-sm btn-outline-warning font-mono fs-xs py-1 px-2.5 rounded-pill d-flex align-items-center gap-1" @onclick="() => SkipQuestion(q.Number)" disabled="@isThinking" title="Mark as Not sure yet">
-                                                            <span>⏭️ Skip ("Not sure yet")</span>
+                                                    <!-- Skip Question Option -->
+                                                    <button class="btn btn-sm @(q.SelectedAnswer == "Not sure yet" ? "btn-warning text-dark fw-bold shadow-sm" : "btn-outline-warning") font-mono fs-xs py-1 px-3 rounded-pill d-flex align-items-center gap-1"
+                                                            @onclick="() => SkipInlineMCQQuestion(msg, q.Number)"
+                                                            disabled="@isThinking"
+                                                            title="Mark as Not sure yet">
+                                                        <span class="material-symbols-outlined" style="font-size: 14px;">forward</span>
+                                                        <span>Skip ("Not sure yet")</span>
+                                                    </button>
+                                                </div>
+
+                                                <!-- Inline Manual Answer Field -->
+                                                @if (isEditingManual)
+                                                {
+                                                    <div class="mt-2.5 p-2 bg-surface-container-low border border-outline-variant rounded-2 d-flex align-items-center gap-2">
+                                                        <input type="text" class="form-control form-control-sm form-control-adaptive font-mono fs-xs" placeholder="Type custom answer for Q@q.Number..." @bind="manualInputText" />
+                                                        <button class="btn btn-sm btn-primary font-mono fs-xs py-1 px-3" @onclick="() => SaveManualInputAnswer(msg, q.Number)">
+                                                            Save Selection
                                                         </button>
                                                     </div>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
+                                                }
+
+                                                <!-- Selected State Status Banner -->
+                                                @if (!string.IsNullOrEmpty(q.SelectedAnswer))
+                                                {
+                                                    <div class="mt-2 font-mono fs-xs text-secondary-custom d-flex align-items-center gap-1">
+                                                        <strong>Selection Saved:</strong> <span>@q.SelectedAnswer</span>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 }
                             }
                         </div>
@@ -168,20 +220,31 @@
 
     </section>
 
-    <!-- Right Panel: Live Draft Preview (Matching theme/ai_brainstorming_chat/code.html) -->
-    <section class="flex-grow-1 d-flex flex-column bg-background p-4 relative overflow-auto" style="min-width: 400px;">
-        
-        <!-- Live Sync Header -->
-        <div class="pb-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center mb-4">
-            <h5 class="fw-bold text-on-surface mb-0 d-flex align-items-center gap-2">
-                <span class="material-symbols-outlined text-secondary-custom">visibility</span> Live Draft Preview
-            </h5>
+    @if (!isPreviewCollapsed)
+    {
+        <!-- Right Panel: Live Draft Preview (Matching theme/ai_brainstorming_chat/code.html) -->
+        <section class="d-flex flex-column bg-background p-4 relative overflow-auto border-start border-outline-variant transition-all" style="width: @(previewWidthPx)px; min-width: 320px;">
+            
+            <!-- Live Sync Header & Resizing Controls -->
+            <div class="pb-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center mb-4">
+                <h5 class="fw-bold text-on-surface mb-0 d-flex align-items-center gap-2">
+                    <span class="material-symbols-outlined text-secondary-custom">visibility</span> Live Draft Preview
+                </h5>
 
-            <div class="d-flex align-items-center gap-2 font-mono fs-xs text-secondary-custom">
-                <span class="spinner-grow spinner-grow-sm text-secondary-custom"></span>
-                <span>Synced with chat</span>
+                <div class="d-flex align-items-center gap-2">
+                    <!-- Layout Width Controls: 360px / 480px / 640px -->
+                    <div class="btn-group btn-group-sm font-mono fs-xs">
+                        <button class="btn btn-xs @(previewWidthPx == 360 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(360)" title="Compact preview width (360px)">360px</button>
+                        <button class="btn btn-xs @(previewWidthPx == 480 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(480)" title="Standard preview width (480px)">480px</button>
+                        <button class="btn btn-xs @(previewWidthPx == 640 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(640)" title="Wide preview width (640px)">640px</button>
+                    </div>
+
+                    <!-- Close/Collapse Button -->
+                    <button class="btn btn-sm btn-link text-on-surface-variant p-0 text-decoration-none ms-1" @onclick="TogglePreviewPanel" title="Hide Spec Preview Panel">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
+                    </button>
+                </div>
             </div>
-        </div>
 
         <div class="d-flex flex-column gap-4 flex-grow-1">
 
@@ -253,6 +316,7 @@
         </div>
 
     </section>
+    }
 
 </div>
 
@@ -279,6 +343,21 @@
     };
 
     private bool isStructuring = false;
+
+    // Panel Toggle & Resizing state
+    private bool isPreviewCollapsed = false;
+    private int previewWidthPx = 480;
+
+    private void TogglePreviewPanel()
+    {
+        isPreviewCollapsed = !isPreviewCollapsed;
+    }
+
+    private void SetPreviewWidth(int widthPx)
+    {
+        previewWidthPx = widthPx;
+        isPreviewCollapsed = false;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -420,6 +499,25 @@
 
         if (!chatMessages.Any()) return;
 
+        // Remove previous UNANSWERED clarification block if user triggers clarification again
+        for (int i = chatMessages.Count - 1; i >= 0; i--)
+        {
+            var msg = chatMessages[i];
+            if (msg.Role == "assistant")
+            {
+                var questions = ParseQuestionOptions(msg.Content);
+                if (questions.Any() && !questions.Any(q => !string.IsNullOrEmpty(q.SelectedAnswer)))
+                {
+                    chatMessages.RemoveAt(i);
+                    if (i - 1 >= 0 && chatMessages[i - 1].Role == "user" && chatMessages[i - 1].Content.Contains("clarifying questions"))
+                    {
+                        chatMessages.RemoveAt(i - 1);
+                    }
+                }
+                break;
+            }
+        }
+
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
         chatMessages.Add(assistantMsg);
 
@@ -554,11 +652,18 @@
         }
     }
 
+    private static string CleanAnswerTags(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return "";
+        return System.Text.RegularExpressions.Regex.Replace(content, @"\s*<!-- MCQ_ANSWER_\d+: .*? -->", "").Trim();
+    }
+
     public class ParsedQuestion
     {
         public int Number { get; set; }
         public string QuestionText { get; set; } = "";
         public List<string> Options { get; set; } = new();
+        public string SelectedAnswer { get; set; } = "";
     }
 
     private static List<ParsedQuestion> ParseQuestionOptions(string content)
@@ -566,60 +671,119 @@
         var list = new List<ParsedQuestion>();
         if (string.IsNullOrWhiteSpace(content)) return list;
 
-        var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
-        ParsedQuestion? currentQuestion = null;
-
-        foreach (var line in lines)
+        try
         {
-            var trimmed = line.Trim();
-            var matchQ = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(\d+)[\.\)]\s*(.+)");
-            if (matchQ.Success)
+            var displayContent = CleanAnswerTags(content);
+            var lines = displayContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+            ParsedQuestion? currentQuestion = null;
+
+            foreach (var line in lines)
             {
-                if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
+                var trimmed = line.Trim();
+
+                // Match options first (A), B), C), D))
+                var matchOpt = System.Text.RegularExpressions.Regex.Match(trimmed, @"^[-*\s]*([A-D])[\.\)]\s*(.+)");
+                if (matchOpt.Success && currentQuestion != null)
                 {
-                    list.Add(currentQuestion);
+                    var letter = matchOpt.Groups[1].Value;
+                    var optText = matchOpt.Groups[2].Value.Trim('*', '_', ' ');
+                    currentQuestion.Options.Add($"{letter}) {optText}");
+                    continue;
                 }
-                currentQuestion = new ParsedQuestion
+
+                // Match question lines like 1. ..., **1.** ..., Q1: ..., **Question 1:** ..., - 1. ...
+                var matchQ = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(?:[-*\s])*?[*_]*(?:Q|Question\s*)?(\d+)[\.\):]*[*_]*\s*(.+)");
+                if (matchQ.Success)
                 {
-                    Number = int.Parse(matchQ.Groups[1].Value),
-                    QuestionText = matchQ.Groups[2].Value
-                };
-                continue;
+                    var qNumStr = matchQ.Groups[1].Value;
+                    var qTextClean = matchQ.Groups[2].Value.Trim('*', '_', ' ', ':');
+
+                    if (!string.IsNullOrWhiteSpace(qTextClean))
+                    {
+                        if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
+                        {
+                            list.Add(currentQuestion);
+                        }
+
+                        int qNum = int.TryParse(qNumStr, out var n) ? n : (list.Count + 1);
+
+                        currentQuestion = new ParsedQuestion
+                        {
+                            Number = qNum,
+                            QuestionText = qTextClean
+                        };
+
+                        var matchAns = System.Text.RegularExpressions.Regex.Match(content, $@"<!-- MCQ_ANSWER_{qNum}: (.*?) -->");
+                        if (matchAns.Success)
+                        {
+                            currentQuestion.SelectedAnswer = matchAns.Groups[1].Value.Trim();
+                        }
+
+                        continue;
+                    }
+                }
             }
 
-            var matchOpt = System.Text.RegularExpressions.Regex.Match(trimmed, @"^[-*\s]*([A-D])[\.\)]\s*(.+)");
-            if (matchOpt.Success && currentQuestion != null)
+            if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
             {
-                var letter = matchOpt.Groups[1].Value;
-                var optText = matchOpt.Groups[2].Value;
-                currentQuestion.Options.Add($"{letter}) {optText}");
+                list.Add(currentQuestion);
+            }
+
+            // Guarantee clean 1, 2, 3... numbering if numbers were missing or non-positive
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Number <= 0)
+                {
+                    list[i].Number = i + 1;
+                }
             }
         }
-
-        if (currentQuestion != null && !string.IsNullOrWhiteSpace(currentQuestion.QuestionText))
+        catch
         {
-            list.Add(currentQuestion);
+            // Fail-safe to prevent any regex error from breaking WebAssembly renderer
         }
 
         return list;
     }
 
-    private async Task SelectOptionAnswer(int qNum, string optionText)
+    private string activeManualInputQKey = "";
+    private string manualInputText = "";
+
+    private void ToggleManualInput(string qKey)
     {
-        if (isThinking) return;
-        userPromptInput = $"Q{qNum}: {optionText}";
-        await SendChatMessage(false);
+        if (activeManualInputQKey == qKey)
+        {
+            activeManualInputQKey = "";
+        }
+        else
+        {
+            activeManualInputQKey = qKey;
+            manualInputText = "";
+        }
     }
 
-    private void SelectManualAnswer(int qNum)
-    {
-        userPromptInput = $"Q{qNum}: ";
-    }
-
-    private async Task SkipQuestion(int qNum)
+    private async Task SaveInlineMCQAnswer(ChatMessageDto msg, int qNum, string answerValue)
     {
         if (isThinking) return;
-        userPromptInput = $"Q{qNum}: Not sure yet";
-        await SendChatMessage(false);
+
+        var pattern = $@"<!-- MCQ_ANSWER_{qNum}: .*? -->";
+        msg.Content = System.Text.RegularExpressions.Regex.Replace(msg.Content, pattern, "");
+        msg.Content = msg.Content.Trim() + $"\n<!-- MCQ_ANSWER_{qNum}: {answerValue} -->";
+
+        activeManualInputQKey = "";
+        await SaveDbChatSession();
+        StateHasChanged();
+    }
+
+    private async Task SaveManualInputAnswer(ChatMessageDto msg, int qNum)
+    {
+        if (string.IsNullOrWhiteSpace(manualInputText)) return;
+        var val = $"Manual: {manualInputText.Trim()}";
+        await SaveInlineMCQAnswer(msg, qNum, val);
+    }
+
+    private async Task SkipInlineMCQQuestion(ChatMessageDto msg, int qNum)
+    {
+        await SaveInlineMCQAnswer(msg, qNum, "Not sure yet");
     }
 }

@@ -114,7 +114,7 @@
             {
                 @foreach (var msg in chatMessages)
                 {
-                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || string.IsNullOrWhiteSpace(msg.Content));
+                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
                     <div class="d-flex @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
                         <div class="p-3 shadow-sm @(msg.Role == "user" ? "chat-bubble-user" : "chat-bubble-ai")" style="max-width: 85%;">
                             <div class="d-flex align-items-center justify-content-between mb-1 opacity-75 fs-xs fw-semibold">
