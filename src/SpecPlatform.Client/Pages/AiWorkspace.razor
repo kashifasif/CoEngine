@@ -111,13 +111,13 @@
         <!-- Chat Input Bar -->
         <div class="p-3 border-top border-outline-variant bg-surface-container-lowest">
             <div class="input-group">
-                <input type="text" class="form-control form-control-adaptive" placeholder="Describe a requirement or ask a question..." @bind="userPromptInput" @bind:event="oninput" @onkeyup="HandleKeyUp" disabled="@isThinking" />
+                <textarea class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe a requirement or ask a question..." @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
                 <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="SendChatMessage" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
                     <span class="material-symbols-outlined">send</span>
                 </button>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-2 font-mono fs-xs text-on-surface-variant">
-                <span><span class="material-symbols-outlined" style="font-size: 14px;">keyboard</span> Press Enter to send</span>
+                <span><span class="material-symbols-outlined" style="font-size: 14px;">keyboard</span> Press Enter to send (Shift + Enter for new line)</span>
                 <span class="badge bg-surface-container border border-outline-variant">/suggest</span>
             </div>
         </div>
@@ -190,20 +190,20 @@
 
         </div>
 
-        <!-- Footer Action Button (Structure into Spec) -->
+        <!-- Footer Action Button (Publish to Master Specification) -->
         <div class="pt-3 border-top border-outline-variant mt-4 d-flex justify-content-between align-items-center">
-            <span class="font-mono text-on-surface-variant fs-xs">Status: <strong class="text-secondary-custom">Live Preview Active</strong></span>
+            <span class="font-mono text-on-surface-variant fs-xs">Status: <strong class="text-secondary-custom">Brainstorming Workbench Active</strong></span>
             
             <button class="btn btn-primary-spec font-mono py-2.5 px-4 d-flex align-items-center gap-2" @onclick="StructureIntoSpec" disabled="@isStructuring">
                 @if (isStructuring)
                 {
                     <span class="spinner-border spinner-border-sm me-1"></span>
-                    <span>Structuring...</span>
+                    <span>Publishing Master Spec...</span>
                 }
                 else
                 {
-                    <span class="material-symbols-outlined">save_as</span>
-                    <span>Structure into Spec</span>
+                    <span class="material-symbols-outlined">publish</span>
+                    <span>Structure & Publish Spec</span>
                 }
             </button>
         </div>
@@ -316,7 +316,7 @@
         userPromptInput = text;
     }
 
-    private async Task HandleKeyUp(KeyboardEventArgs e)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !e.ShiftKey)
         {
@@ -438,13 +438,13 @@
                 if (result.AcceptanceCriteria.Any()) draftCriteria = result.AcceptanceCriteria;
             }
 
-            // Save structured spec as new draft in DB!
-            await ApiClient.CreateSpecAsync(selectedProjectId, new CreateSpecDto
+            // Publish structured requirements to Project's Single Master Specification & Log Version Snapshot!
+            var publishedSpec = await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
             {
                 Title = draftTitle,
                 Description = draftDesc,
                 AcceptanceCriteria = draftCriteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
-                ScopeTags = new List<string> { "api", "security", "bff" }
+                ScopeTags = new List<string> { "api", "security", "workflow" }
             });
 
             Nav.NavigateTo($"/specs/{selectedProjectId}");

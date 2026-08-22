@@ -78,6 +78,16 @@ public class SpecApiClient
         return null;
     }
 
+    public async Task<SpecDto?> PublishMasterSpecAsync(int projectId, CreateSpecDto dto)
+    {
+        var response = await _http.PostAsJsonAsync($"api/projects/{projectId}/publish-master-spec", dto);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<SpecDto>();
+        }
+        return null;
+    }
+
     public async Task<SpecDto?> UpdateSpecAsync(int id, UpdateSpecDto dto)
     {
         var response = await _http.PutAsJsonAsync($"api/specs/{id}", dto);

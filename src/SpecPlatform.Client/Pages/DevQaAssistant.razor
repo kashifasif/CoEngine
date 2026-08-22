@@ -157,7 +157,7 @@
         <!-- Chat Input & Controls Bar -->
         <div class="pt-2 border-top">
             <div class="input-group input-group-lg">
-                <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @bind:event="oninput" @onkeyup="HandleKeyUp" disabled="@isThinking"></textarea>
+                <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
                 <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendDevQaQuery" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
                     @if (isThinking)
                     {
@@ -281,7 +281,7 @@
         userPromptInput = promptText;
     }
 
-    private async Task HandleKeyUp(KeyboardEventArgs e)
+    private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !e.ShiftKey)
         {

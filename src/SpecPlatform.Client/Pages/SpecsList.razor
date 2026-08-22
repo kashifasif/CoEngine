@@ -6,7 +6,7 @@
 
 <div class="p-4 d-flex flex-column gap-4">
 
-    <!-- Header & Breadcrumbs Section (Matching theme/project_specifications/code.html) -->
+    <!-- Header & Controls Section -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end pb-3 border-bottom border-outline-variant gap-3">
         <div>
             <!-- Breadcrumbs -->
@@ -16,8 +16,8 @@
                 <span class="text-on-surface fw-semibold">@(selectedProject?.Name ?? "Select Project")</span>
             </div>
 
-            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 38px; letter-spacing: -0.02em;">Specifications</h1>
-            <p class="text-on-surface-variant mb-0 small">Manage and review technical requirements for the loan approval flow.</p>
+            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 34px; letter-spacing: -0.02em;">Project Specification</h1>
+            <p class="text-on-surface-variant mb-0 small">Single master technical specification for @(selectedProject?.Name ?? "this project").</p>
         </div>
 
         <!-- Actions Bar -->
@@ -32,24 +32,27 @@
                 {
                     @foreach (var proj in projects)
                     {
-                        <option value="@proj.Id">📁 @proj.Name (@proj.SpecCount specs)</option>
+                        <option value="@proj.Id">📁 @proj.Name</option>
                     }
                 }
             </select>
 
-            <button class="btn btn-secondary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenAiWorkspace">
+            <button class="btn btn-secondary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenAiWorkspace" title="Brainstorm and refine requirements in AI Workspace">
                 <span class="material-symbols-outlined" style="font-size: 18px;">psychology</span>
-                <span>AI Workspace</span>
+                <span>AI Brainstorming Workspace</span>
             </button>
 
-            <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenCreateSpecModal" disabled="@(selectedProject == null)">
-                <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
-                <span>New Specification</span>
-            </button>
+            @if (masterSpec != null)
+            {
+                <button class="btn btn-outline-primary font-mono d-flex align-items-center gap-1.5" @onclick="OpenVersionHistory" title="View Version Diff Inspector">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">history</span>
+                    <span>Version History (v@masterSpec.CurrentVersionNumber)</span>
+                </button>
+            }
         </div>
     </div>
 
-    <!-- Milestone 4 Notification Alert Banner -->
+    <!-- Notification Banner -->
     @if (!string.IsNullOrEmpty(notificationAlert))
     {
         <div class="alert bg-surface-container-high border border-success text-on-surface d-flex align-items-center justify-content-between p-3 rounded-3 shadow-sm mb-0">
@@ -63,92 +66,109 @@
         </div>
     }
 
-    <!-- Content Area - Specs List Grid (Matching theme/project_specifications/code.html) -->
+    <!-- Single Master Specification View -->
     @if (selectedProject != null)
     {
-        <div class="spec-table-container shadow-sm">
-            <!-- Table Header -->
-            <div class="row g-0 p-3 spec-table-header">
-                <div class="col-5">Spec Title</div>
-                <div class="col-2">Status</div>
-                <div class="col-2">Version</div>
-                <div class="col-3">Scope Tags</div>
+        if (isLoadingSpecs)
+        {
+            <div class="p-5 text-center text-on-surface-variant font-mono">
+                <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                <div>Loading specification for @selectedProject.Name...</div>
             </div>
-
-            <!-- Table Rows -->
-            @if (isLoadingSpecs)
-            {
-                <div class="p-5 text-center text-on-surface-variant font-mono">
-                    <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-                    <div>Loading specifications for @selectedProject.Name...</div>
+        }
+        else if (masterSpec == null)
+        {
+            <div class="p-5 text-center border-dashed my-3 rounded-3 glass-card">
+                <span class="material-symbols-outlined text-on-surface-variant mb-2" style="font-size: 48px;">description</span>
+                <h5 class="fw-bold text-on-surface mb-2">No master specification published yet for @selectedProject.Name</h5>
+                <p class="text-on-surface-variant small font-mono mb-4 max-w-md mx-auto" style="max-width: 500px;">
+                    Use the AI Brainstorming Workspace to raw-draft features with the AI. Upon publishing, requirements automatically synthesize into this master specification.
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <button class="btn btn-primary-spec font-mono px-4 py-2" @onclick="OpenAiWorkspace">
+                        🧠 Start Brainstorming in AI Workspace
+                    </button>
                 </div>
-            }
-            else if (!specs.Any())
-            {
-                <div class="p-5 text-center border-dashed my-3">
-                    <span class="material-symbols-outlined text-on-surface-variant mb-2" style="font-size: 48px;">description</span>
-                    <h6 class="fw-bold text-on-surface mb-1">No specifications created yet in @selectedProject.Name</h6>
-                    <p class="text-on-surface-variant small font-mono mb-3">Create your first specification or use the AI Workspace to brainstorm requirements.</p>
-                    <div class="d-flex justify-content-center gap-2">
-                        <button class="btn btn-secondary-spec font-mono" @onclick="OpenAiWorkspace">
-                            💡 Open AI Workspace
+            </div>
+        }
+        else
+        {
+            <div class="glass-card p-4 d-flex flex-column gap-4">
+                <!-- Title & Metadata Bar -->
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start border-bottom border-outline-variant pb-3 gap-3">
+                    <div>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <span class="badge bg-primary bg-opacity-15 text-indigo border border-indigo border-opacity-30 font-mono fs-xs">
+                                ID: SPEC-00@masterSpec.Id
+                            </span>
+                            <span class="@(masterSpec.Status == "Published" ? "badge-published" : "badge-draft")">
+                                @masterSpec.Status
+                            </span>
+                            <span class="badge bg-surface-container border border-outline-variant font-mono text-on-surface fs-xs">
+                                Latest Version: v@masterSpec.CurrentVersionNumber
+                            </span>
+                        </div>
+                        <h2 class="fw-bold text-on-surface mb-1">@masterSpec.Title</h2>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-secondary-spec font-mono d-flex align-items-center gap-1" @onclick="OpenAiWorkspace">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                            <span>Brainstorm Update</span>
                         </button>
-                        <button class="btn btn-primary-spec font-mono" @onclick="OpenCreateSpecModal">
-                            + Create First Spec
+                        <button class="btn btn-sm btn-outline-danger p-1.5" @onclick="() => ConfirmDeleteSpec(masterSpec)" title="Delete Specification">
+                            <span class="material-symbols-outlined text-danger" style="font-size: 16px;">delete</span>
                         </button>
                     </div>
                 </div>
-            }
-            else
-            {
-                @foreach (var spec in specs)
+
+                <!-- Description Block -->
+                <div>
+                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">MASTER SPECIFICATION DESCRIPTION</h6>
+                    <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 text-on-surface lh-base" style="white-space: pre-wrap;">
+                        @masterSpec.Description
+                    </div>
+                </div>
+
+                <!-- Scope Tags -->
+                @if (masterSpec.CurrentScopeTags.Any())
                 {
-                    <div class="row g-0 p-3 items-center spec-table-row">
-                        <!-- Title & ID -->
-                        <div class="col-5 d-flex flex-column pe-2 cursor-pointer" @onclick="() => OpenSpecEditor(spec.Id)">
-                            <span class="fw-medium text-on-surface fs-6 mb-1 text-primary-hover">@spec.Title</span>
-                            <span class="font-mono text-on-surface-variant fs-xs">ID: LA-REQ-00@spec.Id</span>
-                        </div>
-
-                        <!-- Status Badge -->
-                        <div class="col-2">
-                            <span class="@(spec.Status == "Published" ? "badge-published" : "badge-draft")">
-                                @spec.Status
-                            </span>
-                        </div>
-
-                        <!-- Version Number -->
-                        <div class="col-2 font-mono text-on-surface">
-                            v@(spec.CurrentVersionNumber).(spec.Status == "Published" ? "0" : "draft")
-                        </div>
-
-                        <!-- Scope Tags & Actions -->
-                        <div class="col-3 d-flex align-items-center justify-content-between">
-                            <div class="d-flex gap-1.5 flex-wrap">
-                                @foreach (var tag in spec.CurrentScopeTags.Take(3))
-                                {
-                                    <span class="scope-tag-item">
-                                        @GetTagIcon(tag) @tag
-                                    </span>
-                                }
-                            </div>
-
-                            <div class="d-flex gap-1 ms-2">
-                                <button class="btn btn-sm btn-secondary-spec p-1.5" @onclick="() => OpenSpecEditor(spec.Id)" title="Edit Spec & View Version History">
-                                    <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
-                                </button>
-                                <button class="btn btn-sm btn-success text-white p-1.5" @onclick="() => PublishSpec(spec.Id)" disabled="@isPublishing" title="Publish Spec Version">
-                                    <span class="material-symbols-outlined" style="font-size: 16px;">publish</span>
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger p-1.5" @onclick="() => ConfirmDeleteSpec(spec)" title="Delete Specification">
-                                    <span class="material-symbols-outlined text-danger" style="font-size: 16px;">delete</span>
-                                </button>
-                            </div>
+                    <div>
+                        <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">SCOPE TAGS</h6>
+                        <div class="d-flex gap-2 flex-wrap">
+                            @foreach (var tag in masterSpec.CurrentScopeTags)
+                            {
+                                <span class="scope-tag-item fs-xs">
+                                    @GetTagIcon(tag) @tag
+                                </span>
+                            }
                         </div>
                     </div>
                 }
-            }
-        </div>
+
+                <!-- Acceptance Criteria List -->
+                <div>
+                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">ACCEPTANCE CRITERIA (@masterSpec.CurrentAcceptanceCriteria.Count)</h6>
+                    @if (!masterSpec.CurrentAcceptanceCriteria.Any())
+                    {
+                        <p class="text-on-surface-variant font-mono fs-xs">No acceptance criteria defined.</p>
+                    }
+                    else
+                    {
+                        <div class="d-flex flex-column gap-2">
+                            @for (int i = 0; i < masterSpec.CurrentAcceptanceCriteria.Count; i++)
+                            {
+                                var criterion = masterSpec.CurrentAcceptanceCriteria[i];
+                                <div class="bento-criteria-card d-flex align-items-start gap-3">
+                                    <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">AC-@(i+1)</span>
+                                    <div class="text-on-surface lh-base fs-sm">@criterion</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
     }
 
 </div>
@@ -274,9 +294,23 @@
         }
     }
 
+    private SpecDto? masterSpec => specs.FirstOrDefault();
+
     private void OpenAiWorkspace()
     {
         Nav.NavigateTo($"/ai-workspace/{selectedProjectId}");
+    }
+
+    private void OpenVersionHistory()
+    {
+        if (masterSpec != null)
+        {
+            Nav.NavigateTo($"/versions/{masterSpec.Id}");
+        }
+        else
+        {
+            Nav.NavigateTo("/versions");
+        }
     }
 
     private void OpenSpecEditor(int specId)
