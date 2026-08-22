@@ -106,48 +106,80 @@ public class OpenRouterService : IOpenRouterService
         }
 
         var requestBody = BuildPayload(model, systemPrompt, history, stream: true);
-        using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+        
+        StreamReader? reader = null;
+        HttpResponseMessage? response = null;
+        string? errorText = null;
 
-        using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            var errContent = await response.Content.ReadAsStringAsync(cancellationToken);
-            yield return $"[Error HTTP {(int)response.StatusCode}: {errContent}]";
+            var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                errorText = $"[API Warning {(int)response.StatusCode}: {errContent}]. Please try clicking Retry Answer below.";
+            }
+            else
+            {
+                var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                reader = new StreamReader(stream, Encoding.UTF8);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DeepSeek API stream connection exception.");
+            errorText = $"[HTTP Error 500: DeepSeek connection timeout - {ex.Message}]";
+        }
+
+        if (!string.IsNullOrEmpty(errorText))
+        {
+            response?.Dispose();
+            yield return errorText;
             yield break;
         }
 
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        string? line;
-        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        if (reader != null)
         {
-            if (cancellationToken.IsCancellationRequested) break;
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            if (line.StartsWith("data: "))
+            try
             {
-                var data = line.Substring(6).Trim();
-                if (data == "[DONE]") break;
-
-                string? chunk = null;
-                try
+                string? line;
+                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    var node = JsonNode.Parse(data);
-                    chunk = node?["choices"]?[0]?["delta"]?["content"]?.ToString();
-                }
-                catch { }
+                    if (cancellationToken.IsCancellationRequested) break;
+                    if (string.IsNullOrWhiteSpace(line)) continue;
 
-                if (!string.IsNullOrEmpty(chunk))
-                {
-                    chunk = CleanText(chunk);
-                    if (!string.IsNullOrEmpty(chunk))
+                    if (line.StartsWith("data: "))
                     {
-                        yield return chunk;
+                        var data = line.Substring(6).Trim();
+                        if (data == "[DONE]") break;
+
+                        string? chunk = null;
+                        try
+                        {
+                            var node = JsonNode.Parse(data);
+                            chunk = node?["choices"]?[0]?["delta"]?["content"]?.ToString();
+                        }
+                        catch { }
+
+                        if (!string.IsNullOrEmpty(chunk))
+                        {
+                            chunk = CleanText(chunk);
+                            if (!string.IsNullOrEmpty(chunk))
+                            {
+                                yield return chunk;
+                            }
+                        }
                     }
                 }
+            }
+            finally
+            {
+                reader.Dispose();
+                response?.Dispose();
             }
         }
     }

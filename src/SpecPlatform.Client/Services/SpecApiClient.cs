@@ -167,28 +167,35 @@ public class SpecApiClient
         Action<string> onChunkReceived,
         CancellationToken cancellationToken = default)
     {
-        var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/draft/chat/stream")
+        try
         {
-            Content = JsonContent.Create(request)
-        };
+            var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/draft/chat/stream")
+            {
+                Content = JsonContent.Create(request)
+            };
 
-        using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            onChunkReceived($"[HTTP Error {(int)response.StatusCode}]");
-            return;
+            using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                onChunkReceived($"[HTTP Error {(int)response.StatusCode}] Unable to reach AI Service.");
+                return;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            var buffer = new char[512];
+            int read;
+            while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                var textChunk = new string(buffer, 0, read);
+                onChunkReceived(textChunk);
+            }
         }
-
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        var buffer = new char[512];
-        int read;
-        while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0 && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
         {
-            var textChunk = new string(buffer, 0, read);
-            onChunkReceived(textChunk);
+            onChunkReceived($"\n[HTTP Error 500] {ex.Message}");
         }
     }
 
@@ -199,28 +206,35 @@ public class SpecApiClient
         Action<string> onChunkReceived,
         CancellationToken cancellationToken = default)
     {
-        var request = new DevQaQueryRequestDto { ProjectId = projectId, RoleMode = roleMode, Messages = messages };
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/query/chat/stream")
+        try
         {
-            Content = JsonContent.Create(request)
-        };
+            var request = new DevQaQueryRequestDto { ProjectId = projectId, RoleMode = roleMode, Messages = messages };
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/query/chat/stream")
+            {
+                Content = JsonContent.Create(request)
+            };
 
-        using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            onChunkReceived($"[HTTP Error {(int)response.StatusCode}]");
-            return;
+            using var response = await _http.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                onChunkReceived($"[HTTP Error {(int)response.StatusCode}] Unable to reach Q/A Mode AI Service.");
+                return;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+
+            var buffer = new char[512];
+            int read;
+            while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0 && !cancellationToken.IsCancellationRequested)
+            {
+                var textChunk = new string(buffer, 0, read);
+                onChunkReceived(textChunk);
+            }
         }
-
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        var buffer = new char[512];
-        int read;
-        while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0 && !cancellationToken.IsCancellationRequested)
+        catch (Exception ex)
         {
-            var textChunk = new string(buffer, 0, read);
-            onChunkReceived(textChunk);
+            onChunkReceived($"\n[HTTP Error 500] {ex.Message}");
         }
     }
 

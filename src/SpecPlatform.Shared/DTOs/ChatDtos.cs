@@ -15,7 +15,7 @@ public class ChatRequestDto
 public class DevQaQueryRequestDto
 {
     public int ProjectId { get; set; }
-    public string RoleMode { get; set; } = "dev"; // dev or qa
+    public string RoleMode { get; set; } = "qa_mode"; // qa_mode
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 

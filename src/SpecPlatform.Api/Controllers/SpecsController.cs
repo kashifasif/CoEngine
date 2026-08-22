@@ -625,23 +625,15 @@ public class SpecsController : ControllerBase
         var vectorMatches = allVectorMatches.Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
 
         var specContext = new StringBuilder();
-        specContext.AppendLine($"--- PROJECT SPECIFICATIONS KNOWLEDGE BASE ---");
+        specContext.AppendLine($"--- ALL LATEST PROJECT SPECIFICATIONS (FULL LATEST REQUIREMENTS) ---");
 
-        if (vectorMatches.Any())
-        {
-            foreach (var match in vectorMatches)
-            {
-                specContext.AppendLine($"\n[Spec Match | Title: {match.Title} | Similarity Score: {match.SimilarityScore:F2}]");
-                specContext.AppendLine($"Content: {match.Content}");
-            }
-        }
-        else if (project?.Specs != null && project.Specs.Any())
+        if (project?.Specs != null && project.Specs.Any())
         {
             foreach (var spec in project.Specs)
             {
                 var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
-                specContext.AppendLine($"\nSpec Title: {spec.Title} (Status: {spec.Status})");
+                specContext.AppendLine($"\n[Spec #{spec.Id} | Title: {spec.Title} | Status: {spec.Status} | Latest Version: v{latestVer?.VersionNumber ?? 0}]");
                 specContext.AppendLine($"Description: {spec.Description}");
 
                 if (latestVer?.AcceptanceCriteria.Any() == true)
@@ -660,16 +652,23 @@ public class SpecsController : ControllerBase
         }
         else
         {
-            specContext.AppendLine("\n[Notice: No specifications exist for this project yet. Please create or enter a specification first.]");
+            specContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
         }
 
-        string roleInstructions = request.RoleMode == "qa"
-            ? $"You are a Senior QA Test Automation Lead AI Assistant for Project: '{projectName}'. Help QA Engineers define test scenarios, edge cases, negative test conditions, Gherkin Given-When-Then syntax, and regression test suites BASED STRICTLY ON THE PROJECT SPECIFICATIONS ABOVE."
-            : $"You are a Lead Software Architect & Senior Developer AI Assistant for Project: '{projectName}'. Help Developers understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, and exception handling BASED STRICTLY ON THE PROJECT SPECIFICATIONS ABOVE.";
+        if (vectorMatches.Any())
+        {
+            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE VECTOR MATCHES ---");
+            foreach (var match in vectorMatches)
+            {
+                specContext.AppendLine($"[Vector Match: {match.Title} | Similarity: {match.SimilarityScore:F2}] {match.Content}");
+            }
+        }
+
+        string roleInstructions = $"You are an expert AI Technical Specification Q&A Assistant for Project: '{projectName}'. Help Developers, QA Engineers, Product Managers, and Team Members understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, test scenarios, edge cases, and business logic BASED ON THE LATEST PROJECT SPECIFICATIONS ABOVE.";
 
         var systemPrompt = $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}).\n" +
                            "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
-                           $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\nGoal: Answer the query accurately based strictly on the Specifications above.";
+                           $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\nGoal: Answer the query accurately based on the Specifications above.";
 
         await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, request.Messages, cancellationToken))
         {
