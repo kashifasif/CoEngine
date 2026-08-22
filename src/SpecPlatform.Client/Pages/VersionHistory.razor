@@ -28,7 +28,7 @@
                 {
                     @foreach (var s in specs)
                     {
-                        <option value="@s.Id">@s.Title (v@s.CurrentVersionNumber)</option>
+                        <option value="@s.Id">@s.Title (v@(s.CurrentVersionNumber))</option>
                     }
                 }
             </select>
@@ -50,7 +50,7 @@
                 <select class="form-select form-select-sm form-control-adaptive font-mono" style="width: 90px;" @bind="v1">
                     @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
                     {
-                        <option value="@v.VersionNumber">v@v.VersionNumber</option>
+                        <option value="@v.VersionNumber">v@(v.VersionNumber)</option>
                     }
                 </select>
 
@@ -60,7 +60,7 @@
                 <select class="form-select form-select-sm form-control-adaptive font-mono" style="width: 90px;" @bind="v2">
                     @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
                     {
-                        <option value="@v.VersionNumber">v@v.VersionNumber</option>
+                        <option value="@v.VersionNumber">v@(v.VersionNumber)</option>
                     }
                 </select>
 
@@ -75,7 +75,7 @@
         {
             <div class="p-5 text-center text-on-surface-variant font-mono">
                 <div class="spinner-border spinner-border-sm text-primary me-2"></div>
-                Analyzing version diff between v@v1 and v@v2...
+                Analyzing version diff between v@(v1) and v@(v2)...
             </div>
         }
         else if (diffResult != null)
@@ -138,7 +138,7 @@
                     {
                         <div class="list-group-item bg-transparent text-on-surface p-3 border-bottom border-outline-variant d-flex align-items-center justify-content-between">
                             <div>
-                                <span class="badge bg-primary-container text-on-primary-container font-mono me-2">v@ver.VersionNumber</span>
+                                <span class="badge bg-primary-container text-on-primary-container font-mono me-2">v@(ver.VersionNumber)</span>
                                 <span class="fw-semibold small">@ver.Content</span>
                             </div>
                             <span class="text-on-surface-variant font-mono fs-xs">@ver.PublishedAt.ToLocalTime().ToString("g")</span>

@@ -1,3 +1,15 @@
+window.getChatInputValue = function (elementId) {
+    var el = document.getElementById(elementId);
+    return el ? el.value : '';
+};
+
+window.clearChatInputValue = function (elementId) {
+    var el = document.getElementById(elementId);
+    if (el) {
+        el.value = '';
+    }
+};
+
 window.exportSpecToPdf = function (spec) {
     var printWindow = window.open('', '_blank', 'width=950,height=1100');
     if (!printWindow) {

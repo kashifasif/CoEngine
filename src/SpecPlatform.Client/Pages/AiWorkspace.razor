@@ -202,8 +202,8 @@
         <!-- Chat Input Bar -->
         <div class="p-3 border-top border-outline-variant bg-surface-container-lowest">
             <div class="input-group mb-2">
-                <textarea class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe your feature idea freely in Phase 1 (Listening Mode)..." @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="() => SendChatMessage(false)" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))" title="Send brainstorming text (Phase 1 Listening Mode)">
+                <textarea id="aiWorkspaceInput" class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe your feature idea freely in Phase 1 (Listening Mode)..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="() => SendChatMessage(false)" disabled="@isThinking" title="Send brainstorming text (Phase 1 Listening Mode)">
                     <span class="material-symbols-outlined">send</span>
                 </button>
             </div>
@@ -459,10 +459,14 @@
 
     private async Task SendChatMessage(bool isClarificationPhase = false)
     {
-        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
+        if (selectedProjectId == 0 || isThinking) return;
 
-        var prompt = userPromptInput.Trim();
+        var domVal = await JS.InvokeAsync<string>("getChatInputValue", "aiWorkspaceInput");
+        var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
         userPromptInput = "";
+        await JS.InvokeVoidAsync("clearChatInputValue", "aiWorkspaceInput");
 
         chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
@@ -678,7 +682,7 @@
             {
                 if (!string.IsNullOrWhiteSpace(result.Title)) draftTitle = result.Title;
                 if (!string.IsNullOrWhiteSpace(result.Description)) draftDesc = result.Description;
-                if (result.AcceptanceCriteria.Any()) draftCriteria = result.AcceptanceCriteria;
+                if (result.AcceptanceCriteria != null && result.AcceptanceCriteria.Any()) draftCriteria = result.AcceptanceCriteria;
             }
 
             // Publish structured requirements to Project's Single Master Specification & Log Version Snapshot!
@@ -687,7 +691,7 @@
                 Title = draftTitle,
                 Description = draftDesc,
                 AcceptanceCriteria = draftCriteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
-                ScopeTags = new List<string> { "api", "security", "workflow" }
+                ScopeTags = result?.ScopeTags?.Any() == true ? result.ScopeTags : new List<string> { "bff", "api", "mfe" }
             });
 
             Nav.NavigateTo($"/specs/{selectedProjectId}");

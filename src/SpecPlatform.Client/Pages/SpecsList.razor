@@ -46,7 +46,7 @@
             {
                 <button class="btn btn-outline-primary font-mono d-flex align-items-center gap-1.5" @onclick="OpenVersionHistory" title="View Version Diff Inspector">
                     <span class="material-symbols-outlined" style="font-size: 18px;">history</span>
-                    <span>Version History (v@masterSpec.CurrentVersionNumber)</span>
+                    <span>Version History (v@(masterSpec.CurrentVersionNumber))</span>
                 </button>
 
                 <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="ExportPdfAsync" title="Download Complete Business Specification PDF">
@@ -110,7 +110,7 @@
                                 @masterSpec.Status
                             </span>
                             <span class="badge bg-surface-container border border-outline-variant font-mono text-on-surface fs-xs">
-                                Latest Version: v@masterSpec.CurrentVersionNumber
+                                Latest Version: v@(masterSpec.CurrentVersionNumber)
                             </span>
                         </div>
                         <h2 class="fw-bold text-on-surface mb-1">@masterSpec.Title</h2>
@@ -155,9 +155,9 @@
                     </div>
                 }
 
-                <!-- Acceptance Criteria List -->
+                <!-- Functional & Acceptance Criteria List -->
                 <div>
-                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">ACCEPTANCE CRITERIA (@masterSpec.CurrentAcceptanceCriteria.Count)</h6>
+                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">FUNCTIONAL & ACCEPTANCE CRITERIA (@masterSpec.CurrentAcceptanceCriteria.Count)</h6>
                     @if (!masterSpec.CurrentAcceptanceCriteria.Any())
                     {
                         <p class="text-on-surface-variant font-mono fs-xs">No acceptance criteria defined.</p>
@@ -168,10 +168,30 @@
                             @for (int i = 0; i < masterSpec.CurrentAcceptanceCriteria.Count; i++)
                             {
                                 var criterion = masterSpec.CurrentAcceptanceCriteria[i];
-                                <div class="bento-criteria-card d-flex align-items-start gap-3">
-                                    <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">AC-@(i + 1)</span>
-                                    <div class="text-on-surface lh-base fs-sm text-white">@criterion</div>
-                                </div>
+                                @if (criterion.StartsWith("👤") || criterion.StartsWith("📋") || criterion.StartsWith("###"))
+                                {
+                                    <div class="p-3 bg-surface-container border border-primary-custom rounded-3 text-primary-custom fw-bold fs-sm mt-2">
+                                        @criterion
+                                    </div>
+                                }
+                                else if (criterion.StartsWith("❓"))
+                                {
+                                    <div class="p-3 bg-warning-subtle border border-warning rounded-3 text-warning-emphasis fs-sm d-flex align-items-start gap-2">
+                                        <span class="material-symbols-outlined fs-base mt-0.5">help</span>
+                                        <div>@criterion</div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="bento-criteria-card d-flex align-items-start gap-3">
+                                        <span class="badge bg-primary-container text-on-primary-container font-mono fs-xs mt-0.5">
+                                            @(criterion.StartsWith("AC-") ? criterion.Split(':')[0] : $"AC-{(i + 1)}")
+                                        </span>
+                                        <div class="text-on-surface lh-base fs-sm text-white">
+                                            @(criterion.StartsWith("AC-") && criterion.Contains(":") ? criterion.Substring(criterion.IndexOf(':') + 1).Trim() : criterion)
+                                        </div>
+                                    </div>
+                                }
                             }
                         </div>
                     }

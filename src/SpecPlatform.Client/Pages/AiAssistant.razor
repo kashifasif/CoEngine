@@ -111,8 +111,8 @@
                 <!-- Input Box -->
                 <div class="pt-2 border-top">
                     <div class="input-group input-group-lg">
-                        <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="Describe a requirement, user story, or API constraint..." @bind="userPromptInput" @bind:event="oninput" @onkeyup="HandleKeyUp" disabled="@isThinking"></textarea>
-                        <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendChatMessage" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
+                        <textarea id="aiAssistantInput" class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="Describe a requirement, user story, or API constraint..." @bind="userPromptInput" @onkeyup="HandleKeyUp" disabled="@isThinking"></textarea>
+                        <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendChatMessage" disabled="@isThinking">
                             @if (isThinking)
                             {
                                 <span class="spinner-border spinner-border-sm me-1"></span>
@@ -291,10 +291,14 @@
 
     private async Task SendChatMessage()
     {
-        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
+        if (selectedProjectId == 0 || isThinking) return;
 
-        var prompt = userPromptInput.Trim();
+        var domVal = await JS.InvokeAsync<string>("getChatInputValue", "aiAssistantInput");
+        var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
         userPromptInput = "";
+        await JS.InvokeVoidAsync("clearChatInputValue", "aiAssistantInput");
 
         chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };

@@ -186,18 +186,57 @@ public class OpenRouterService : IOpenRouterService
 
     public async Task<StructuredSpecResultDto> StructureIntoSpecAsync(string systemPrompt, List<ChatMessageDto> history)
     {
-        var structureInstruction =
-            "\n\nCRITICAL INSTRUCTION: Examine the entire conversation history above very carefully. Extract EVERY requirement, technical constraint (e.g. max file size limits, file formats, timeout values, status codes), user story, and business rule discussed by the user or assistant.\n" +
-            "Format the result into clean JSON with the exact structure:\n" +
+        var promptText =
+            "You are an expert Lead Requirements Architect and Technical Product Owner. Your ONLY job is to write a comprehensive, production-grade Software Requirements Specification (SRS) in Agile format — either creating a new SRS, or merging changes into an existing published version.\n\n" +
+            systemPrompt + "\n\n" +
+            "You will be given:\n" +
+            "1. EXISTING SPEC (if this is a revision — omit entirely if brand new): the last published version, including its current userStories, acceptanceCriteria, scopeTags, and unresolved openQuestions.\n" +
+            "2. NEW CONVERSATION: the full brainstorming transcript consisting of:\n" +
+            "   - Free-form feature brainstorming described by the PO/BA (Phase 1)\n" +
+            "   - Clarifying questions, answers, selected options (A, B, C...), and items marked 'Not sure yet' (Phase 2)\n\n" +
+            "YOUR TASK: Read the entire conversation history and existing specification very carefully. Produce a FULL, IN-DEPTH Software Requirements Specification (SRS) using ONLY the information actually provided or established in previous versions.\n\n" +
+            "EXHAUSTIVE REQUIREMENT SYNTHESIS & MERGE RULES:\n" +
+            "1. NO SUMMARIES: Do NOT generate brief overviews or short summaries. Produce full, detailed requirement documentation.\n" +
+            "2. Q&A SYNTHESIS: Convert EVERY answer, selected option (A, B, C...), and detail discussed in clarification Q&A into explicit, formal requirements and testable acceptance criteria.\n" +
+            "3. PRESERVE & MERGE PAST SCOPE: If an EXISTING SPEC is provided, preserve all existing requirements and user stories that were NOT contradicted or changed. Update or override previous rules if the new conversation specifies updated behavior.\n" +
+            "4. RESOLVE OPEN QUESTIONS: If a question in the existing spec's 'openQuestions' was answered, convert it into an acceptance criterion and remove it from 'openQuestions'.\n" +
+            "5. UNRESOLVED ITEMS: Any question marked 'Not sure yet' or left unanswered MUST appear in 'openQuestions'.\n" +
+            "6. CHANGE LOG: Track added, modified, or removed items in 'changeSummary'.\n\n" +
+            "OUTPUT FORMAT — respond with ONLY valid JSON matching this exact schema (no markdown code fences, no preamble):\n\n" +
             "{\n" +
-            "  \"title\": \"Feature Title\",\n" +
-            "  \"description\": \"Detailed description of the feature including all technical scope and constraints discussed\",\n" +
-            "  \"acceptanceCriteria\": [\"Criterion 1 (must explicitly state any specific limits/sizes/rules discussed)\", \"Criterion 2\"],\n" +
-            "  \"scopeTags\": [\"bff\", \"api\", \"mfe\"]\n" +
-            "}\nReturn ONLY valid raw JSON with no markdown wrapping.";
+            "  \"epicTitle\": \"Complete Feature SRS Title\",\n" +
+            "  \"epicDescription\": \"Full Software Requirements Specification (SRS) Document formatted in clean Markdown detailing:\\n\\n## 1. Executive Business Overview & Scope\\n- Business Goal & Target Personas\\n- System Boundaries & Value Proposition\\n\\n## 2. System Architecture & Workflow Logic\\n- Data Flow & Business Logic Rules\\n- API Interactions & Integration Constraints\\n\\n## 3. Non-Functional Requirements (NFRs)\\n- Security, Role-Based Access & MFA Rules\\n- SLA, Performance & Error Payload Standards\",\n" +
+            "  \"userStories\": [\n" +
+            "    {\n" +
+            "      \"title\": \"User Story Title\",\n" +
+            "      \"asA\": \"the role/persona\",\n" +
+            "      \"iWant\": \"what they want to do\",\n" +
+            "      \"soThat\": \"the benefit/reason\",\n" +
+            "      \"acceptanceCriteria\": [\n" +
+            "        \"AC-1: Specific testable criterion detailing exact business validation, API status, or UI behavior\",\n" +
+            "        \"AC-2: Additional testable criterion\"\n" +
+            "      ],\n" +
+            "      \"scopeTags\": [\"bff\", \"api\", \"mfe\", \"security\", \"workflow\"]\n" +
+            "    }\n" +
+            "  ],\n" +
+            "  \"openQuestions\": [\n" +
+            "    \"Unresolved question item\"\n" +
+            "  ],\n" +
+            "  \"changeSummary\": [\n" +
+            "    \"Added: <item>\",\n" +
+            "    \"Modified: <item>\",\n" +
+            "    \"Removed: <item>\"\n" +
+            "  ]\n" +
+            "}\n\n" +
+            "STRICT RULES:\n" +
+            "1. Output FULL, comprehensive SRS documentation. Do NOT summarize.\n" +
+            "2. Break features into distinct user stories with numbered acceptance criteria (AC-1, AC-2...).\n" +
+            "3. Assign scopeTags strictly from what was discussed or present in existing spec.\n" +
+            "4. Do NOT invent unstated scope or assumptions.\n" +
+            "5. If changeSummary is empty (brand new spec), omit it.\n" +
+            "6. Output ONLY raw valid JSON matching the schema.";
 
-        var fullSystemPrompt = systemPrompt + structureInstruction;
-        var chatResult = await ChatAsync(fullSystemPrompt, history);
+        var chatResult = await ChatAsync(promptText, history);
 
         if (!chatResult.Success || string.IsNullOrWhiteSpace(chatResult.Reply))
         {
@@ -207,25 +246,106 @@ public class OpenRouterService : IOpenRouterService
         try
         {
             var rawText = chatResult.Reply.Trim();
-            if (rawText.StartsWith("```json"))
+            int firstBrace = rawText.IndexOf('{');
+            int lastBrace = rawText.LastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace)
             {
-                rawText = rawText.Substring(7);
+                rawText = rawText.Substring(firstBrace, lastBrace - firstBrace + 1);
             }
-            if (rawText.StartsWith("```"))
-            {
-                rawText = rawText.Substring(3);
-            }
-            if (rawText.EndsWith("```"))
-            {
-                rawText = rawText.Substring(0, rawText.Length - 3);
-            }
-            rawText = rawText.Trim();
 
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var parsed = JsonSerializer.Deserialize<StructuredSpecResultDto>(rawText, options);
-            if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Title))
+            using var doc = JsonDocument.Parse(rawText);
+            var root = doc.RootElement;
+
+            string title = root.TryGetProperty("epicTitle", out var tProp) ? tProp.GetString() ?? "" : "";
+            string desc = root.TryGetProperty("epicDescription", out var dProp) ? dProp.GetString() ?? "" : "";
+
+            var allCriteria = new List<string>();
+            var allTags = new List<string>();
+
+            if (root.TryGetProperty("userStories", out var storiesProp) && storiesProp.ValueKind == JsonValueKind.Array)
             {
-                return parsed;
+                foreach (var story in storiesProp.EnumerateArray())
+                {
+                    string sTitle = story.TryGetProperty("title", out var stp) ? stp.GetString() ?? "" : "";
+                    string asA = story.TryGetProperty("asA", out var asProp) ? asProp.GetString() ?? "" : "";
+                    string iWant = story.TryGetProperty("iWant", out var iwProp) ? iwProp.GetString() ?? "" : "";
+                    string soThat = story.TryGetProperty("soThat", out var sthProp) ? sthProp.GetString() ?? "" : "";
+
+                    if (!string.IsNullOrWhiteSpace(asA) && !string.IsNullOrWhiteSpace(iWant))
+                    {
+                        var storyLine = $"👤 **User Story: {(string.IsNullOrWhiteSpace(sTitle) ? "Feature Capability" : sTitle)}** — As a *{asA}*, I want *{iWant}* so that *{soThat}*";
+                        allCriteria.Add(storyLine);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(sTitle))
+                    {
+                        allCriteria.Add($"📋 **User Story:** {sTitle}");
+                    }
+
+                    if (story.TryGetProperty("acceptanceCriteria", out var acProp) && acProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var ac in acProp.EnumerateArray())
+                        {
+                            var acVal = ac.GetString();
+                            if (!string.IsNullOrWhiteSpace(acVal))
+                            {
+                                var cleanAc = acVal.Trim();
+                                allCriteria.Add(cleanAc);
+                            }
+                        }
+                    }
+
+                    if (story.TryGetProperty("scopeTags", out var tagProp) && tagProp.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var tag in tagProp.EnumerateArray())
+                        {
+                            var tVal = tag.GetString();
+                            if (!string.IsNullOrWhiteSpace(tVal) && !allTags.Contains(tVal.Trim()))
+                            {
+                                allTags.Add(tVal.Trim());
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (root.TryGetProperty("openQuestions", out var oqProp) && oqProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var oq in oqProp.EnumerateArray())
+                {
+                    var oqVal = oq.GetString();
+                    if (!string.IsNullOrWhiteSpace(oqVal))
+                    {
+                        allCriteria.Add($"❓ **Open Business Question:** {oqVal.Trim()}");
+                    }
+                }
+            }
+
+            if (root.TryGetProperty("changeSummary", out var csProp) && csProp.ValueKind == JsonValueKind.Array)
+            {
+                var csItems = new List<string>();
+                foreach (var cs in csProp.EnumerateArray())
+                {
+                    var csVal = cs.GetString();
+                    if (!string.IsNullOrWhiteSpace(csVal))
+                    {
+                        csItems.Add(csVal.Trim());
+                    }
+                }
+                if (csItems.Any())
+                {
+                    desc += "\n\n**📌 Version Release & Revision Notes:**\n- " + string.Join("\n- ", csItems);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                return new StructuredSpecResultDto
+                {
+                    Title = title,
+                    Description = desc,
+                    AcceptanceCriteria = allCriteria,
+                    ScopeTags = allTags.Any() ? allTags : new List<string> { "api", "bff", "mfe" }
+                };
             }
         }
         catch (Exception ex)
@@ -251,7 +371,7 @@ public class OpenRouterService : IOpenRouterService
     {
         var messages = new List<object>
         {
-            new { role = "system", content = systemPrompt + "\nRespond strictly in clean Markdown format." }
+            new { role = "system", content = systemPrompt }
         };
 
         foreach (var msg in history)
@@ -270,27 +390,49 @@ public class OpenRouterService : IOpenRouterService
 
     private static StructuredSpecResultDto FallbackStructuredSpec(List<ChatMessageDto> history)
     {
-        var lastUserMsg = history.LastOrDefault(m => m.Role == "user")?.Content ?? "New Feature Specification";
-        var title = lastUserMsg.Length > 50 ? lastUserMsg.Substring(0, 50) + "..." : lastUserMsg;
-
-        var extractedCriteria = history
-            .Where(m => !string.IsNullOrWhiteSpace(m.Content))
+        var userMessages = history
+            .Where(m => m.Role == "user" && !string.IsNullOrWhiteSpace(m.Content))
             .Select(m => m.Content.Trim())
-            .Take(5)
+            .Where(u => !u.StartsWith("Option") && !u.StartsWith("Skip"))
             .ToList();
+
+        var title = userMessages.FirstOrDefault() ?? "Master Feature Specification";
+        if (title.Length > 60) title = title.Substring(0, 60) + "...";
+
+        var summaryText = userMessages.Any() ? userMessages.First() : "Synthesized feature specification.";
+        var extractedCriteria = new List<string>();
+
+        foreach (var msg in history)
+        {
+            if (string.IsNullOrWhiteSpace(msg.Content) || msg.Content.StartsWith("ℹ️") || msg.Content.StartsWith("⚠️"))
+                continue;
+
+            var lines = msg.Content.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var line in lines)
+            {
+                var trimmed = line.Trim();
+                if ((trimmed.StartsWith("-") || trimmed.StartsWith("*") || System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^\d+[\.\)]")) && trimmed.Length > 10)
+                {
+                    var cleanItem = System.Text.RegularExpressions.Regex.Replace(trimmed, @"^[-*\d\.\)\s]+", "").Trim();
+                    if (!string.IsNullOrWhiteSpace(cleanItem) && !extractedCriteria.Contains(cleanItem) && !cleanItem.StartsWith("Option") && !cleanItem.StartsWith("Question") && !cleanItem.StartsWith("No clarifying questions"))
+                    {
+                        extractedCriteria.Add(cleanItem);
+                    }
+                }
+            }
+        }
+
+        if (!extractedCriteria.Any())
+        {
+            extractedCriteria = userMessages.Skip(1).Select(u => u.Length > 120 ? u.Substring(0, 120) + "..." : u).ToList();
+        }
 
         return new StructuredSpecResultDto
         {
             Title = title,
-            Description = $"Drafted from brainstorming session with {history.Count} messages.\n\nKey discussion points:\n- " +
-                string.Join("\n- ", history.Select(h => h.Content.Take(120).ToString())),
-            AcceptanceCriteria = extractedCriteria.Any() ? extractedCriteria : new List<string>
-            {
-                "User can view the feature dashboard",
-                "System validates input parameters before saving",
-                "Audit log records changes upon publishing"
-            },
-            ScopeTags = new List<string> { "api", "bff", "web" }
+            Description = summaryText,
+            AcceptanceCriteria = extractedCriteria.Take(10).ToList(),
+            ScopeTags = new List<string> { "api", "bff", "mfe" }
         };
     }
 }

@@ -157,8 +157,8 @@
         <!-- Chat Input & Controls Bar -->
         <div class="pt-2 border-top">
             <div class="input-group input-group-lg">
-                <textarea class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @bind:event="oninput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendDevQaQuery" disabled="@(isThinking || string.IsNullOrWhiteSpace(userPromptInput))">
+                <textarea id="devQaAssistantInput" class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendDevQaQuery" disabled="@isThinking">
                     @if (isThinking)
                     {
                         <span class="spinner-border spinner-border-sm me-1" role="status"></span>
@@ -291,10 +291,14 @@
 
     private async Task SendDevQaQuery()
     {
-        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(userPromptInput) || isThinking) return;
+        if (selectedProjectId == 0 || isThinking) return;
 
-        var prompt = userPromptInput.Trim();
+        var domVal = await JS.InvokeAsync<string>("getChatInputValue", "devQaAssistantInput");
+        var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
         userPromptInput = "";
+        await JS.InvokeVoidAsync("clearChatInputValue", "devQaAssistantInput");
 
         chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
 
