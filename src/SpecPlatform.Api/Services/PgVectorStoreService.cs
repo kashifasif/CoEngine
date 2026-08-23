@@ -14,7 +14,7 @@ public class PgVectorStoreService : IVectorStoreService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<PgVectorStoreService> _logger;
-    private static EmbeddingClient? _embeddingClient;
+    private static dynamic? _embeddingClient;
     private static bool _isInitializing = false;
     private static readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
 
@@ -24,7 +24,7 @@ public class PgVectorStoreService : IVectorStoreService
         _logger = logger;
     }
 
-    private async Task<EmbeddingClient?> GetEmbeddingClientAsync()
+    private async Task<dynamic?> GetEmbeddingClientAsync()
     {
         if (_embeddingClient != null) return _embeddingClient;
 
@@ -44,12 +44,13 @@ public class PgVectorStoreService : IVectorStoreService
             var catalog = await mgr.GetCatalogAsync();
             var model = await catalog.GetModelAsync("qwen3-embedding-0.6b") ?? throw new Exception("Model not found in Foundry Local Catalog");
 
-            // Foundry Local manages a local HTTP server that is OpenAI-compatible.
-            // We connect the standard OpenAI client to the Foundry Local endpoint.
-            var options = new OpenAI.OpenAIClientOptions();
-            options.Endpoint = new Uri("http://127.0.0.1:8080/v1");
+            _logger.LogInformation("Downloading model (if not cached)...");
+            await model.DownloadAsync();
             
-            _embeddingClient = new EmbeddingClient("text-embedding-model", new ApiKeyCredential("local-key"), options);
+            _logger.LogInformation("Loading model...");
+            await model.LoadAsync();
+            
+            _embeddingClient = await model.GetEmbeddingClientAsync();
             
             _logger.LogInformation("Foundry Local Embedding model initialized successfully.");
             return _embeddingClient;
@@ -81,7 +82,9 @@ public class PgVectorStoreService : IVectorStoreService
             }
 
             var response = await client.GenerateEmbeddingAsync(fullText);
-            var vector = response.Value.ToFloats().ToArray();
+            var embeddingList = response.Data[0].Embedding;
+            float[] vector = new float[embeddingList.Count];
+            for (int i = 0; i < embeddingList.Count; i++) vector[i] = (float)embeddingList[i];
             
             var id = Guid.NewGuid().ToString();
 
@@ -125,7 +128,9 @@ public class PgVectorStoreService : IVectorStoreService
             }
 
             var response = await client.GenerateEmbeddingAsync(query);
-            var queryVector = response.Value.ToFloats().ToArray();
+            var embeddingList = response.Data[0].Embedding;
+            float[] queryVector = new float[embeddingList.Count];
+            for (int i = 0; i < embeddingList.Count; i++) queryVector[i] = (float)embeddingList[i];
             
             var vectorString = "[" + string.Join(",", queryVector.Select(v => v.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
