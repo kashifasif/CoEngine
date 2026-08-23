@@ -37,7 +37,7 @@
                 <!-- Search bar (with shortcut hint ⌘K) -->
                 <div class="d-none d-lg-flex align-items-center bg-surface-container rounded-3 px-3 py-1 border border-outline-variant">
                     <span class="material-symbols-outlined text-on-surface-variant me-2" style="font-size: 18px;">search</span>
-                    <input type="text" class="bg-transparent border-0 text-on-surface text-sm font-mono placeholder-on-surface-variant focus-ring-none" style="outline: none; width: 160px;" placeholder="Search specs, APIs..." />
+                    <input type="text" class="bg-transparent border-0 text-on-surface text-sm font-mono placeholder-on-surface-variant focus-ring-none" style="outline: none; width: 160px;" placeholder="Search specs, APIs..."/>
                     <span class="badge bg-surface-container-high border border-outline-variant font-mono text-on-surface-variant ms-2" style="font-size: 10px;">⌘K</span>
                 </div>
 
@@ -69,7 +69,7 @@
                             <div class="position-relative">
                                 @if (!string.IsNullOrWhiteSpace(currentUser.AvatarUrl))
                                 {
-                                    <img src="@currentUser.AvatarUrl" class="rounded-circle border border-outline-variant" style="width: 34px; height: 34px; object-fit: cover;" alt="Avatar" />
+                                    <img src="@currentUser.AvatarUrl" class="rounded-circle border border-outline-variant" style="width: 34px; height: 34px; object-fit: cover;" alt="Avatar"/>
                                 }
                                 else
                                 {
@@ -86,7 +86,7 @@
                             <div class="dropdown-menu dropdown-menu-end show position-absolute mt-2 shadow-lg border border-outline-variant bg-surface-container font-ui" style="right: 0; min-width: 200px; z-index: 1050;">
                                 <div class="px-3 py-2 border-bottom border-outline-variant">
                                     <div class="fw-bold text-on-surface text-truncate">@currentUser.DisplayName</div>
-                                    <div class="text-on-surface-variant font-mono fs-xs text-truncate">@@currentUser.Username</div>
+                                    <div class="text-on-surface-variant font-mono fs-xs text-truncate">@(currentUser.Username)</div>
                                 </div>
                                 <button class="dropdown-item text-danger d-flex align-items-center gap-2 py-2 fs-sm font-mono cursor-pointer" @onclick="LogoutUser">
                                     <span class="material-symbols-outlined fs-sm">logout</span>
@@ -273,7 +273,9 @@
                 currentTheme = await JS.InvokeAsync<string>("themeManager.getTheme");
                 StateHasChanged();
             }
-            catch { }
+            catch
+            {
+            }
         }
     }
 
@@ -287,7 +289,9 @@
                 currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         if (currentUser == null)
         {
@@ -295,7 +299,9 @@
             {
                 currentUser = await ApiClient.GetCurrentUserAsync();
             }
-            catch { }
+            catch
+            {
+            }
         }
 
         if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.Token))
@@ -315,7 +321,9 @@
                 Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private void ToggleUserMenu()
@@ -331,7 +339,9 @@
             await ApiClient.LogoutAsync();
             await JS.InvokeVoidAsync("localStorage.removeItem", "spec_user_session");
         }
-        catch { }
+        catch
+        {
+        }
 
         currentUser = null;
         ApiClient.SetAuthToken(null);
@@ -349,7 +359,9 @@
                 selectedProjectName = projects.First().Name;
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async Task ToggleTheme()
@@ -386,11 +398,14 @@
         {
             notifications = await ApiClient.GetNotificationsAsync();
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private void TriggerNewSpec()
     {
         Nav.NavigateTo("/specs");
     }
+
 }
