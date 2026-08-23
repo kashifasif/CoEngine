@@ -88,7 +88,6 @@ services:
       - "8888:8080"
     environment:
       DOZZLE_AUTH_PROVIDER: simple
-      DOZZLE_BASE: /logs
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - dozzle_data:/data
