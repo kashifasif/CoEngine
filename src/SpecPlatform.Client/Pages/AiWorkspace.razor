@@ -282,56 +282,7 @@
             </div>
         </div>
 
-        <div class="d-flex flex-column gap-3 flex-grow-1">
 
-            <!-- Spec Title Group -->
-            <div>
-                <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">SPEC TITLE</label>
-                <input type="text" class="form-control form-control-adaptive fw-bold fs-5 text-on-surface" placeholder="Loan Approval Workflow & Security" @bind="draftTitle"/>
-            </div>
-
-            <!-- Metadata Row -->
-            <div class="d-flex gap-3 p-2 bg-surface-container-low border border-outline-variant rounded font-mono fs-xs text-on-surface-variant">
-                <div>Owner: <strong class="text-on-surface">AI Draft</strong></div>
-                <div>Tag: <strong class="text-on-surface">v0.1-draft</strong></div>
-                <div>Status: <strong class="text-secondary-custom">Drafting</strong></div>
-            </div>
-
-            <!-- Description Group -->
-            <div>
-                <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">DESCRIPTION</label>
-                <textarea class="form-control form-control-adaptive" rows="3" placeholder="Detailed description of specification intent..." @bind="draftDesc"></textarea>
-            </div>
-
-            <!-- Acceptance Criteria Bento Cards -->
-            <div>
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-0">ACCEPTANCE CRITERIA</label>
-                    <button class="btn btn-sm btn-link text-primary-custom font-mono text-decoration-none p-0 fs-xs" @onclick="AddDraftCriterion">+ Add Manual</button>
-                </div>
-
-                <div class="d-flex flex-column gap-2">
-                    @for (int i = 0; i < draftCriteria.Count; i++)
-                    {
-                        var idx = i;
-                        <div class="bento-criteria-card d-flex align-items-start justify-content-between gap-3">
-                            <div class="d-flex gap-2">
-                                <span class="material-symbols-outlined text-secondary-custom me-1" style="font-size: 18px;">check_circle</span>
-                                <div>
-                                    <div class="fw-semibold text-on-surface small mb-1">Criterion #@(idx + 1)</div>
-                                    <input type="text" class="form-control form-control-adaptive font-mono fs-xs" @bind="draftCriteria[idx]"/>
-                                </div>
-                            </div>
-
-                            <button class="btn p-0 text-on-surface-variant hover-danger" @onclick="() => draftCriteria.RemoveAt(idx)">
-                                <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-                            </button>
-                        </div>
-                    }
-                </div>
-            </div>
-
-        </div>
 
     </section>
 }
