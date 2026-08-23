@@ -43,3 +43,7 @@ bld/
 appsettings.Development.json
 appsettings.*.json
 !appsettings.json
+.env
+.env.*
+!.env.example
+

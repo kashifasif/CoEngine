@@ -9,6 +9,9 @@ tests/
 **/appsettings.Development.json
 **/appsettings.*.json
 !**/appsettings.json
+.env
+.env.*
+!.env.example
 
 # Local database files
 *.db
