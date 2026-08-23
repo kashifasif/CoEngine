@@ -38,3 +38,8 @@ bld/
 *.suo
 *.user
 *.userstyle
+
+# Local development secrets — never commit to source control
+appsettings.Development.json
+appsettings.*.json
+!appsettings.json
