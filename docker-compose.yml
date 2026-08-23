@@ -49,10 +49,10 @@ services:
       - specplatform_net
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 3. PostgreSQL Database Service - Isolated
+  # 3. PostgreSQL Database Service with pgvector - Isolated
   # ─────────────────────────────────────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     container_name: specplatform_postgres
     restart: always
     environment:
@@ -65,11 +65,32 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-specplatform_db}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-specplatform_db}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - specplatform_net
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 4. Dozzle - Lightweight log viewer, with basic auth, exposed publicly
+  # ─────────────────────────────────────────────────────────────────────────
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: specplatform_dozzle
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    environment:
+      DOZZLE_AUTH_PROVIDER: simple
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dozzle_data:/data
     networks:
       - specplatform_net
 
@@ -79,6 +100,8 @@ volumes:
   certbot_etc:
     driver: local
   certbot_var:
+    driver: local
+  dozzle_data:
     driver: local
 
 networks:

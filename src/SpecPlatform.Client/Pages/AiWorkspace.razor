@@ -6,13 +6,13 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="d-flex flex-column flex-lg-row h-100 bg-background" style="min-height: calc(100vh - 64px);">
+<div class="d-flex flex-column flex-lg-row bg-background" style="height: calc(100vh - 64px); max-height: calc(100vh - 64px); overflow: hidden;">
 
 <!-- Left Panel: Chat Interface (Matching theme/ai_brainstorming_chat/code.html) -->
-<section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all" style="@(isPreviewCollapsed ? "width: 100%; max-width: 100%; flex-grow: 1;" : $"width: calc(100% - {previewWidthPx}px); min-width: 340px; flex-grow: 1;")">
+<section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all h-100 overflow-hidden" style="@(isPreviewCollapsed ? "width: 100%; max-width: 100%; flex-grow: 1;" : $"width: calc(100% - {previewWidthPx}px); min-width: 340px; flex-grow: 1;")">
 
     <!-- Chat Header -->
-    <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low">
+    <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low flex-shrink-0">
         <div class="d-flex align-items-center gap-2">
             <span class="material-symbols-outlined text-primary-custom" style="font-size: 22px;">psychology</span>
             <h5 class="fw-bold text-on-surface mb-0 font-ui me-2">SpecAI Assistant Studio</h5>
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Chat Stream Window -->
-    <div id="aiWorkspaceChatStream" class="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style="max-height: calc(100vh - 200px);">
+    <div id="aiWorkspaceChatStream" class="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style="min-height: 0;">
 
         @if (isLoadingChat)
         {
@@ -223,7 +223,7 @@
 @if (!isPreviewCollapsed)
 {
     <!-- Right Panel: Live Draft Preview (Matching theme/ai_brainstorming_chat/code.html) -->
-    <section class="d-flex flex-column bg-background p-4 relative overflow-auto border-start border-outline-variant transition-all" style="width: @(previewWidthPx)px; min-width: 320px;">
+    <section class="d-flex flex-column bg-background p-4 relative border-start border-outline-variant transition-all h-100 overflow-y-auto" style="width: @(previewWidthPx)px; min-width: 320px; max-height: calc(100vh - 64px);">
 
         <!-- Live Sync Header & Resizing Controls -->
         <div class="pb-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center mb-4">
@@ -246,7 +246,39 @@
             </div>
         </div>
 
-        <div class="d-flex flex-column gap-4 flex-grow-1">
+        <!-- Prominent Top Action Card: Structure & Publish Spec -->
+        <div class="p-3 bg-surface-container-high border border-outline-variant rounded-3 mb-3 shadow-sm">
+            <div class="d-flex flex-column gap-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="font-mono text-on-surface-variant fs-xs">
+                        Status: <strong class="text-secondary-custom">Workbench Ready</strong>
+                    </span>
+
+                    @if (GetUnansweredQuestions().Any())
+                    {
+                        var pendingCount = GetUnansweredQuestions().Count;
+                        <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2 py-1" title="Answer or skip all pending questions to unlock publishing">
+                            ⚠️ @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
+                        </span>
+                    }
+                </div>
+
+                <button class="btn btn-primary-spec font-mono py-2.5 px-4 w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any())" title="@(GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+                    @if (isStructuring)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span>Publishing Master Spec...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined" style="font-size: 20px;">publish</span>
+                        <span class="fw-bold">Structure & Publish Spec</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        <div class="d-flex flex-column gap-3 flex-grow-1">
 
             <!-- Spec Title Group -->
             <div>
@@ -295,34 +327,6 @@
                 </div>
             </div>
 
-        </div>
-
-        <!-- Footer Action Button (Publish to Master Specification) -->
-        <div class="pt-3 border-top border-outline-variant mt-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span class="font-mono text-on-surface-variant fs-xs">Status: <strong class="text-secondary-custom">Brainstorming Workbench Active</strong></span>
-
-            <div class="d-flex align-items-center gap-2">
-                @if (GetUnansweredQuestions().Any())
-                {
-                    var pendingCount = GetUnansweredQuestions().Count;
-                    <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2.5 py-1.5" title="Answer or skip all pending questions to unlock publishing">
-                        ⚠️ @pendingCount Pending Question@(pendingCount > 1 ? "s" : "") Remaining
-                    </span>
-                }
-
-                <button class="btn btn-primary-spec font-mono py-2.5 px-4 d-flex align-items-center gap-2" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any())" title="@(GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
-                    @if (isStructuring)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1"></span>
-                        <span>Publishing Master Spec...</span>
-                    }
-                    else
-                    {
-                        <span class="material-symbols-outlined">publish</span>
-                        <span>Structure & Publish Spec</span>
-                    }
-                </button>
-            </div>
         </div>
 
     </section>

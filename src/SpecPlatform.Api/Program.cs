@@ -16,13 +16,13 @@ var connectionString = builder.Configuration.GetConnectionString("PostgresConnec
     ?? throw new InvalidOperationException("PostgresConnection string is not configured.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, o => o.UseVector()));
 
 
-// Add OpenRouter AI Service, GitHub Auth Service & Local Vector DB Service
+// Add OpenRouter AI Service, GitHub Auth Service & PostgreSQL pgvector Service
 builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
 builder.Services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
-builder.Services.AddSingleton<IVectorStoreService, LocalVectorStoreService>();
+builder.Services.AddScoped<IVectorStoreService, PgVectorStoreService>();
 
 // Add CORS Policy for Blazor WASM
 builder.Services.AddCors(options =>
@@ -37,17 +37,18 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure DB Created & Schema Migration for ChatSessions
+// Ensure DB Created & Schema Migration for pgvector and Users
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStoreService>();
     db.Database.EnsureCreated();
 
-    // Ensure PostgreSQL Users table exists
+    // Ensure PostgreSQL pgvector extension and tables exist
     try
     {
         db.Database.ExecuteSqlRaw(@"
+            CREATE EXTENSION IF NOT EXISTS vector;
+
             CREATE TABLE IF NOT EXISTS ""Users"" (
                 ""Id"" SERIAL PRIMARY KEY,
                 ""GitHubId"" TEXT NOT NULL DEFAULT '',
@@ -58,25 +59,19 @@ using (var scope = app.Services.CreateScope())
                 ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS ""VectorDocuments"" (
+                ""Id"" TEXT PRIMARY KEY,
+                ""ProjectId"" INTEGER NOT NULL,
+                ""DocType"" TEXT NOT NULL,
+                ""Title"" TEXT NOT NULL,
+                ""Content"" TEXT NOT NULL,
+                ""Embedding"" vector(128),
+                ""IndexedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE INDEX IF NOT EXISTS ""IX_VectorDocuments_ProjectId"" ON ""VectorDocuments"" (""ProjectId"");
         ");
-    }
-    catch { }
-
-    // Pre-index all specifications from SQLite into Vector Store on server startup
-    try
-    {
-        var allSpecs = db.Specs
-            .Include(s => s.Versions).ThenInclude(v => v.AcceptanceCriteria)
-            .Include(s => s.Versions).ThenInclude(v => v.ScopeTags)
-            .ToList();
-
-        foreach (var spec in allSpecs)
-        {
-            var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
-            var criteriaText = string.Join(". ", latestVer?.AcceptanceCriteria.Select(a => a.Text) ?? Array.Empty<string>());
-            var tagsText = string.Join(", ", latestVer?.ScopeTags.Select(t => t.TagName) ?? Array.Empty<string>());
-            vectorStore.IndexDocumentAsync(spec.ProjectId, "spec", spec.Title, $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}").GetAwaiter().GetResult();
-        }
     }
     catch { }
 }
