@@ -8,10 +8,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// Add SQLite EF Core DbContext
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=specplatform.db";
+// Add EF Core DbContext (Supports local Postgres on Port 5433 or SQLite fallback)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+    ?? "Host=localhost;Port=5433;Database=specplatform_db;Username=postgres;Password=postgres";
+
+bool isPostgres = connectionString.Contains("Host=") || connectionString.Contains("Port=") || connectionString.Contains("Server=");
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    if (isPostgres)
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlite(connectionString);
+    }
+});
 
 // Add OpenRouter AI Service & Local Vector DB Service
 builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
@@ -36,28 +49,32 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStoreService>();
     db.Database.EnsureCreated();
-    try
+
+    if (!isPostgres)
     {
-        db.Database.ExecuteSqlRaw(@"
-            CREATE TABLE IF NOT EXISTS ""ChatSessions"" (
-                ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatSessions"" PRIMARY KEY AUTOINCREMENT,
-                ""ProjectId"" INTEGER NOT NULL,
-                ""PersonaMode"" TEXT NOT NULL,
-                ""CreatedAt"" TEXT NOT NULL,
-                ""UpdatedAt"" TEXT NOT NULL,
-                CONSTRAINT ""FK_ChatSessions_Projects_ProjectId"" FOREIGN KEY (""ProjectId"") REFERENCES ""Projects"" (""Id"") ON DELETE CASCADE
-            );
-            CREATE TABLE IF NOT EXISTS ""ChatMessages"" (
-                ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatMessages"" PRIMARY KEY AUTOINCREMENT,
-                ""ChatSessionId"" INTEGER NOT NULL,
-                ""Role"" TEXT NOT NULL,
-                ""Content"" TEXT NOT NULL,
-                ""Timestamp"" TEXT NOT NULL,
-                CONSTRAINT ""FK_ChatMessages_ChatSessions_ChatSessionId"" FOREIGN KEY (""ChatSessionId"") REFERENCES ""ChatSessions"" (""Id"") ON DELETE CASCADE
-            );
-        ");
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""ChatSessions"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatSessions"" PRIMARY KEY AUTOINCREMENT,
+                    ""ProjectId"" INTEGER NOT NULL,
+                    ""PersonaMode"" TEXT NOT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""UpdatedAt"" TEXT NOT NULL,
+                    CONSTRAINT ""FK_ChatSessions_Projects_ProjectId"" FOREIGN KEY (""ProjectId"") REFERENCES ""Projects"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS ""ChatMessages"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatMessages"" PRIMARY KEY AUTOINCREMENT,
+                    ""ChatSessionId"" INTEGER NOT NULL,
+                    ""Role"" TEXT NOT NULL,
+                    ""Content"" TEXT NOT NULL,
+                    ""Timestamp"" TEXT NOT NULL,
+                    CONSTRAINT ""FK_ChatMessages_ChatSessions_ChatSessionId"" FOREIGN KEY (""ChatSessionId"") REFERENCES ""ChatSessions"" (""Id"") ON DELETE CASCADE
+                );
+            ");
+        }
+        catch { }
     }
-    catch { }
 
     // Pre-index all specifications from SQLite into Vector Store on server startup
     try

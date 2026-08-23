@@ -18,11 +18,16 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureServices(services =>
         {
-            var descriptor1 = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions<AppDbContext>));
-            if (descriptor1 != null) services.Remove(descriptor1);
+            var descriptors = services.Where(d =>
+                d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
+                d.ServiceType == typeof(DbContextOptions) ||
+                (d.ServiceType.FullName != null && d.ServiceType.FullName.Contains("EntityFrameworkCore"))
+            ).ToList();
 
-            var descriptor2 = services.SingleOrDefault(d => d.ServiceType == typeof(DbContextOptions));
-            if (descriptor2 != null) services.Remove(descriptor2);
+            foreach (var descriptor in descriptors)
+            {
+                services.Remove(descriptor);
+            }
 
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite($"Data Source={_dbPath}"));
