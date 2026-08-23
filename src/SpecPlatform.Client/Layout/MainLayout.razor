@@ -236,11 +236,15 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CheckHealth();
-        await LoadNotifications();
-        await LoadProjectSpace();
         await LoadUserSession();
         EnforceAuthRedirect();
+
+        if (currentUser != null && currentUser.IsAuthenticated)
+        {
+            await CheckHealth();
+            await LoadNotifications();
+            await LoadProjectSpace();
+        }
     }
 
     protected override void OnParametersSet()

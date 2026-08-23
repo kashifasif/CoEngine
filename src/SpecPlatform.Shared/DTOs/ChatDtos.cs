@@ -49,3 +49,21 @@ public class StructuredSpecResultDto
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
 }
+
+public class IngestTranscriptRequestDto
+{
+    public int ProjectId { get; set; }
+    public string SourceTag { get; set; } = "MS Teams Meeting Transcript";
+    public string RawTranscript { get; set; } = string.Empty;
+}
+
+public class IngestTranscriptResponseDto
+{
+    public bool Success { get; set; } = true;
+    public string SummaryReply { get; set; } = string.Empty;
+    public string ExtractedTitle { get; set; } = string.Empty;
+    public string ExtractedDescription { get; set; } = string.Empty;
+    public List<string> ExtractedCriteria { get; set; } = new();
+    public List<string> ExtractedTags { get; set; } = new();
+}
+

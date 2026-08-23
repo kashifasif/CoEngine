@@ -26,6 +26,12 @@
                 }
             </select>
 
+            <!-- Import Transcript / Raw Notes CTA -->
+            <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5 shadow-sm" @onclick="OpenIngestModal" title="Import MS Teams meeting transcript, raw notes, or requirements">
+                <span class="material-symbols-outlined" style="font-size: 16px;">upload_file</span>
+                <span>Import Transcript</span>
+            </button>
+
             <!-- Toggle Live Spec Preview Panel Button -->
             <button class="btn btn-sm @(isPreviewCollapsed ? "btn-primary-spec" : "btn-outline-secondary") font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5" @onclick="TogglePreviewPanel" title="@(isPreviewCollapsed ? "Expand Live Spec Preview Panel" : "Collapse Live Spec Preview Panel")">
                 <span class="material-symbols-outlined" style="font-size: 16px;">@(isPreviewCollapsed ? "dock_to_left" : "dock_to_right")</span>
@@ -334,6 +340,102 @@
 
 </div>
 
+@if (showIngestModal)
+{
+    <!-- Import Raw Requirements / Transcript Modal Backdrop -->
+    <div class="modal-backdrop fade show" style="background-color: rgba(0,0,0,0.65); z-index: 1050;" @onclick="CloseIngestModal"></div>
+
+    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1055;" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content bg-surface-container-high border border-outline-variant rounded-4 shadow-lg text-on-surface">
+                
+                <!-- Modal Header -->
+                <div class="modal-header border-bottom border-outline-variant px-4 py-3 bg-surface-container">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle p-2 bg-primary bg-opacity-15 text-primary-custom d-flex align-items-center justify-content-center">
+                            <span class="material-symbols-outlined" style="font-size: 22px;">description</span>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0 font-ui text-on-surface">Import Raw Requirements & Meeting Transcripts</h5>
+                            <span class="text-on-surface-variant font-mono fs-xs">Feed MS Teams logs, Zoom transcripts, client emails, or Jira stories into SpecAI</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseIngestModal" aria-label="Close"></button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="modal-body px-4 py-3 d-flex flex-column gap-3">
+
+                    <!-- Source Tag & Info Row -->
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-1">SOURCE TYPE</label>
+                            <select class="form-select form-select-sm form-control-adaptive font-mono fs-xs" @bind="rawSourceTag">
+                                <option value="MS Teams Meeting Transcript">🎙️ MS Teams Meeting Transcript</option>
+                                <option value="Zoom / Call Transcript">📹 Zoom / Call Transcript</option>
+                                <option value="Sprint Grooming Notes">📋 Sprint Grooming Notes</option>
+                                <option value="Client Requirements Email / PRD">📄 Client Requirements Email / PRD</option>
+                                <option value="Jira / User Story Dump">🎫 Jira / User Story Dump</option>
+                                <option value="Raw Written Notes">✍️ Raw Written Notes</option>
+                            </select>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-1">OR UPLOAD FILE (.txt, .md, .vtt, .json)</label>
+                            <InputFile OnChange="HandleTranscriptFileUpload" class="form-control form-control-sm form-control-adaptive font-mono fs-xs" accept=".txt,.md,.vtt,.json" />
+                        </div>
+                    </div>
+
+                    <!-- Raw Content Textarea -->
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-0">PASTE RAW TRANSCRIPT / NOTES CONTENT</label>
+                            @if (!string.IsNullOrWhiteSpace(rawTranscriptText))
+                            {
+                                <span class="font-mono text-secondary-custom fs-xs">@rawTranscriptText.Length characters loaded</span>
+                            }
+                        </div>
+                        <textarea class="form-control form-control-adaptive font-mono fs-xs" rows="8" placeholder="Paste your raw text here, for example:&#10;&#10;Alice: For the new loan checkout, we must enforce MFA for anything over $10k.&#10;Bob: Agreed. And if the credit bureau times out after 3 seconds, return a 504 Gateway Timeout.&#10;Charlie: Also make sure we audit log all requests in pgvector..." @bind="rawTranscriptText"></textarea>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(ingestError))
+                    {
+                        <div class="alert alert-danger font-mono fs-xs py-2 px-3 mb-0 border-0 rounded-2">
+                            ⚠️ @ingestError
+                        </div>
+                    }
+
+                    <!-- Info Alert -->
+                    <div class="p-2.5 bg-surface-container border border-outline-variant rounded-3 font-mono fs-xs text-on-surface-variant d-flex align-items-center gap-2">
+                        <span class="material-symbols-outlined text-primary-custom" style="font-size: 18px;">auto_awesome</span>
+                        <span>SpecAI will index the full transcript into <strong>PostgreSQL pgvector</strong> and pre-populate the live draft on the right.</span>
+                    </div>
+
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="modal-footer border-top border-outline-variant px-4 py-3 d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-outline-secondary font-mono px-3" @onclick="CloseIngestModal" disabled="@isIngesting">Cancel</button>
+
+                    <button type="button" class="btn btn-primary-spec font-mono px-4 d-flex align-items-center gap-2" @onclick="SubmitIngestTranscript" disabled="@(isIngesting || string.IsNullOrWhiteSpace(rawTranscriptText))">
+                        @if (isIngesting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Analyzing & Indexing Transcript...</span>
+                        }
+                        else
+                        {
+                            <span class="material-symbols-outlined" style="font-size: 18px;">smart_toy</span>
+                            <span class="fw-bold">Ingest & Analyze with SpecAI</span>
+                        }
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int? ProjectId { get; set; }
 
@@ -362,6 +464,124 @@
     // Panel Toggle & Resizing state
     private bool isPreviewCollapsed = false;
     private int previewWidthPx = 480;
+
+    // Transcript Ingestion State
+    private bool showIngestModal = false;
+    private string rawTranscriptText = "";
+    private string rawSourceTag = "MS Teams Meeting Transcript";
+    private bool isIngesting = false;
+    private string ingestError = "";
+
+    private void OpenIngestModal()
+    {
+        showIngestModal = true;
+        ingestError = "";
+    }
+
+    private void CloseIngestModal()
+    {
+        if (!isIngesting)
+        {
+            showIngestModal = false;
+            ingestError = "";
+        }
+    }
+
+    private async Task HandleTranscriptFileUpload(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                using var reader = new System.IO.StreamReader(stream);
+                rawTranscriptText = await reader.ReadToEndAsync();
+
+                if (file.Name.EndsWith(".vtt", StringComparison.OrdinalIgnoreCase))
+                {
+                    rawSourceTag = "MS Teams Meeting Transcript (.vtt)";
+                }
+                else if (file.Name.Contains("teams", StringComparison.OrdinalIgnoreCase))
+                {
+                    rawSourceTag = "MS Teams Meeting Transcript";
+                }
+                else if (file.Name.Contains("zoom", StringComparison.OrdinalIgnoreCase))
+                {
+                    rawSourceTag = "Zoom Call Transcript";
+                }
+                else if (file.Name.Contains("jira", StringComparison.OrdinalIgnoreCase))
+                {
+                    rawSourceTag = "Jira User Story Dump";
+                }
+
+                ingestError = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            ingestError = $"Error reading file: {ex.Message}";
+        }
+    }
+
+    private async Task SubmitIngestTranscript()
+    {
+        if (string.IsNullOrWhiteSpace(rawTranscriptText) || selectedProjectId == 0) return;
+
+        isIngesting = true;
+        ingestError = "";
+
+        try
+        {
+            var result = await ApiClient.IngestRawTranscriptAsync(selectedProjectId, rawSourceTag, rawTranscriptText);
+
+            if (result != null && result.Success)
+            {
+                if (!string.IsNullOrWhiteSpace(result.ExtractedTitle))
+                {
+                    draftTitle = result.ExtractedTitle;
+                }
+                if (!string.IsNullOrWhiteSpace(result.ExtractedDescription))
+                {
+                    draftDesc = result.ExtractedDescription;
+                }
+                if (result.ExtractedCriteria != null && result.ExtractedCriteria.Any())
+                {
+                    draftCriteria = new List<string>(result.ExtractedCriteria);
+                }
+
+                chatMessages.Add(new ChatMessageDto
+                {
+                    Role = "user",
+                    Content = $"[Uploaded Raw Transcript - {rawSourceTag}]:\n{rawTranscriptText.Substring(0, Math.Min(400, rawTranscriptText.Length))}..."
+                });
+
+                chatMessages.Add(new ChatMessageDto
+                {
+                    Role = "assistant",
+                    Content = result.SummaryReply
+                });
+
+                showIngestModal = false;
+                rawTranscriptText = "";
+                isPreviewCollapsed = false;
+
+                await ScrollToBottom();
+            }
+            else
+            {
+                ingestError = "Failed to process transcript. Please ensure the API is running and try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            ingestError = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isIngesting = false;
+        }
+    }
 
     private void TogglePreviewPanel()
     {

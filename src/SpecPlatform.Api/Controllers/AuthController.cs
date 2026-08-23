@@ -61,10 +61,16 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public async Task<ActionResult<UserDto>> GetCurrentUser([FromQuery] int userId = 1, CancellationToken cancellationToken = default)
+    public async Task<ActionResult<UserDto>> GetCurrentUser(CancellationToken cancellationToken = default)
     {
-        var user = await _authService.GetUserByIdAsync(userId, cancellationToken);
-        if (user == null)
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
+
+        var token = !string.IsNullOrWhiteSpace(authHeader)
+            ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
+            : xAuthToken?.Trim();
+
+        if (string.IsNullOrWhiteSpace(token))
         {
             return Ok(new UserDto
             {
@@ -74,7 +80,30 @@ public class AuthController : ControllerBase
                 IsAuthenticated = false
             });
         }
-        return Ok(user);
+
+        // Token format: gh_session_{userId}_{guid}
+        if (token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = token.Split('_');
+            if (parts.Length >= 3 && int.TryParse(parts[2], out var userId))
+            {
+                var user = await _authService.GetUserByIdAsync(userId, cancellationToken);
+                if (user != null)
+                {
+                    user.Token = token;
+                    user.IsAuthenticated = true;
+                    return Ok(user);
+                }
+            }
+        }
+
+        return Ok(new UserDto
+        {
+            Id = 0,
+            Username = "Guest User",
+            DisplayName = "Guest User",
+            IsAuthenticated = false
+        });
     }
 
     [HttpPost("logout")]

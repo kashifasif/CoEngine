@@ -1,4 +1,5 @@
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SpecPlatform.Api.Data;
@@ -8,6 +9,7 @@ using SpecPlatform.Shared.Models;
 
 namespace SpecPlatform.Api.Controllers;
 
+[Authorize]
 [ApiController]
 public class SpecsController : ControllerBase
 {
@@ -882,6 +884,109 @@ public class SpecsController : ControllerBase
         var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, messagesToUse);
         return Ok(result);
     }
+
+    [HttpPost("api/specs/draft/ingest-transcript")]
+    public async Task<ActionResult<IngestTranscriptResponseDto>> IngestRawTranscript([FromBody] IngestTranscriptRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RawTranscript))
+        {
+            return BadRequest("Raw transcript content cannot be empty.");
+        }
+
+        var project = await _db.Projects.FindAsync(request.ProjectId);
+        var projectName = project?.Name ?? "General Project";
+        var projectDesc = project?.Description ?? "System Requirements";
+
+        // 1. Index raw transcript into PostgreSQL pgvector store permanently
+        await _vectorStore.IndexDocumentAsync(
+            request.ProjectId,
+            "raw_transcript",
+            $"Raw Ingestion [{request.SourceTag}]",
+            request.RawTranscript);
+
+        // 2. Build AI prompt to parse and synthesize the transcript
+        var analysisMessages = new List<ChatMessageDto>
+        {
+            new ChatMessageDto
+            {
+                Role = "user",
+                Content = $"Here is the raw meeting transcript / requirements dump ({request.SourceTag}):\n\n```\n{request.RawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
+            }
+        };
+
+        var systemPrompt = $@"You are a Principal Software Architect and Lead Business Analyst.
+Analyze the provided raw meeting notes or MS Teams transcript for Project: '{projectName}' ({projectDesc}).
+Extract the key features, workflows, and specifications into an initial draft.";
+
+        var structuredDraft = await _openRouter.StructureIntoSpecAsync(systemPrompt, analysisMessages);
+
+        // 3. Formulate executive markdown summary for chat stream
+        var criteriaList = string.Join("\n", structuredDraft.AcceptanceCriteria.Select(c => $" - ✅ {c}"));
+        var tagsList = string.Join(", ", structuredDraft.ScopeTags);
+
+        var summaryMarkdown = $@"### 📑 Ingested Raw Transcript ({request.SourceTag})
+
+**Extracted Title:** {structuredDraft.Title}
+
+**Executive Overview & User Story:**
+{structuredDraft.Description}
+
+**Key Acceptance Criteria Identified ({structuredDraft.AcceptanceCriteria.Count}):**
+{criteriaList}
+
+**Scope Tags:** `[{tagsList}]`
+
+---
+*💡 The live draft on the right has been pre-populated with these requirements. You can now brainstorm further, ask clarification questions, or click **Structure & Publish Spec** when ready.*";
+
+        // 4. Append to DB chat history
+        var dbSession = await _db.ChatSessions
+            .Include(cs => cs.Messages)
+            .FirstOrDefaultAsync(cs => cs.ProjectId == request.ProjectId && cs.PersonaMode == "po_brainstorming");
+
+        if (dbSession == null)
+        {
+            dbSession = new ChatSession
+            {
+                ProjectId = request.ProjectId,
+                PersonaMode = "po_brainstorming",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.ChatSessions.Add(dbSession);
+            await _db.SaveChangesAsync();
+        }
+
+        dbSession.Messages.Add(new ChatMessageRecord
+        {
+            ChatSessionId = dbSession.Id,
+            Role = "user",
+            Content = $"[Uploaded Raw Transcript - {request.SourceTag}]:\n{request.RawTranscript.Substring(0, Math.Min(500, request.RawTranscript.Length))}...",
+            Timestamp = DateTime.UtcNow
+        });
+
+        dbSession.Messages.Add(new ChatMessageRecord
+        {
+            ChatSessionId = dbSession.Id,
+            Role = "assistant",
+            Content = summaryMarkdown,
+            Timestamp = DateTime.UtcNow
+        });
+
+        dbSession.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(new IngestTranscriptResponseDto
+        {
+            Success = true,
+            SummaryReply = summaryMarkdown,
+            ExtractedTitle = structuredDraft.Title,
+            ExtractedDescription = structuredDraft.Description,
+            ExtractedCriteria = structuredDraft.AcceptanceCriteria,
+            ExtractedTags = structuredDraft.ScopeTags
+        });
+    }
+
 
     private static SpecDto MapToSpecDto(Spec spec)
     {

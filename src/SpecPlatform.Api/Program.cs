@@ -4,12 +4,15 @@ using SpecPlatform.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Controllers with Global Authorization Protection
-builder.Services.AddControllers(options =>
-{
-    options.Filters.Add<SpecPlatform.Api.Infrastructure.RequireAuthorizationFilter>();
-});
+// Add Controllers
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
+
+// Add Native Session Authentication & Authorization
+builder.Services.AddAuthentication("SessionAuth")
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SpecPlatform.Api.Infrastructure.SessionAuthHandler>("SessionAuth", null);
+
+builder.Services.AddAuthorization();
 
 // Add EF Core DbContext — PostgreSQL only
 var connectionString = builder.Configuration.GetConnectionString("PostgresConnection")
@@ -82,6 +85,9 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseCors("AllowAll");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Serve Blazor WebAssembly static framework files and fallback route
 app.UseBlazorFrameworkFiles();

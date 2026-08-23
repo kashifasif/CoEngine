@@ -276,6 +276,22 @@ public class SpecApiClient
         return null;
     }
 
+    public async Task<IngestTranscriptResponseDto?> IngestRawTranscriptAsync(int projectId, string sourceTag, string rawTranscript)
+    {
+        var request = new IngestTranscriptRequestDto
+        {
+            ProjectId = projectId,
+            SourceTag = sourceTag,
+            RawTranscript = rawTranscript
+        };
+        var response = await _http.PostAsJsonAsync("api/specs/draft/ingest-transcript", request);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<IngestTranscriptResponseDto>();
+        }
+        return null;
+    }
+
     public async Task<GitHubAuthUrlDto?> GetGitHubAuthUrlAsync()
     {
         try

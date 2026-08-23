@@ -23,7 +23,10 @@ public class RequireAuthorizationFilter : IAsyncActionFilter
             ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
             : xAuthToken?.Trim();
 
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token) || 
+            (!token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase) && 
+             !token.StartsWith("mock_dev_code_", StringComparison.OrdinalIgnoreCase) && 
+             !token.StartsWith("test_", StringComparison.OrdinalIgnoreCase)))
         {
             context.Result = new UnauthorizedObjectResult(new
             {
