@@ -11,27 +11,43 @@ namespace SpecPlatform.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IGitHubAuthService _authService;
+    private readonly IConfiguration _configuration;
 
-    public AuthController(IGitHubAuthService authService)
+    public AuthController(IGitHubAuthService authService, IConfiguration configuration)
     {
         _authService = authService;
+        _configuration = configuration;
+    }
+
+    /// <summary>
+    /// Builds the OAuth redirect URI from configuration.
+    /// GitHub:AppBaseUrl + GitHub:CallbackPath (e.g. http://localhost:5005 + /auth/github/callback)
+    /// </summary>
+    private string GetCallbackRedirectUri()
+    {
+        var baseUrl = _configuration["GitHub:AppBaseUrl"]?.TrimEnd('/');
+        var callbackPath = _configuration["GitHub:CallbackPath"] ?? "/auth/github/callback";
+
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            // Fallback: derive from incoming request host (safe for local dev if config missing)
+            baseUrl = $"{Request.Scheme}://{Request.Host}";
+        }
+
+        return $"{baseUrl}{callbackPath}";
     }
 
     [HttpGet("github/url")]
-    public ActionResult<GitHubAuthUrlDto> GetGitHubAuthUrl([FromQuery] string? redirectUri = null, [FromQuery] string? state = null)
+    public ActionResult<GitHubAuthUrlDto> GetGitHubAuthUrl([FromQuery] string? state = null)
     {
-        var effectiveRedirectUri = string.IsNullOrWhiteSpace(redirectUri)
-            ? $"{Request.Scheme}://{Request.Host}/auth/github/callback"
-            : redirectUri;
-
-        var url = _authService.GetAuthorizationUrl(effectiveRedirectUri, state);
+        var redirectUri = GetCallbackRedirectUri();
+        var url = _authService.GetAuthorizationUrl(redirectUri, state);
         return Ok(new GitHubAuthUrlDto { AuthUrl = url });
     }
 
     [HttpPost("github/callback")]
     public async Task<ActionResult<UserDto>> ProcessCallback(
         [FromBody] GitHubCallbackRequestDto request,
-        [FromQuery] string? redirectUri = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Code))
@@ -39,11 +55,8 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "OAuth code is required." });
         }
 
-        var effectiveRedirectUri = string.IsNullOrWhiteSpace(redirectUri)
-            ? $"{Request.Scheme}://{Request.Host}/auth/github/callback"
-            : redirectUri;
-
-        var userDto = await _authService.ProcessCallbackAsync(request.Code, effectiveRedirectUri, cancellationToken);
+        var redirectUri = GetCallbackRedirectUri();
+        var userDto = await _authService.ProcessCallbackAsync(request.Code, redirectUri, cancellationToken);
         return Ok(userDto);
     }
 

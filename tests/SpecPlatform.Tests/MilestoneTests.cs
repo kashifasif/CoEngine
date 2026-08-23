@@ -12,12 +12,13 @@ namespace SpecPlatform.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"test_spec_{Guid.NewGuid():N}.db");
+    private readonly string _testDbName = $"TestDb_{Guid.NewGuid():N}";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureServices(services =>
         {
+            // Remove all EF Core registrations from the real Program.cs
             var descriptors = services.Where(d =>
                 d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
                 d.ServiceType == typeof(DbContextOptions) ||
@@ -29,24 +30,15 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(descriptor);
             }
 
+            // Use EF Core InMemory for tests — no PostgreSQL required
             services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite($"Data Source={_dbPath}"));
+                options.UseInMemoryDatabase(_testDbName));
 
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.EnsureDeleted();
             db.Database.EnsureCreated();
         });
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (File.Exists(_dbPath))
-        {
-            try { File.Delete(_dbPath); } catch { }
-        }
     }
 }
 

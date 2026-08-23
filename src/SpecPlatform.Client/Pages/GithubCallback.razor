@@ -52,8 +52,7 @@
 
         try
         {
-            var redirectUri = Nav.BaseUri.TrimEnd('/') + "/auth/github/callback";
-            currentUser = await ApiClient.ProcessGitHubCallbackAsync(Code, redirectUri);
+            currentUser = await ApiClient.ProcessGitHubCallbackAsync(Code);
 
             if (currentUser != null && currentUser.IsAuthenticated)
             {

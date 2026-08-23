@@ -304,22 +304,14 @@
     {
         try
         {
-            var redirectUri = Nav.BaseUri.TrimEnd('/') + "/auth/github/callback";
-            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync(redirectUri);
+            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync();
 
             if (authUrlDto != null && !string.IsNullOrWhiteSpace(authUrlDto.AuthUrl))
             {
                 Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);
             }
-            else
-            {
-                Nav.NavigateTo($"/auth/github/callback?code=mock_dev_code_{Guid.NewGuid():N}");
-            }
         }
-        catch
-        {
-            Nav.NavigateTo($"/auth/github/callback?code=mock_dev_code_{Guid.NewGuid():N}");
-        }
+        catch { }
     }
 
     private void ToggleUserMenu()

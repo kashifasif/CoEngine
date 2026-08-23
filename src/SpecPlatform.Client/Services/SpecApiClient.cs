@@ -276,12 +276,11 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<GitHubAuthUrlDto?> GetGitHubAuthUrlAsync(string? redirectUri = null)
+    public async Task<GitHubAuthUrlDto?> GetGitHubAuthUrlAsync()
     {
         try
         {
-            var uri = string.IsNullOrWhiteSpace(redirectUri) ? "api/auth/github/url" : $"api/auth/github/url?redirectUri={Uri.EscapeDataString(redirectUri)}";
-            return await _http.GetFromJsonAsync<GitHubAuthUrlDto>(uri);
+            return await _http.GetFromJsonAsync<GitHubAuthUrlDto>("api/auth/github/url");
         }
         catch
         {
@@ -289,12 +288,12 @@ public class SpecApiClient
         }
     }
 
-    public async Task<UserDto?> ProcessGitHubCallbackAsync(string code, string? redirectUri = null)
+    public async Task<UserDto?> ProcessGitHubCallbackAsync(string code)
     {
         try
         {
             var req = new GitHubCallbackRequestDto { Code = code };
-            var response = await _http.PostAsJsonAsync($"api/auth/github/callback{(string.IsNullOrWhiteSpace(redirectUri) ? "" : $"?redirectUri={Uri.EscapeDataString(redirectUri)}")}", req);
+            var response = await _http.PostAsJsonAsync("api/auth/github/callback", req);
             if (response.IsSuccessStatusCode)
             {
                 return await response.Content.ReadFromJsonAsync<UserDto>();

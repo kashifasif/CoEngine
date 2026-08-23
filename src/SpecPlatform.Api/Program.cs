@@ -11,23 +11,13 @@ builder.Services.AddControllers(options =>
 });
 builder.Services.AddEndpointsApiExplorer();
 
-// Add EF Core DbContext (Supports local Postgres on Port 5433 or SQLite fallback)
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
-    ?? "Host=localhost;Port=5433;Database=specplatform_db;Username=postgres;Password=postgres";
-
-bool isPostgres = connectionString.Contains("Host=") || connectionString.Contains("Port=") || connectionString.Contains("Server=");
+// Add EF Core DbContext — PostgreSQL only
+var connectionString = builder.Configuration.GetConnectionString("PostgresConnection")
+    ?? throw new InvalidOperationException("PostgresConnection string is not configured.");
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-{
-    if (isPostgres)
-    {
-        options.UseNpgsql(connectionString);
-    }
-    else
-    {
-        options.UseSqlite(connectionString);
-    }
-});
+    options.UseNpgsql(connectionString));
+
 
 // Add OpenRouter AI Service, GitHub Auth Service & Local Vector DB Service
 builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
@@ -54,60 +44,23 @@ using (var scope = app.Services.CreateScope())
     var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStoreService>();
     db.Database.EnsureCreated();
 
-    if (isPostgres)
+    // Ensure PostgreSQL Users table exists
+    try
     {
-        try
-        {
-            db.Database.ExecuteSqlRaw(@"
-                CREATE TABLE IF NOT EXISTS ""Users"" (
-                    ""Id"" SERIAL PRIMARY KEY,
-                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
-                    ""Username"" TEXT NOT NULL DEFAULT '',
-                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
-                    ""Email"" TEXT NOT NULL DEFAULT '',
-                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
-                    ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-            ");
-        }
-        catch { }
+        db.Database.ExecuteSqlRaw(@"
+            CREATE TABLE IF NOT EXISTS ""Users"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""GitHubId"" TEXT NOT NULL DEFAULT '',
+                ""Username"" TEXT NOT NULL DEFAULT '',
+                ""DisplayName"" TEXT NOT NULL DEFAULT '',
+                ""Email"" TEXT NOT NULL DEFAULT '',
+                ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
+                ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+        ");
     }
-    else
-    {
-        try
-        {
-            db.Database.ExecuteSqlRaw(@"
-                CREATE TABLE IF NOT EXISTS ""ChatSessions"" (
-                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatSessions"" PRIMARY KEY AUTOINCREMENT,
-                    ""ProjectId"" INTEGER NOT NULL,
-                    ""PersonaMode"" TEXT NOT NULL,
-                    ""CreatedAt"" TEXT NOT NULL,
-                    ""UpdatedAt"" TEXT NOT NULL,
-                    CONSTRAINT ""FK_ChatSessions_Projects_ProjectId"" FOREIGN KEY (""ProjectId"") REFERENCES ""Projects"" (""Id"") ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS ""ChatMessages"" (
-                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_ChatMessages"" PRIMARY KEY AUTOINCREMENT,
-                    ""ChatSessionId"" INTEGER NOT NULL,
-                    ""Role"" TEXT NOT NULL,
-                    ""Content"" TEXT NOT NULL,
-                    ""Timestamp"" TEXT NOT NULL,
-                    CONSTRAINT ""FK_ChatMessages_ChatSessions_ChatSessionId"" FOREIGN KEY (""ChatSessionId"") REFERENCES ""ChatSessions"" (""Id"") ON DELETE CASCADE
-                );
-                CREATE TABLE IF NOT EXISTS ""Users"" (
-                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_Users"" PRIMARY KEY AUTOINCREMENT,
-                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
-                    ""Username"" TEXT NOT NULL DEFAULT '',
-                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
-                    ""Email"" TEXT NOT NULL DEFAULT '',
-                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
-                    ""CreatedAt"" TEXT NOT NULL,
-                    ""LastLoginAt"" TEXT NOT NULL
-                );
-            ");
-        }
-        catch { }
-    }
+    catch { }
 
     // Pre-index all specifications from SQLite into Vector Store on server startup
     try
