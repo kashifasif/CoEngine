@@ -5,141 +5,178 @@
 
 <div class="min-vh-100 flex-column bg-surface-dim">
 
-    <!-- TopNavBar (Matching theme/project_dashboard/code.html) -->
-    <nav class="fixed-top w-100 z-3 d-flex justify-content-between align-items-center px-4 bg-surface-custom border-bottom border-outline-variant" style="height: 64px;">
-        <div class="d-flex align-items-center gap-4">
-            <a class="text-decoration-none d-flex align-items-center gap-2" href="">
-                <span class="fs-4 font-bold text-primary-custom" style="font-family: var(--font-ui); font-weight: 700;">SpecPlatform</span>
-            </a>
+    @if (currentUser != null && currentUser.IsAuthenticated)
+    {
+        <!-- TopNavBar (Rendered ONLY when logged in) -->
+        <nav class="fixed-top w-100 z-3 d-flex justify-content-between align-items-center px-4 bg-surface-custom border-bottom border-outline-variant" style="height: 64px;">
+            <div class="d-flex align-items-center gap-4">
+                <a class="text-decoration-none d-flex align-items-center gap-2" href="dashboard">
+                    <span class="fs-4 font-bold text-primary-custom" style="font-family: var(--font-ui); font-weight: 700;">SpecPlatform</span>
+                </a>
 
-            <div class="d-none d-md-flex align-items-center gap-3 font-ui text-on-surface-variant">
-                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="" Match="NavLinkMatch.All">
-                    Projects
-                </NavLink>
-                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="specs">
-                    Specifications
-                </NavLink>
-                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="ai-workspace">
-                    AI Workspace
-                </NavLink>
-                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="published-specs-qa">
-                    Q/A Mode
-                </NavLink>
-                <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="versions">
-                    Version History
-                </NavLink>
-            </div>
-        </div>
-
-        <div class="d-flex align-items-center gap-3">
-            <!-- Search bar (with shortcut hint ⌘K) -->
-            <div class="d-none d-lg-flex align-items-center bg-surface-container rounded-3 px-3 py-1 border border-outline-variant">
-                <span class="material-symbols-outlined text-on-surface-variant me-2" style="font-size: 18px;">search</span>
-                <input type="text" class="bg-transparent border-0 text-on-surface text-sm font-mono placeholder-on-surface-variant focus-ring-none" style="outline: none; width: 160px;" placeholder="Search specs, APIs..." />
-                <span class="badge bg-surface-container-high border border-outline-variant font-mono text-on-surface-variant ms-2" style="font-size: 10px;">⌘K</span>
+                <div class="d-none d-md-flex align-items-center gap-3 font-ui text-on-surface-variant">
+                    <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="dashboard" Match="NavLinkMatch.All">
+                        Projects
+                    </NavLink>
+                    <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="specs">
+                        Specifications
+                    </NavLink>
+                    <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="ai-workspace">
+                        AI Workspace
+                    </NavLink>
+                    <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="published-specs-qa">
+                        Q/A Mode
+                    </NavLink>
+                    <NavLink class="text-decoration-none text-on-surface-variant px-2 py-1 hover-primary" href="versions">
+                        Version History
+                    </NavLink>
+                </div>
             </div>
 
-            <!-- Notification Drawer Button -->
-            <button class="btn p-1.5 text-on-surface-variant hover-primary position-relative" @onclick="ToggleNotificationsDrawer" title="Notifications Log">
-                <span class="material-symbols-outlined">notifications</span>
-                @if (notifications.Any())
-                {
-                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
-                }
-            </button>
+            <div class="d-flex align-items-center gap-3">
+                <!-- Search bar (with shortcut hint ⌘K) -->
+                <div class="d-none d-lg-flex align-items-center bg-surface-container rounded-3 px-3 py-1 border border-outline-variant">
+                    <span class="material-symbols-outlined text-on-surface-variant me-2" style="font-size: 18px;">search</span>
+                    <input type="text" class="bg-transparent border-0 text-on-surface text-sm font-mono placeholder-on-surface-variant focus-ring-none" style="outline: none; width: 160px;" placeholder="Search specs, APIs..." />
+                    <span class="badge bg-surface-container-high border border-outline-variant font-mono text-on-surface-variant ms-2" style="font-size: 10px;">⌘K</span>
+                </div>
 
-            <!-- Theme Switcher Button -->
-            <button class="btn p-1.5 text-on-surface-variant hover-primary" @onclick="ToggleTheme" title="Toggle Light/Dark Theme">
-                @if (currentTheme == "light")
-                {
-                    <span class="material-symbols-outlined text-warning">light_mode</span>
-                }
-                else
-                {
-                    <span class="material-symbols-outlined text-primary-custom">dark_mode</span>
-                }
-            </button>
+                <!-- Notification Drawer Button -->
+                <button class="btn p-1.5 text-on-surface-variant hover-primary position-relative" @onclick="ToggleNotificationsDrawer" title="Notifications Log">
+                    <span class="material-symbols-outlined">notifications</span>
+                    @if (notifications.Any())
+                    {
+                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle"></span>
+                    }
+                </button>
 
-            <!-- User SSO Avatar -->
-            <div class="d-flex align-items-center gap-2 border-start border-outline-variant ps-3">
-                <div class="position-relative">
-                    <div class="rounded-circle bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 34px; height: 34px; font-size: 13px;">
-                        PO
+                <!-- Theme Switcher Button -->
+                <button class="btn p-1.5 text-on-surface-variant hover-primary" @onclick="ToggleTheme" title="Toggle Light/Dark Theme">
+                    @if (currentTheme == "light")
+                    {
+                        <span class="material-symbols-outlined text-warning">light_mode</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-primary-custom">dark_mode</span>
+                    }
+                </button>
+
+                <!-- User SSO Avatar Dropdown -->
+                <div class="d-flex align-items-center gap-2 border-start border-outline-variant ps-3">
+                    <div class="dropdown">
+                        <button class="btn btn-link p-0 text-decoration-none d-flex align-items-center gap-2 border-0 bg-transparent" @onclick="ToggleUserMenu" title="@currentUser.DisplayName (@currentUser.Username)">
+                            <div class="position-relative">
+                                @if (!string.IsNullOrWhiteSpace(currentUser.AvatarUrl))
+                                {
+                                    <img src="@currentUser.AvatarUrl" class="rounded-circle border border-outline-variant" style="width: 34px; height: 34px; object-fit: cover;" alt="Avatar" />
+                                }
+                                else
+                                {
+                                    <div class="rounded-circle bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 34px; height: 34px; font-size: 13px;">
+                                        @(currentUser.Username.Length >= 2 ? currentUser.Username.Substring(0, 2).ToUpper() : "GH")
+                                    </div>
+                                }
+                                <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-dark rounded-circle" title="GitHub SSO Active"></span>
+                            </div>
+                        </button>
+
+                        @if (showUserMenu)
+                        {
+                            <div class="dropdown-menu dropdown-menu-end show position-absolute mt-2 shadow-lg border border-outline-variant bg-surface-container font-ui" style="right: 0; min-width: 200px; z-index: 1050;">
+                                <div class="px-3 py-2 border-bottom border-outline-variant">
+                                    <div class="fw-bold text-on-surface text-truncate">@currentUser.DisplayName</div>
+                                    <div class="text-on-surface-variant font-mono fs-xs text-truncate">@@currentUser.Username</div>
+                                </div>
+                                <button class="dropdown-item text-danger d-flex align-items-center gap-2 py-2 fs-sm font-mono cursor-pointer" @onclick="LogoutUser">
+                                    <span class="material-symbols-outlined fs-sm">logout</span>
+                                    <span>Sign Out</span>
+                                </button>
+                            </div>
+                        }
                     </div>
-                    <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-dark rounded-circle" title="Single-Tenant SSO Active"></span>
                 </div>
             </div>
-        </div>
-    </nav>
+        </nav>
+    }
 
-    <div class="d-flex" style="padding-top: 64px; min-height: 100vh;">
+    <div class="d-flex" style="@(currentUser != null && currentUser.IsAuthenticated ? "padding-top: 64px; min-height: 100vh;" : "min-height: 100vh;")">
 
-        <!-- SideNavBar (280px Fixed Rail) -->
-        <aside class="position-fixed start-0 top-0 bottom-0 d-flex flex-column border-end border-outline-variant p-3 bg-surface-container" style="width: 280px; margin-top: 64px; height: calc(100vh - 64px); z-index: 2;">
+        @if (currentUser != null && currentUser.IsAuthenticated)
+        {
+            <!-- SideNavBar (280px Fixed Rail) -->
+            <aside class="position-fixed start-0 top-0 bottom-0 d-flex flex-column border-end border-outline-variant p-3 bg-surface-container" style="width: 280px; margin-top: 64px; height: calc(100vh - 64px); z-index: 2;">
 
-            <!-- Project Space Header Card -->
-            <div class="d-flex align-items-center gap-3 mb-3 p-2 rounded bg-surface-container-low border border-outline-variant">
-                <div class="rounded bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 40px; height: 40px; font-size: 16px;">
-                    @(selectedProjectName.Length >= 2 ? selectedProjectName.Substring(0, 2).ToUpper() : "SP")
+                <!-- Project Space Header Card -->
+                <div class="d-flex align-items-center gap-3 mb-3 p-2 rounded bg-surface-container-low border border-outline-variant">
+                    <div class="rounded bg-primary-container d-flex align-items-center justify-content-center text-on-primary-container font-mono fw-bold" style="width: 40px; height: 40px; font-size: 16px;">
+                        @(selectedProjectName.Length >= 2 ? selectedProjectName.Substring(0, 2).ToUpper() : "SP")
+                    </div>
+                    <div class="overflow-hidden">
+                        <h6 class="fw-bold text-on-surface mb-0 text-truncate">Project Space</h6>
+                        <p class="text-on-surface-variant small mb-0 text-truncate font-mono">@selectedProjectName</p>
+                    </div>
                 </div>
-                <div class="overflow-hidden">
-                    <h6 class="fw-bold text-on-surface mb-0 text-truncate">Project Space</h6>
-                    <p class="text-on-surface-variant small mb-0 text-truncate font-mono">@selectedProjectName</p>
+
+                <!-- New Spec CTA Button -->
+                <button class="btn btn-primary-spec w-100 d-flex align-items-center justify-content-center gap-2 font-mono py-2 mb-3" @onclick="TriggerNewSpec">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+                    <span>New Specification</span>
+                </button>
+
+                <!-- Navigation Links -->
+                <nav class="d-flex flex-column gap-1 flex-grow-1">
+                    <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="dashboard" Match="NavLinkMatch.All">
+                        <span class="material-symbols-outlined">dashboard</span>
+                        <span>Dashboard</span>
+                    </NavLink>
+
+                    <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="specs">
+                        <span class="material-symbols-outlined">description</span>
+                        <span>Specifications</span>
+                    </NavLink>
+
+                    <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="ai-workspace">
+                        <span class="material-symbols-outlined">psychology</span>
+                        <span>AI Workspace</span>
+                    </NavLink>
+
+                    <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="published-specs-qa">
+                        <span class="material-symbols-outlined">search</span>
+                        <span>Published Specs Q&A</span>
+                    </NavLink>
+
+                    <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="versions">
+                        <span class="material-symbols-outlined">history</span>
+                        <span>Version History</span>
+                    </NavLink>
+                </nav>
+
+                <!-- Bottom CTA Section -->
+                <div class="mt-auto pt-3 border-top border-outline-variant d-flex flex-column gap-1 text-on-surface-variant small font-mono">
+                    <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">help</span>
+                        <span>Documentation</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">contact_support</span>
+                        <span>Support</span>
+                    </div>
                 </div>
-            </div>
+            </aside>
 
-            <!-- New Spec CTA Button -->
-            <button class="btn btn-primary-spec w-100 d-flex align-items-center justify-content-center gap-2 font-mono py-2 mb-3" @onclick="TriggerNewSpec">
-                <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
-                <span>New Specification</span>
-            </button>
-
-            <!-- Navigation Links -->
-            <nav class="d-flex flex-column gap-1 flex-grow-1">
-                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="" Match="NavLinkMatch.All">
-                    <span class="material-symbols-outlined">dashboard</span>
-                    <span>Dashboard</span>
-                </NavLink>
-
-                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="specs">
-                    <span class="material-symbols-outlined">description</span>
-                    <span>Specifications</span>
-                </NavLink>
-
-                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="ai-workspace">
-                    <span class="material-symbols-outlined">psychology</span>
-                    <span>AI Workspace</span>
-                </NavLink>
-
-                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="published-specs-qa">
-                    <span class="material-symbols-outlined">search</span>
-                    <span>Published Specs Q&A</span>
-                </NavLink>
-
-                <NavLink class="d-flex align-items-center gap-3 px-3 py-2 text-on-surface-variant text-decoration-none rounded-3 nav-link-custom" href="versions">
-                    <span class="material-symbols-outlined">history</span>
-                    <span>Version History</span>
-                </NavLink>
-            </nav>
-
-            <!-- Bottom CTA Section -->
-            <div class="mt-auto pt-3 border-top border-outline-variant d-flex flex-column gap-1 text-on-surface-variant small font-mono">
-                <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">help</span>
-                    <span>Documentation</span>
-                </div>
-                <div class="d-flex align-items-center gap-2 px-2 py-1 rounded hover-surface">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">contact_support</span>
-                    <span>Support</span>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content Area -->
-        <main class="flex-grow-1 bg-surface-dim" style="margin-left: 280px; min-height: calc(100vh - 64px);">
-            @Body
-        </main>
-
+            <!-- Main Content Area with Side Rail Margin -->
+            <main class="flex-grow-1 bg-surface-dim" style="margin-left: 280px; min-height: calc(100vh - 64px);">
+                @Body
+            </main>
+        }
+        else
+        {
+            <!-- Clean Full-Width Main Body for Unauthenticated Login View (No Header/Nav) -->
+            <main class="flex-grow-1 bg-surface-dim w-100" style="margin-left: 0; min-height: 100vh;">
+                @Body
+            </main>
+        }
     </div>
 
     <!-- Notification Bell Drawer Modal -->
@@ -194,12 +231,33 @@
     private bool showNotificationsDrawer = false;
     private List<NotificationDto> notifications = new();
     private string selectedProjectName = "Loan Approval Feature";
+    private UserDto? currentUser;
+    private bool showUserMenu = false;
 
     protected override async Task OnInitializedAsync()
     {
         await CheckHealth();
         await LoadNotifications();
         await LoadProjectSpace();
+        await LoadUserSession();
+        EnforceAuthRedirect();
+    }
+
+    protected override void OnParametersSet()
+    {
+        EnforceAuthRedirect();
+    }
+
+    private void EnforceAuthRedirect()
+    {
+        var relativeUri = Nav.ToBaseRelativePath(Nav.Uri).ToLowerInvariant();
+        if (currentUser == null || !currentUser.IsAuthenticated)
+        {
+            if (!string.IsNullOrWhiteSpace(relativeUri) && relativeUri != "login" && !relativeUri.StartsWith("auth/github/callback"))
+            {
+                Nav.NavigateTo("/");
+            }
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -213,6 +271,76 @@
             }
             catch { }
         }
+    }
+
+    private async Task LoadUserSession()
+    {
+        try
+        {
+            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
+            if (!string.IsNullOrWhiteSpace(sessionJson))
+            {
+                currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
+            }
+        }
+        catch { }
+
+        if (currentUser == null)
+        {
+            try
+            {
+                currentUser = await ApiClient.GetCurrentUserAsync();
+            }
+            catch { }
+        }
+
+        if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.Token))
+        {
+            ApiClient.SetAuthToken(currentUser.Token);
+        }
+    }
+
+    private async Task InitiateGitHubLogin()
+    {
+        try
+        {
+            var redirectUri = Nav.BaseUri.TrimEnd('/') + "/auth/github/callback";
+            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync(redirectUri);
+
+            if (authUrlDto != null && !string.IsNullOrWhiteSpace(authUrlDto.AuthUrl))
+            {
+                Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);
+            }
+            else
+            {
+                Nav.NavigateTo($"/auth/github/callback?code=mock_dev_code_{Guid.NewGuid():N}");
+            }
+        }
+        catch
+        {
+            Nav.NavigateTo($"/auth/github/callback?code=mock_dev_code_{Guid.NewGuid():N}");
+        }
+    }
+
+    private void ToggleUserMenu()
+    {
+        showUserMenu = !showUserMenu;
+    }
+
+    private async Task LogoutUser()
+    {
+        showUserMenu = false;
+        try
+        {
+            await ApiClient.LogoutAsync();
+            await JS.InvokeVoidAsync("localStorage.removeItem", "spec_user_session");
+        }
+        catch { }
+
+        currentUser = null;
+        ApiClient.SetAuthToken(null);
+        StateHasChanged();
+        Nav.NavigateTo("/login");
     }
 
     private async Task LoadProjectSpace()

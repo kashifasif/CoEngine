@@ -372,7 +372,29 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!await EnsureAuthSessionAsync()) return;
         await LoadProjects();
+    }
+
+    private async Task<bool> EnsureAuthSessionAsync()
+    {
+        try
+        {
+            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
+            if (!string.IsNullOrWhiteSpace(sessionJson))
+            {
+                var user = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
+                if (user != null && user.IsAuthenticated)
+                {
+                    ApiClient.SetAuthToken(user.Token);
+                    return true;
+                }
+            }
+        }
+        catch { }
+
+        Nav.NavigateTo("/");
+        return false;
     }
 
     private async Task LoadProjects()

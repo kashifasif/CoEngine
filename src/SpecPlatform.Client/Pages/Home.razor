@@ -1,4 +1,4 @@
-@page "/"
+@page "/dashboard"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -152,6 +152,7 @@
 @code {
     private List<ProjectDto> projects = new();
     private bool isLoadingProjects = true;
+    private UserDto? currentUser;
 
     private bool showCreateProjectModal = false;
     private string newProjectName = "";
@@ -159,7 +160,35 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadUserSession();
+        if (currentUser == null || !currentUser.IsAuthenticated)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
         await LoadProjects();
+    }
+
+    private async Task LoadUserSession()
+    {
+        try
+        {
+            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
+            if (!string.IsNullOrWhiteSpace(sessionJson))
+            {
+                currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
+            }
+        }
+        catch { }
+
+        if (currentUser == null)
+        {
+            try
+            {
+                currentUser = await ApiClient.GetCurrentUserAsync();
+            }
+            catch { }
+        }
     }
 
     private async Task LoadProjects()

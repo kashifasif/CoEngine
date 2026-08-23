@@ -52,11 +52,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
 public class MilestoneTests : IClassFixture<CustomWebApplicationFactory>
 {
+    private readonly CustomWebApplicationFactory _factory;
     private readonly HttpClient _client;
 
     public MilestoneTests(CustomWebApplicationFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
+        _client.DefaultRequestHeaders.Add("X-Auth-Token", "test_integration_token_12345");
     }
 
     [Fact]
@@ -247,5 +250,46 @@ public class MilestoneTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(2, diff.ToVersion);
         Assert.Contains("New Criterion Added", diff.AddedCriteria);
         Assert.Contains("v2tag", diff.AddedScopeTags);
+    }
+
+    [Fact]
+    public async Task Milestone5_GitHub_SSO_Auth_Flow()
+    {
+        // 1. Fetch GitHub Authorization URL
+        var authUrlRes = await _client.GetFromJsonAsync<GitHubAuthUrlDto>("/api/auth/github/url?redirectUri=http://localhost:5005/auth/github/callback");
+        Assert.NotNull(authUrlRes);
+        Assert.Contains("github.com/login/oauth/authorize", authUrlRes.AuthUrl);
+        Assert.Contains("client_id=", authUrlRes.AuthUrl);
+
+        // 2. Process OAuth Callback with Dev/Test Mock Code
+        var callbackRes = await _client.PostAsJsonAsync("/api/auth/github/callback", new GitHubCallbackRequestDto
+        {
+            Code = "test_mock_oauth_code_12345"
+        });
+        Assert.Equal(HttpStatusCode.OK, callbackRes.StatusCode);
+
+        var user = await callbackRes.Content.ReadFromJsonAsync<UserDto>();
+        Assert.NotNull(user);
+        Assert.True(user.IsAuthenticated);
+        Assert.Equal("github_developer", user.Username);
+
+        // 3. Verify /api/auth/me returns user profile
+        var meRes = await _client.GetFromJsonAsync<UserDto>($"/api/auth/me?userId={user.Id}");
+        Assert.NotNull(meRes);
+        Assert.True(meRes.IsAuthenticated);
+        Assert.Equal("github_developer", meRes.Username);
+
+        // 4. Verify Logout
+        var logoutRes = await _client.PostAsync("/api/auth/logout", null);
+        Assert.Equal(HttpStatusCode.OK, logoutRes.StatusCode);
+    }
+
+    [Fact]
+    public async Task Milestone6_Unauthenticated_Request_Returns_401Unauthorized()
+    {
+        using var unauthClient = _factory.CreateClient();
+        unauthClient.DefaultRequestHeaders.Clear();
+        var response = await unauthClient.GetAsync("/api/projects");
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 }

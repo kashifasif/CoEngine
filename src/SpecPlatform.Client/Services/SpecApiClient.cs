@@ -8,10 +8,21 @@ namespace SpecPlatform.Client.Services;
 public class SpecApiClient
 {
     private readonly HttpClient _http;
+    public string? AuthToken { get; private set; }
 
     public SpecApiClient(HttpClient http)
     {
         _http = http;
+    }
+
+    public void SetAuthToken(string? token)
+    {
+        AuthToken = token;
+        _http.DefaultRequestHeaders.Remove("X-Auth-Token");
+        if (!string.IsNullOrWhiteSpace(token))
+        {
+            _http.DefaultRequestHeaders.Add("X-Auth-Token", token);
+        }
     }
 
     public async Task<HealthCheckResponse?> GetHealthAsync()
@@ -263,5 +274,57 @@ public class SpecApiClient
             return await response.Content.ReadFromJsonAsync<StructuredSpecResultDto>();
         }
         return null;
+    }
+
+    public async Task<GitHubAuthUrlDto?> GetGitHubAuthUrlAsync(string? redirectUri = null)
+    {
+        try
+        {
+            var uri = string.IsNullOrWhiteSpace(redirectUri) ? "api/auth/github/url" : $"api/auth/github/url?redirectUri={Uri.EscapeDataString(redirectUri)}";
+            return await _http.GetFromJsonAsync<GitHubAuthUrlDto>(uri);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<UserDto?> ProcessGitHubCallbackAsync(string code, string? redirectUri = null)
+    {
+        try
+        {
+            var req = new GitHubCallbackRequestDto { Code = code };
+            var response = await _http.PostAsJsonAsync($"api/auth/github/callback{(string.IsNullOrWhiteSpace(redirectUri) ? "" : $"?redirectUri={Uri.EscapeDataString(redirectUri)}")}", req);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<UserDto>();
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<UserDto?> GetCurrentUserAsync()
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<UserDto>("api/auth/me");
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task LogoutAsync()
+    {
+        try
+        {
+            await _http.PostAsync("api/auth/logout", null);
+        }
+        catch { }
     }
 }

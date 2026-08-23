@@ -1,0 +1,89 @@
+@page "/auth/github/callback"
+@layout EmptyLayout
+@inject SpecApiClient ApiClient
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="d-flex flex-column align-items-center justify-content-center min-vh-100 bg-surface-dim p-4">
+    <div class="card bg-surface-container border border-outline-variant p-5 rounded-4 text-center shadow-lg" style="max-width: 480px;">
+        @if (isProcessing)
+        {
+            <div class="spinner-border text-primary-custom mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
+            <h4 class="fw-bold text-on-surface mb-2 font-ui">Authenticating with GitHub</h4>
+            <p class="text-on-surface-variant font-mono small mb-0">Exchanging authorization code and setting up your workspace session...</p>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <span class="material-symbols-outlined text-danger mb-3" style="font-size: 48px;">error</span>
+            <h4 class="fw-bold text-on-surface mb-2 font-ui">Authentication Failed</h4>
+            <p class="text-danger font-mono small mb-4">@errorMessage</p>
+            <button class="btn btn-primary-spec font-mono" @onclick="GoHome">Return to Dashboard</button>
+        }
+        else
+        {
+            <span class="material-symbols-outlined text-success mb-3" style="font-size: 48px;">check_circle</span>
+            <h4 class="fw-bold text-on-surface mb-2 font-ui">Welcome, @currentUser?.DisplayName!</h4>
+            <p class="text-on-surface-variant font-mono small mb-4">Single Sign-On complete. Redirecting to workspace...</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? Code { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery]
+    public string? State { get; set; }
+
+    private bool isProcessing = true;
+    private string? errorMessage;
+    private UserDto? currentUser;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrWhiteSpace(Code))
+        {
+            isProcessing = false;
+            errorMessage = "No OAuth authorization code received from GitHub.";
+            return;
+        }
+
+        try
+        {
+            var redirectUri = Nav.BaseUri.TrimEnd('/') + "/auth/github/callback";
+            currentUser = await ApiClient.ProcessGitHubCallbackAsync(Code, redirectUri);
+
+            if (currentUser != null && currentUser.IsAuthenticated)
+            {
+                ApiClient.SetAuthToken(currentUser.Token);
+                try
+                {
+                    await JS.InvokeVoidAsync("localStorage.setItem", "spec_user_session", System.Text.Json.JsonSerializer.Serialize(currentUser));
+                }
+                catch { }
+
+                isProcessing = false;
+                StateHasChanged();
+                await Task.Delay(1200);
+                Nav.NavigateTo("/dashboard");
+            }
+            else
+            {
+                isProcessing = false;
+                errorMessage = "GitHub SSO token exchange failed or returned invalid profile data.";
+            }
+        }
+        catch (Exception ex)
+        {
+            isProcessing = false;
+            errorMessage = ex.Message;
+        }
+    }
+
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+}

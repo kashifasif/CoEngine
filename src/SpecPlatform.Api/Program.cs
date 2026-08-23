@@ -4,8 +4,11 @@ using SpecPlatform.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Controllers
-builder.Services.AddControllers();
+// Add Controllers with Global Authorization Protection
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<SpecPlatform.Api.Infrastructure.RequireAuthorizationFilter>();
+});
 builder.Services.AddEndpointsApiExplorer();
 
 // Add EF Core DbContext (Supports local Postgres on Port 5433 or SQLite fallback)
@@ -26,8 +29,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     }
 });
 
-// Add OpenRouter AI Service & Local Vector DB Service
+// Add OpenRouter AI Service, GitHub Auth Service & Local Vector DB Service
 builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
+builder.Services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
 builder.Services.AddSingleton<IVectorStoreService, LocalVectorStoreService>();
 
 // Add CORS Policy for Blazor WASM
@@ -50,7 +54,26 @@ using (var scope = app.Services.CreateScope())
     var vectorStore = scope.ServiceProvider.GetRequiredService<IVectorStoreService>();
     db.Database.EnsureCreated();
 
-    if (!isPostgres)
+    if (isPostgres)
+    {
+        try
+        {
+            db.Database.ExecuteSqlRaw(@"
+                CREATE TABLE IF NOT EXISTS ""Users"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
+                    ""Username"" TEXT NOT NULL DEFAULT '',
+                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
+                    ""Email"" TEXT NOT NULL DEFAULT '',
+                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
+                    ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+            ");
+        }
+        catch { }
+    }
+    else
     {
         try
         {
@@ -70,6 +93,16 @@ using (var scope = app.Services.CreateScope())
                     ""Content"" TEXT NOT NULL,
                     ""Timestamp"" TEXT NOT NULL,
                     CONSTRAINT ""FK_ChatMessages_ChatSessions_ChatSessionId"" FOREIGN KEY (""ChatSessionId"") REFERENCES ""ChatSessions"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS ""Users"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_Users"" PRIMARY KEY AUTOINCREMENT,
+                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
+                    ""Username"" TEXT NOT NULL DEFAULT '',
+                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
+                    ""Email"" TEXT NOT NULL DEFAULT '',
+                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""LastLoginAt"" TEXT NOT NULL
                 );
             ");
         }
