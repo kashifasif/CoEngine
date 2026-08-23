@@ -88,8 +88,11 @@ services:
       - "8888:8080"
     environment:
       DOZZLE_AUTH_PROVIDER: simple
+      DOZZLE_ENABLE_ACTIONS: "true"
+      DOZZLE_ENABLE_TERMINAL: "true"
+      DOZZLE_ENABLE_FILE_VIEW: "true"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
       - dozzle_data:/data
     networks:
       - specplatform_net
