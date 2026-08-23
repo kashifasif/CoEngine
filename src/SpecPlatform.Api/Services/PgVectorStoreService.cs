@@ -4,6 +4,9 @@ using Npgsql;
 using Pgvector;
 using SpecPlatform.Api.Data;
 using SpecPlatform.Shared.Models;
+using Microsoft.AI.Foundry.Local;
+using OpenAI.Embeddings;
+using System.ClientModel;
 
 namespace SpecPlatform.Api.Services;
 
@@ -11,12 +14,56 @@ public class PgVectorStoreService : IVectorStoreService
 {
     private readonly AppDbContext _db;
     private readonly ILogger<PgVectorStoreService> _logger;
-    private static readonly Regex TokenRegex = new Regex(@"\w+", RegexOptions.Compiled);
+    private static EmbeddingClient? _embeddingClient;
+    private static bool _isInitializing = false;
+    private static readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
 
     public PgVectorStoreService(AppDbContext db, ILogger<PgVectorStoreService> logger)
     {
         _db = db;
         _logger = logger;
+    }
+
+    private async Task<EmbeddingClient?> GetEmbeddingClientAsync()
+    {
+        if (_embeddingClient != null) return _embeddingClient;
+
+        await _initLock.WaitAsync();
+        try
+        {
+            if (_embeddingClient != null) return _embeddingClient;
+            if (_isInitializing) return null; // Prevent re-entry if something fails
+
+            _isInitializing = true;
+            _logger.LogInformation("Initializing Microsoft.AI.Foundry.Local and downloading model if needed...");
+            
+            var config = new Configuration { AppName = "specplatform_embedding", LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information };
+            await FoundryLocalManager.CreateAsync(config, null);
+            var mgr = FoundryLocalManager.Instance;
+            
+            var catalog = await mgr.GetCatalogAsync();
+            var model = await catalog.GetModelAsync("qwen3-embedding-0.6b") ?? throw new Exception("Model not found in Foundry Local Catalog");
+
+            // Foundry Local manages a local HTTP server that is OpenAI-compatible.
+            // We connect the standard OpenAI client to the Foundry Local endpoint.
+            var options = new OpenAI.OpenAIClientOptions();
+            options.Endpoint = new Uri("http://127.0.0.1:8080/v1");
+            
+            _embeddingClient = new EmbeddingClient("text-embedding-model", new ApiKeyCredential("local-key"), options);
+            
+            _logger.LogInformation("Foundry Local Embedding model initialized successfully.");
+            return _embeddingClient;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize Microsoft.AI.Foundry.Local embeddings.");
+            return null;
+        }
+        finally
+        {
+            _isInitializing = false;
+            _initLock.Release();
+        }
     }
 
     public async Task IndexDocumentAsync(int projectId, string docType, string title, string content)
@@ -26,7 +73,16 @@ public class PgVectorStoreService : IVectorStoreService
         try
         {
             var fullText = $"{title} {content}";
-            var vector = GenerateEmbedding(fullText);
+            var client = await GetEmbeddingClientAsync();
+            if (client == null) 
+            {
+                _logger.LogWarning("Embedding client is not ready. Skipping document indexing.");
+                return;
+            }
+
+            var response = await client.GenerateEmbeddingAsync(fullText);
+            var vector = response.Value.ToFloats().ToArray();
+            
             var id = Guid.NewGuid().ToString();
 
             // Native PostgreSQL pgvector insertion
@@ -61,7 +117,16 @@ public class PgVectorStoreService : IVectorStoreService
 
         try
         {
-            var queryVector = GenerateEmbedding(query);
+            var client = await GetEmbeddingClientAsync();
+            if (client == null) 
+            {
+                _logger.LogWarning("Embedding client is not ready. Returning empty search results.");
+                return new List<VectorSearchResult>();
+            }
+
+            var response = await client.GenerateEmbeddingAsync(query);
+            var queryVector = response.Value.ToFloats().ToArray();
+            
             var vectorString = "[" + string.Join(",", queryVector.Select(v => v.ToString("0.######", System.Globalization.CultureInfo.InvariantCulture))) + "]";
 
             var sql = @"
@@ -156,7 +221,7 @@ public class PgVectorStoreService : IVectorStoreService
                     TotalVectorCount = reader.GetInt32(0),
                     SpecVectorCount = reader.GetInt32(1),
                     ChatVectorCount = reader.GetInt32(2),
-                    VectorDbEngine = "PostgreSQL pgvector (HNSW / Cosine Distance)"
+                    VectorDbEngine = "PostgreSQL pgvector + Foundry Local"
                 };
             }
         }
@@ -180,34 +245,5 @@ public class PgVectorStoreService : IVectorStoreService
                 new NpgsqlParameter("@projectId", projectId));
         }
         catch { }
-    }
-
-    private static float[] GenerateEmbedding(string text)
-    {
-        var tokens = TokenRegex.Matches(text.ToLowerInvariant())
-            .Select(m => m.Value)
-            .Where(t => t.Length > 2)
-            .ToList();
-
-        if (!tokens.Any()) return new float[128];
-
-        var vector = new float[128];
-        foreach (var token in tokens)
-        {
-            int hash = Math.Abs(token.GetHashCode()) % 128;
-            vector[hash] += 1.0f;
-        }
-
-        // Normalize vector to unit length
-        float magnitude = MathF.Sqrt(vector.Sum(v => v * v));
-        if (magnitude > 0)
-        {
-            for (int i = 0; i < vector.Length; i++)
-            {
-                vector[i] /= magnitude;
-            }
-        }
-
-        return vector;
     }
 }

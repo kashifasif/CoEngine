@@ -65,32 +65,33 @@ using (var scope = app.Services.CreateScope())
     // Ensure PostgreSQL pgvector extension and tables exist
     try
     {
-        db.Database.ExecuteSqlRaw(@"
-            CREATE EXTENSION IF NOT EXISTS vector;
+            db.Database.ExecuteSqlRaw(@"
+                CREATE EXTENSION IF NOT EXISTS vector;
 
-            CREATE TABLE IF NOT EXISTS ""Users"" (
-                ""Id"" SERIAL PRIMARY KEY,
-                ""GitHubId"" TEXT NOT NULL DEFAULT '',
-                ""Username"" TEXT NOT NULL DEFAULT '',
-                ""DisplayName"" TEXT NOT NULL DEFAULT '',
-                ""Email"" TEXT NOT NULL DEFAULT '',
-                ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
-                ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
+                CREATE TABLE IF NOT EXISTS ""Users"" (
+                    ""Id"" SERIAL PRIMARY KEY,
+                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
+                    ""Username"" TEXT NOT NULL DEFAULT '',
+                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
+                    ""Email"" TEXT NOT NULL DEFAULT '',
+                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
+                    ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
 
-            CREATE TABLE IF NOT EXISTS ""VectorDocuments"" (
-                ""Id"" TEXT PRIMARY KEY,
-                ""ProjectId"" INTEGER NOT NULL,
-                ""DocType"" TEXT NOT NULL,
-                ""Title"" TEXT NOT NULL,
-                ""Content"" TEXT NOT NULL,
-                ""Embedding"" vector(128),
-                ""IndexedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
+                DROP TABLE IF EXISTS ""VectorDocuments"";
+                CREATE TABLE ""VectorDocuments"" (
+                    ""Id"" TEXT PRIMARY KEY,
+                    ""ProjectId"" INTEGER NOT NULL,
+                    ""DocType"" TEXT NOT NULL,
+                    ""Title"" TEXT NOT NULL,
+                    ""Content"" TEXT NOT NULL,
+                    ""Embedding"" vector,
+                    ""IndexedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
 
-            CREATE INDEX IF NOT EXISTS ""IX_VectorDocuments_ProjectId"" ON ""VectorDocuments"" (""ProjectId"");
-        ");
+                CREATE INDEX ""IX_VectorDocuments_ProjectId"" ON ""VectorDocuments"" (""ProjectId"");
+            ");
     }
     catch { }
 }
