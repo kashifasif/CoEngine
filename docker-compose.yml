@@ -78,22 +78,18 @@ services:
       - specplatform_net
 
   # ─────────────────────────────────────────────────────────────────────────
-  # 4. Dozzle - Lightweight log viewer, with basic auth, exposed publicly
+  # 4. Portainer CE - Container management
   # ─────────────────────────────────────────────────────────────────────────
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: specplatform_dozzle
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
     restart: unless-stopped
     ports:
-      - "8888:8080"
-    environment:
-      DOZZLE_AUTH_PROVIDER: simple
-      DOZZLE_ENABLE_ACTIONS: "true"
-      DOZZLE_ENABLE_TERMINAL: "true"
-      DOZZLE_ENABLE_FILE_VIEW: "true"
+      - "9000:9000"
+      - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - dozzle_data:/data
+      - portainer_data:/data
     networks:
       - specplatform_net
 
@@ -104,7 +100,7 @@ volumes:
     driver: local
   certbot_var:
     driver: local
-  dozzle_data:
+  portainer_data:
     driver: local
 
 networks:
