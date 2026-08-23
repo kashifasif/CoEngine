@@ -8,37 +8,56 @@
 
 <div class="d-flex flex-column flex-lg-row bg-background" style="height: calc(100vh - 64px); max-height: calc(100vh - 64px); overflow: hidden;">
 
-<!-- Left Panel: Chat Interface (Matching theme/ai_brainstorming_chat/code.html) -->
-<section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all h-100 overflow-hidden" style="@(isPreviewCollapsed ? "width: 100%; max-width: 100%; flex-grow: 1;" : $"width: calc(100% - {previewWidthPx}px); min-width: 340px; flex-grow: 1;")">
+<!-- Chat Interface (Matching theme/ai_brainstorming_chat/code.html) -->
+<section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all h-100 overflow-hidden w-100">
 
     <!-- Chat Header -->
-    <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low flex-shrink-0">
+    <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low flex-shrink-0 flex-wrap gap-3">
         <div class="d-flex align-items-center gap-2">
             <span class="material-symbols-outlined text-primary-custom" style="font-size: 22px;">psychology</span>
             <h5 class="fw-bold text-on-surface mb-0 font-ui me-2">SpecAI Assistant Studio</h5>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
-            <select class="form-select form-select-sm form-control-adaptive font-mono fs-xs" value="@selectedProjectId" @onchange="OnProjectSelected">
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <select class="form-select form-select-sm form-control-adaptive font-mono fs-xs" value="@selectedProjectId" @onchange="OnProjectSelected" style="width: auto;">
                 @foreach (var p in projects)
                 {
                     <option value="@p.Id">@p.Name</option>
                 }
             </select>
 
+            <span class="font-mono text-on-surface-variant fs-xs ms-2 me-1 d-none d-lg-inline">
+                Status: <strong class="text-secondary-custom">Workbench Ready</strong>
+            </span>
+
+            @if (GetUnansweredQuestions().Any())
+            {
+                var pendingCount = GetUnansweredQuestions().Count;
+                <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2 py-1 me-1" title="Answer or skip all pending questions to unlock publishing">
+                    ⚠️ @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
+                </span>
+            }
+
+            <button class="btn btn-sm btn-primary-spec font-mono fs-xs py-1 px-3 d-flex align-items-center gap-1.5 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+                @if (isStructuring)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    <span>Publishing...</span>
+                }
+                else
+                {
+                    <span class="material-symbols-outlined" style="font-size: 16px;">publish</span>
+                    <span class="fw-bold">Publish Spec</span>
+                }
+            </button>
+
             <!-- Import Transcript / Raw Notes CTA -->
-            <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5 shadow-sm" @onclick="OpenIngestModal" title="Import MS Teams meeting transcript, raw notes, or requirements">
+            <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5 shadow-sm ms-2" @onclick="OpenIngestModal" title="Import MS Teams meeting transcript, raw notes, or requirements">
                 <span class="material-symbols-outlined" style="font-size: 16px;">upload_file</span>
-                <span>Import Transcript</span>
+                <span>Import</span>
             </button>
 
-            <!-- Toggle Live Spec Preview Panel Button -->
-            <button class="btn btn-sm @(isPreviewCollapsed ? "btn-primary-spec" : "btn-outline-secondary") font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5" @onclick="TogglePreviewPanel" title="@(isPreviewCollapsed ? "Expand Live Spec Preview Panel" : "Collapse Live Spec Preview Panel")">
-                <span class="material-symbols-outlined" style="font-size: 16px;">@(isPreviewCollapsed ? "dock_to_left" : "dock_to_right")</span>
-                <span class="d-none d-sm-inline">@(isPreviewCollapsed ? "Show Spec Preview" : "Hide Spec Preview")</span>
-            </button>
-
-            <button class="btn btn-sm btn-secondary-spec p-1" @onclick="ClearChat" title="Clear DB History">
+            <button class="btn btn-sm btn-secondary-spec p-1 ms-1" @onclick="ClearChat" title="Clear DB History">
                 <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
             </button>
         </div>
@@ -224,68 +243,7 @@
 
 </section>
 
-@if (!isPreviewCollapsed)
-{
-    <!-- Right Panel: Live Draft Preview (Matching theme/ai_brainstorming_chat/code.html) -->
-    <section class="d-flex flex-column bg-background p-4 relative border-start border-outline-variant transition-all h-100 overflow-y-auto" style="width: @(previewWidthPx)px; min-width: 320px; max-height: calc(100vh - 64px);">
 
-        <!-- Live Sync Header & Resizing Controls -->
-        <div class="pb-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center mb-4">
-            <h5 class="fw-bold text-on-surface mb-0 d-flex align-items-center gap-2">
-                <span class="material-symbols-outlined text-secondary-custom">visibility</span> Live Draft Preview
-            </h5>
-
-            <div class="d-flex align-items-center gap-2">
-                <!-- Layout Width Controls: 360px / 480px / 640px -->
-                <div class="btn-group btn-group-sm font-mono fs-xs">
-                    <button class="btn btn-xs @(previewWidthPx == 360 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(360)" title="Compact preview width (360px)">360px</button>
-                    <button class="btn btn-xs @(previewWidthPx == 480 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(480)" title="Standard preview width (480px)">480px</button>
-                    <button class="btn btn-xs @(previewWidthPx == 640 ? "btn-primary-spec text-white" : "btn-outline-secondary") py-0.5 px-2" @onclick="() => SetPreviewWidth(640)" title="Wide preview width (640px)">640px</button>
-                </div>
-
-                <!-- Close/Collapse Button -->
-                <button class="btn btn-sm btn-link text-on-surface-variant p-0 text-decoration-none ms-1" @onclick="TogglePreviewPanel" title="Hide Spec Preview Panel">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">close</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Prominent Top Action Card: Structure & Publish Spec -->
-        <div class="p-3 bg-surface-container-high border border-outline-variant rounded-3 mb-3 shadow-sm">
-            <div class="d-flex flex-column gap-2">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <span class="font-mono text-on-surface-variant fs-xs">
-                        Status: <strong class="text-secondary-custom">Workbench Ready</strong>
-                    </span>
-
-                    @if (GetUnansweredQuestions().Any())
-                    {
-                        var pendingCount = GetUnansweredQuestions().Count;
-                        <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2 py-1" title="Answer or skip all pending questions to unlock publishing">
-                            ⚠️ @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
-                        </span>
-                    }
-                </div>
-
-                <button class="btn btn-primary-spec font-mono py-2.5 px-4 w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
-                    @if (isStructuring)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1"></span>
-                        <span>Publishing Master Spec...</span>
-                    }
-                    else
-                    {
-                        <span class="material-symbols-outlined" style="font-size: 20px;">publish</span>
-                        <span class="fw-bold">Structure & Publish Spec</span>
-                    }
-                </button>
-            </div>
-        </div>
-
-
-
-    </section>
-}
 
 </div>
 
@@ -398,17 +356,9 @@
     private bool isLoadingChat = false;
     private string currentStreamingResponse = "";
 
-    // Draft Preview state
-    private string draftTitle = "";
-    private string draftDesc = "";
-
-    private List<string> draftCriteria = new List<string>();
-
     private bool isStructuring = false;
 
-    // Panel Toggle & Resizing state
-    private bool isPreviewCollapsed = false;
-    private int previewWidthPx = 480;
+    // Panel state
 
     // Transcript Ingestion State
     private bool showIngestModal = false;
@@ -482,21 +432,6 @@
 
             if (result != null && result.Success)
             {
-                if (!string.IsNullOrWhiteSpace(result.ExtractedTitle))
-                {
-                    draftTitle = result.ExtractedTitle;
-                }
-
-                if (!string.IsNullOrWhiteSpace(result.ExtractedDescription))
-                {
-                    draftDesc = result.ExtractedDescription;
-                }
-
-                if (result.ExtractedCriteria != null && result.ExtractedCriteria.Any())
-                {
-                    draftCriteria = new List<string>(result.ExtractedCriteria);
-                }
-
                 chatMessages.Add(new ChatMessageDto
                 {
                     Role = "user",
@@ -511,7 +446,7 @@
 
                 showIngestModal = false;
                 rawTranscriptText = "";
-                isPreviewCollapsed = false;
+
 
                 await ScrollToBottom();
             }
@@ -528,17 +463,6 @@
         {
             isIngesting = false;
         }
-    }
-
-    private void TogglePreviewPanel()
-    {
-        isPreviewCollapsed = !isPreviewCollapsed;
-    }
-
-    private void SetPreviewWidth(int widthPx)
-    {
-        previewWidthPx = widthPx;
-        isPreviewCollapsed = false;
     }
 
     protected override async Task OnInitializedAsync()
@@ -835,10 +759,7 @@
         }
     }
 
-    private void AddDraftCriterion()
-    {
-        draftCriteria.Add("");
-    }
+
 
     private List<ParsedQuestion> GetUnansweredQuestions()
     {
@@ -854,9 +775,7 @@
 
     private bool HasSufficientDataToStructure()
     {
-        bool hasChat = chatMessages.Any(m => m.Role == "user");
-        bool hasManualDraft = !string.IsNullOrWhiteSpace(draftTitle) || !string.IsNullOrWhiteSpace(draftDesc) || draftCriteria.Any(c => !string.IsNullOrWhiteSpace(c));
-        return hasChat || hasManualDraft;
+        return chatMessages.Any(m => m.Role == "user");
     }
 
     private async Task StructureIntoSpec()
@@ -897,19 +816,17 @@
         try
         {
             var result = await ApiClient.StructureChatAsync(selectedProjectId, chatMessages);
-            if (result != null)
-            {
-                if (!string.IsNullOrWhiteSpace(result.Title)) draftTitle = result.Title;
-                if (!string.IsNullOrWhiteSpace(result.Description)) draftDesc = result.Description;
-                if (result.AcceptanceCriteria != null && result.AcceptanceCriteria.Any()) draftCriteria = result.AcceptanceCriteria;
-            }
+            
+            string finalTitle = result?.Title ?? "Master Feature Specification";
+            string finalDesc = result?.Description ?? "Synthesized from AI brainstorming chat.";
+            var finalCriteria = result?.AcceptanceCriteria?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
 
             // Publish structured requirements to Project's Single Master Specification & Log Version Snapshot!
             var publishedSpec = await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
             {
-                Title = draftTitle,
-                Description = draftDesc,
-                AcceptanceCriteria = draftCriteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
+                Title = finalTitle,
+                Description = finalDesc,
+                AcceptanceCriteria = finalCriteria,
                 ScopeTags = result?.ScopeTags?.Any() == true ? result.ScopeTags : new List<string> { "bff", "api", "mfe" }
             });
 
