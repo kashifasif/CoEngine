@@ -8,8 +8,8 @@ namespace SpecPlatform.Api.Services;
 
 public interface IOpenRouterService
 {
-    Task<ChatResponseDto> ChatAsync(string systemPrompt, List<ChatMessageDto> history);
-    IAsyncEnumerable<string> ChatStreamAsync(string systemPrompt, List<ChatMessageDto> history, CancellationToken cancellationToken = default);
+    Task<ChatResponseDto> ChatAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history);
+    IAsyncEnumerable<string> ChatStreamAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history, CancellationToken cancellationToken = default);
     Task<StructuredSpecResultDto> StructureIntoSpecAsync(string systemPrompt, List<ChatMessageDto> history);
 }
 
@@ -17,16 +17,27 @@ public class OpenRouterService : IOpenRouterService
 {
     private readonly IChatCompletionService _chatCompletionService;
     private readonly ILogger<OpenRouterService> _logger;
+    private readonly Kernel _kernel;
 
     public OpenRouterService(Kernel kernel, ILogger<OpenRouterService> logger)
     {
         _chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
         _logger = logger;
+        _kernel = kernel;
     }
 
-    private ChatHistory BuildChatHistory(string systemPrompt, List<ChatMessageDto> history)
+    private async Task<ChatHistory> BuildChatHistoryAsync(string systemPromptTemplate, KernelArguments? args, List<ChatMessageDto> history)
     {
-        var chatHistory = new ChatHistory(systemPrompt);
+        string renderedSystemPrompt = systemPromptTemplate;
+        if (args != null)
+        {
+            var factory = new KernelPromptTemplateFactory();
+            var promptConfig = new PromptTemplateConfig(systemPromptTemplate);
+            var promptTemplate = factory.Create(promptConfig);
+            renderedSystemPrompt = await promptTemplate.RenderAsync(_kernel, args);
+        }
+
+        var chatHistory = new ChatHistory(renderedSystemPrompt);
 
         foreach (var msg in history)
         {
@@ -61,11 +72,11 @@ public class OpenRouterService : IOpenRouterService
         return chatHistory;
     }
 
-    public async Task<ChatResponseDto> ChatAsync(string systemPrompt, List<ChatMessageDto> history)
+    public async Task<ChatResponseDto> ChatAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history)
     {
         try
         {
-            var chatHistory = BuildChatHistory(systemPrompt, history);
+            var chatHistory = await BuildChatHistoryAsync(systemPrompt, args, history);
             var response = await _chatCompletionService.GetChatMessageContentAsync(chatHistory);
             
             return new ChatResponseDto
@@ -87,10 +98,11 @@ public class OpenRouterService : IOpenRouterService
 
     public async IAsyncEnumerable<string> ChatStreamAsync(
         string systemPrompt,
+        KernelArguments? args,
         List<ChatMessageDto> history,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var chatHistory = BuildChatHistory(systemPrompt, history);
+        var chatHistory = await BuildChatHistoryAsync(systemPrompt, args, history);
         
         IAsyncEnumerable<StreamingChatMessageContent>? streamingResponse = null;
         string? errorMsg = null;
@@ -185,7 +197,7 @@ public class OpenRouterService : IOpenRouterService
                       "Synthesize ALL brainstorming ideas, answered Q&A options, and previous version requirements into a SINGLE, exhaustive, production-grade Software Requirements Specification (SRS) JSON document matching the required schema now."
         });
 
-        var chatResult = await ChatAsync(promptText, historyWithTrigger);
+        var chatResult = await ChatAsync(promptText, null, historyWithTrigger);
         return ParseStructuredResult(chatResult, history, systemPrompt);
     }
 

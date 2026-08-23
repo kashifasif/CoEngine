@@ -150,14 +150,46 @@
 
             <!-- Main Content Area with Side Rail Margin -->
             <main class="flex-grow-1 bg-surface-dim" style="margin-left: 280px; min-height: calc(100vh - 64px);">
-                @Body
+                <ErrorBoundary>
+                    <ChildContent>
+                        @Body
+                    </ChildContent>
+                    <ErrorContent Context="ex">
+                        <div class="position-fixed top-0 end-0 p-4 mt-5" style="z-index: 9999;">
+                            <div class="alert alert-danger shadow-lg d-flex align-items-center gap-3 border border-danger bg-danger text-white">
+                                <span class="material-symbols-outlined fs-2">error</span>
+                                <div>
+                                    <strong class="d-block">An error occurred.</strong>
+                                    <span class="small font-mono opacity-75">Please refresh the page and try again.</span>
+                                </div>
+                                <button class="btn btn-sm btn-light ms-2" onclick="location.reload()">Refresh</button>
+                            </div>
+                        </div>
+                    </ErrorContent>
+                </ErrorBoundary>
             </main>
         }
         else
         {
             <!-- Clean Full-Width Main Body for Unauthenticated Login View (No Header/Nav) -->
             <main class="flex-grow-1 bg-surface-dim w-100" style="margin-left: 0; min-height: 100vh;">
-                @Body
+                <ErrorBoundary>
+                    <ChildContent>
+                        @Body
+                    </ChildContent>
+                    <ErrorContent Context="ex">
+                        <div class="position-fixed top-0 end-0 p-4 mt-5" style="z-index: 9999;">
+                            <div class="alert alert-danger shadow-lg d-flex align-items-center gap-3 border border-danger bg-danger text-white">
+                                <span class="material-symbols-outlined fs-2">error</span>
+                                <div>
+                                    <strong class="d-block">An error occurred.</strong>
+                                    <span class="small font-mono opacity-75">Please refresh the page and try again.</span>
+                                </div>
+                                <button class="btn btn-sm btn-light ms-2" onclick="location.reload()">Refresh</button>
+                            </div>
+                        </div>
+                    </ErrorContent>
+                </ErrorBoundary>
             </main>
         }
     </div>
