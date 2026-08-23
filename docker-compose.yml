@@ -86,6 +86,7 @@ services:
     restart: unless-stopped
     ports:
       - "8888:8080"
+    command: ["--enable-actions", "--enable-terminal", "--enable-file-view"]
     environment:
       DOZZLE_AUTH_PROVIDER: simple
       DOZZLE_ENABLE_ACTIONS: "true"
