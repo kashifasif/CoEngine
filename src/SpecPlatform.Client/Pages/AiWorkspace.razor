@@ -448,14 +448,10 @@
     private string currentStreamingResponse = "";
 
     // Draft Preview state
-    private string draftTitle = "Loan Approval Workflow & Security";
-    private string draftDesc = "Defines technical requirements for personal loan origination and risk evaluation.";
+    private string draftTitle = "";
+    private string draftDesc = "";
 
-    private List<string> draftCriteria = new List<string>
-    {
-        "MFA via Entra ID required before final approval on loans > $10,000.",
-        "Return 400 Bad Request with standardized error payload if income validation fails."
-    };
+    private List<string> draftCriteria = new List<string>();
 
     private bool isStructuring = false;
 

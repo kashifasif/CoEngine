@@ -206,13 +206,9 @@
     private string currentStreamingResponse = "";
 
     // Draft Preview state
-    private string draftTitle = "Loan Approval Security & Workflow";
-    private string draftDesc = "Specifies loan decision rules, MFA step-up authentication, and error handling.";
-    private List<string> draftCriteria = new List<string>
-    {
-        "MFA via Entra ID required for loan approvals > $10,000.",
-        "Return standard 400 Bad Request if income validation fails."
-    };
+    private string draftTitle = "";
+    private string draftDesc = "";
+    private List<string> draftCriteria = new List<string>();
 
     private bool isStructuring = false;
 

@@ -134,8 +134,8 @@
                 <!-- Description Block -->
                 <div>
                     <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">MASTER SPECIFICATION DESCRIPTION</h6>
-                    <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 text-on-surface lh-base" style="white-space: pre-wrap;">
-                        @masterSpec.Description
+                    <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 text-on-surface lh-base markdown-body">
+                        @((MarkupString)Markdig.Markdown.ToHtml(masterSpec.Description ?? ""))
                     </div>
                 </div>
 
