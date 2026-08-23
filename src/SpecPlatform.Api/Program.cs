@@ -56,11 +56,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure DB Created & Schema Migration for pgvector and Users
+// Apply all pending EF Core migrations automatically on startup (dev + prod).
+// MigrateAsync() is idempotent — it checks __EFMigrationsHistory and skips already-applied migrations.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
+    await db.Database.MigrateAsync();
 
     // Ensure PostgreSQL pgvector extension and tables exist
     try
@@ -95,6 +96,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch { }
 }
+
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
