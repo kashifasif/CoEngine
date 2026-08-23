@@ -52,7 +52,7 @@
                     @if (isStructuring)
                     {
                         <span class="spinner-border spinner-border-sm me-1"></span>
-                        <span>Publishing...</span>
+                        <span>Reviewing &amp; Publishing...</span>
                     }
                     else
                     {
@@ -246,6 +246,114 @@
 
 </div>
 
+@* ─── Self-Review Warning Panel ─────────────────────────────────────────── *@
+@if (showSelfReviewPanel && selfReviewResult != null)
+{
+    <div class="modal-backdrop fade show" style="background-color: rgba(0,0,0,0.70); z-index: 1050;"></div>
+
+    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1055;" role="dialog" aria-modal="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content bg-surface-container-high border border-outline-variant rounded-4 shadow-lg text-on-surface">
+
+                @* Modal Header *@
+                <div class="modal-header border-bottom border-outline-variant px-4 py-3"
+                     style="background: linear-gradient(135deg, rgba(234,179,8,0.12) 0%, rgba(239,68,68,0.08) 100%);">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="rounded-circle p-2 d-flex align-items-center justify-content-center"
+                             style="background: rgba(234,179,8,0.2); width:40px; height:40px;">
+                            <span class="material-symbols-outlined" style="font-size:22px; color:#ca8a04;">policy</span>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0 font-ui">
+                                @if (selfReviewResult.Passed)
+                                {
+                                    <span class="text-success">✅ Spec Quality Checks Passed</span>
+                                }
+                                else
+                                {
+                                    var issueCount = CountSelfReviewIssues();
+                                    <span style="color:#b45309;">⚠️ @issueCount Issue@(issueCount == 1 ? "" : "s") Found — Review Before Publishing</span>
+                                }
+                            </h5>
+                            <span class="font-mono fs-xs text-on-surface-variant">Self-Review Checklist ran automatically on the structured spec</span>
+                        </div>
+                    </div>
+                </div>
+
+                @* Modal Body *@
+                <div class="modal-body px-4 py-3 d-flex flex-column gap-3">
+
+                    @* Auto-fix disclosure *@
+                    @if (selfReviewResult.AutoFixes.Any())
+                    {
+                        <div class="p-3 rounded-3 border d-flex flex-column gap-2"
+                             style="background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.3) !important;">
+                            <div class="d-flex align-items-center gap-2 fw-semibold font-mono fs-xs" style="color:#3b82f6;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span>
+                                <span>Auto-Fixed (@selfReviewResult.AutoFixes.Count) — Review &amp; revert if inaccurate</span>
+                            </div>
+                            <ul class="mb-0 ps-3 font-mono fs-xs text-on-surface-variant" style="list-style: disc;">
+                                @foreach (var fix in selfReviewResult.AutoFixes)
+                                {
+                                    <li>@fix</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @* Four check rows *@
+                    <div class="d-flex flex-column gap-2">
+                        @RenderCheckRow("Placeholder Scan", selfReviewResult.Checks.PlaceholderScan, "scan")
+                        @RenderCheckRow("Internal Consistency", selfReviewResult.Checks.InternalConsistency, "compare_arrows")
+                        @RenderCheckRow("Scope Check", selfReviewResult.Checks.ScopeCheck, "adjust")
+                        @RenderCheckRow("Ambiguity Check", selfReviewResult.Checks.AmbiguityCheck, "help_center")
+                    </div>
+
+                    @if (!selfReviewResult.Passed)
+                    {
+                        <div class="p-2 rounded-2 font-mono fs-xs text-on-surface-variant border border-outline-variant"
+                             style="background: rgba(234,179,8,0.06);">
+                            <span class="material-symbols-outlined me-1" style="font-size:14px; vertical-align:middle;">info</span>
+                            Publishing is not blocked — you retain final control. Issues above are for your review only.
+                        </div>
+                    }
+                </div>
+
+                @* Modal Footer *@
+                <div class="modal-footer border-top border-outline-variant px-4 py-3 d-flex justify-content-between">
+                    <button type="button" class="btn btn-sm btn-outline-secondary font-mono px-3"
+                            @onclick="CancelSelfReviewAndReset"
+                            disabled="@isPublishing">
+                        <span class="material-symbols-outlined me-1" style="font-size:15px;">close</span>
+                        Cancel
+                    </button>
+
+                    <button type="button" class="btn btn-primary-spec font-mono px-4 d-flex align-items-center gap-2"
+                            @onclick="ConfirmPublishAfterReview"
+                            disabled="@isPublishing">
+                        @if (isPublishing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                            <span>Publishing...</span>
+                        }
+                        else if (selfReviewResult.Passed)
+                        {
+                            <span class="material-symbols-outlined" style="font-size:18px;">publish</span>
+                            <span class="fw-bold">Publish</span>
+                        }
+                        else
+                        {
+                            <span class="material-symbols-outlined" style="font-size:18px;">warning</span>
+                            <span class="fw-bold">Publish Anyway</span>
+                        }
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+}
+
 @if (showIngestModal)
 {
     <!-- Import Raw Requirements / Transcript Modal Backdrop -->
@@ -356,6 +464,12 @@
     private string currentStreamingResponse = "";
 
     private bool isStructuring = false;
+
+    // ─── Self-Review Panel State ────────────────────────────────────────────
+    private bool showSelfReviewPanel = false;
+    private bool isPublishing = false;
+    private SelfReviewResultDto? selfReviewResult = null;
+    private StructuredSpecResultDto? pendingStructuredResult = null;
 
     // Panel state
 
@@ -813,22 +927,41 @@
 
         try
         {
+            // Phase 3 + Self-Review (runs server-side automatically)
             var result = await ApiClient.StructureChatAsync(selectedProjectId, chatMessages);
 
-            string finalTitle = result?.Title ?? "Master Feature Specification";
-            string finalDesc = result?.Description ?? "Synthesized from AI brainstorming chat.";
-            var finalCriteria = result?.AcceptanceCriteria?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
-
-            // Publish structured requirements to Project's Single Master Specification & Log Version Snapshot!
-            var publishedSpec = await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
+            if (result == null)
             {
-                Title = finalTitle,
-                Description = finalDesc,
-                AcceptanceCriteria = finalCriteria,
-                ScopeTags = result?.ScopeTags?.Any() == true ? result.ScopeTags : new List<string> { "bff", "api", "mfe" }
-            });
+                chatMessages.Add(new ChatMessageDto
+                {
+                    Role = "assistant",
+                    Content = "⚠️ **Structuring failed.** The AI did not return a valid specification. Please try again."
+                });
+                StateHasChanged();
+                await ScrollToBottom();
+                return;
+            }
 
-            Nav.NavigateTo($"/specs/{selectedProjectId}");
+            pendingStructuredResult = result;
+            selfReviewResult = result.SelfReviewResult;
+
+            // Show the self-review panel (blocking UI, non-blocking publish)
+            // If no self-review result came back (e.g. fallback path), go straight to publish
+            if (selfReviewResult != null)
+            {
+                isStructuring = false;
+                showSelfReviewPanel = true;
+                StateHasChanged();
+                // If all checks pass, auto-confirm (no interruption for the PO/BA)
+                if (selfReviewResult.Passed && !selfReviewResult.AutoFixes.Any())
+                {
+                    await ConfirmPublishAfterReview();
+                }
+                return;
+            }
+
+            // No review result — publish directly
+            await DoPublish(result);
         }
         finally
         {
@@ -836,6 +969,102 @@
             StateHasChanged();
         }
     }
+
+    /// <summary>User clicked "Publish" or "Publish Anyway" in the self-review panel.</summary>
+    private async Task ConfirmPublishAfterReview()
+    {
+        if (pendingStructuredResult == null) return;
+        isPublishing = true;
+        StateHasChanged();
+        try
+        {
+            await DoPublish(pendingStructuredResult);
+        }
+        finally
+        {
+            isPublishing = false;
+            showSelfReviewPanel = false;
+            selfReviewResult = null;
+            pendingStructuredResult = null;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelSelfReviewAndReset()
+    {
+        showSelfReviewPanel = false;
+        selfReviewResult = null;
+        pendingStructuredResult = null;
+        isStructuring = false;
+        isPublishing = false;
+        StateHasChanged();
+    }
+
+    private async Task DoPublish(StructuredSpecResultDto result)
+    {
+        string finalTitle = result.Title ?? "Master Feature Specification";
+        string finalDesc = result.Description ?? "Synthesized from AI brainstorming chat.";
+        var finalCriteria = result.AcceptanceCriteria?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
+
+        // Serialize self-review for audit storage on the SpecVersion
+        string? selfReviewJson = null;
+        if (selfReviewResult != null)
+        {
+            try { selfReviewJson = System.Text.Json.JsonSerializer.Serialize(selfReviewResult); }
+            catch { /* non-fatal */ }
+        }
+
+        await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
+        {
+            Title = finalTitle,
+            Description = finalDesc,
+            AcceptanceCriteria = finalCriteria,
+            ScopeTags = result.ScopeTags?.Any() == true ? result.ScopeTags : new List<string> { "bff", "api", "mfe" },
+            SelfReviewJson = selfReviewJson
+        });
+
+        Nav.NavigateTo($"/specs/{selectedProjectId}");
+    }
+
+    private int CountSelfReviewIssues()
+    {
+        if (selfReviewResult == null) return 0;
+        return (selfReviewResult.Checks.PlaceholderScan.Issues?.Count ?? 0)
+             + (selfReviewResult.Checks.InternalConsistency.Issues?.Count ?? 0)
+             + (selfReviewResult.Checks.ScopeCheck.Issues?.Count ?? 0)
+             + (selfReviewResult.Checks.AmbiguityCheck.Issues?.Count ?? 0);
+    }
+
+    private RenderFragment RenderCheckRow(string label, SelfReviewCheckDto check, string icon) => __builder =>
+    {
+        <div class="d-flex flex-column gap-1 p-3 rounded-3 border border-outline-variant bg-surface-container-lowest">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2 fw-semibold font-mono fs-xs">
+                    <span class="material-symbols-outlined" style="font-size:16px; opacity:0.7;">@icon</span>
+                    <span>@label</span>
+                </div>
+                @if (check.Passed)
+                {
+                    <span class="badge rounded-pill px-2 py-1 font-mono fs-xs"
+                          style="background:rgba(34,197,94,0.15); color:#16a34a; border:1px solid rgba(34,197,94,0.3);">✅ Passed</span>
+                }
+                else
+                {
+                    <span class="badge rounded-pill px-2 py-1 font-mono fs-xs"
+                          style="background:rgba(239,68,68,0.12); color:#dc2626; border:1px solid rgba(239,68,68,0.25);">⚠️ Issues Found</span>
+                }
+            </div>
+            @if (!check.Passed && check.Issues?.Any() == true)
+            {
+                <ul class="mb-0 mt-1 ps-3 font-mono fs-xs text-on-surface-variant" style="list-style:disc;">
+                    @foreach (var issue in check.Issues)
+                    {
+                        <li>@issue</li>
+                    }
+                </ul>
+            }
+        </div>
+    };
 
     private async Task ClearChat()
     {

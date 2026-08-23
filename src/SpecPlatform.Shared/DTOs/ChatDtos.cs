@@ -48,7 +48,21 @@ public class StructuredSpecResultDto
     public string Description { get; set; } = string.Empty;
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
+
+    /// <summary>
+    /// Raw JSON string produced by the Phase-3 LLM call.
+    /// Set server-side only; used as input to the self-review prompt.
+    /// Not displayed in the UI.
+    /// </summary>
+    public string? RawJson { get; set; }
+
+    /// <summary>
+    /// Self-review result produced immediately after Phase 3.
+    /// Null only if the feature is disabled or a catastrophic error occurred.
+    /// </summary>
+    public SelfReviewResultDto? SelfReviewResult { get; set; }
 }
+
 
 public class IngestTranscriptRequestDto
 {

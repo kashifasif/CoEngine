@@ -6,6 +6,8 @@ public class CreateSpecDto
     public string Description { get; set; } = string.Empty;
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
+    /// <summary>Serialized SelfReviewResultDto — stored on the SpecVersion for audit.</summary>
+    public string? SelfReviewJson { get; set; }
 }
 
 public class UpdateSpecDto
@@ -40,6 +42,8 @@ public class SpecVersionDto
     public DateTime PublishedAt { get; set; }
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
+    /// <summary>Serialized SelfReviewResultDto for audit display.</summary>
+    public string? SelfReviewJson { get; set; }
 }
 
 public class PublishResultDto

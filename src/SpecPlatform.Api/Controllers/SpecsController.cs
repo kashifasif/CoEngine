@@ -174,7 +174,8 @@ public class SpecsController : ControllerBase
                 ScopeTags = dto.ScopeTags
                     .Where(t => !string.IsNullOrWhiteSpace(t))
                     .Select(t => new ScopeTag { TagName = t.Trim() })
-                    .ToList()
+                    .ToList(),
+                SelfReviewJson = dto.SelfReviewJson
             };
             _db.SpecVersions.Add(v1);
             await _db.SaveChangesAsync();
@@ -218,7 +219,8 @@ public class SpecsController : ControllerBase
                 ScopeTags = dto.ScopeTags
                     .Where(t => !string.IsNullOrWhiteSpace(t))
                     .Select(t => new ScopeTag { TagName = t.Trim() })
-                    .ToList()
+                    .ToList(),
+                SelfReviewJson = dto.SelfReviewJson
             };
 
             _db.SpecVersions.Add(newVersion);
@@ -896,7 +898,42 @@ public class SpecsController : ControllerBase
 
         var systemPrompt = $"CONTEXT: Project: {projectName} — {projectDesc}\n\n{existingSpecContext}";
 
+        // ── Phase 3: Structure into Spec ────────────────────────────────────────
         var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, messagesToUse);
+
+        // ── Self-Review: runs automatically before PO/BA sees the review screen ─
+        var rawJsonForReview = result.RawJson;
+        if (!string.IsNullOrWhiteSpace(rawJsonForReview))
+        {
+            try
+            {
+                var selfReview = await _openRouter.RunSelfReviewAsync(rawJsonForReview);
+                result.SelfReviewResult = selfReview;
+
+                // If the LLM applied auto-fixes and produced a revised spec, use it
+                if (selfReview.RevisedSpec != null && selfReview.AutoFixes.Any())
+                {
+                    var revised = selfReview.RevisedSpec;
+                    result.Title = !string.IsNullOrWhiteSpace(revised.Title) ? revised.Title : result.Title;
+                    result.Description = !string.IsNullOrWhiteSpace(revised.Description) ? revised.Description : result.Description;
+                    if (revised.AcceptanceCriteria.Any()) result.AcceptanceCriteria = revised.AcceptanceCriteria;
+                    if (revised.ScopeTags.Any()) result.ScopeTags = revised.ScopeTags;
+                }
+
+                _logger.LogInformation(
+                    "Self-review completed for project {ProjectId}: passed={Passed}, autoFixes={AutoFixCount}",
+                    request.ProjectId, selfReview.Passed, selfReview.AutoFixes.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Self-review failed for project {ProjectId}; continuing without review result.", request.ProjectId);
+            }
+        }
+        else
+        {
+            _logger.LogWarning("Self-review skipped for project {ProjectId}: no raw JSON available (fallback spec path).", request.ProjectId);
+        }
+
         return Ok(result);
     }
 
@@ -1034,7 +1071,8 @@ Extract the key features, workflows, and specifications into an initial draft.";
                     Content = v.Content,
                     PublishedAt = v.PublishedAt,
                     AcceptanceCriteria = v.AcceptanceCriteria.Select(ac => ac.Text).ToList(),
-                    ScopeTags = v.ScopeTags.Select(st => st.TagName).ToList()
+                    ScopeTags = v.ScopeTags.Select(st => st.TagName).ToList(),
+                    SelfReviewJson = v.SelfReviewJson
                 })
                 .ToList()
         };

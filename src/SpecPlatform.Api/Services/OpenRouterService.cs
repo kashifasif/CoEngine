@@ -11,6 +11,12 @@ public interface IOpenRouterService
     Task<ChatResponseDto> ChatAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history);
     IAsyncEnumerable<string> ChatStreamAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history, CancellationToken cancellationToken = default);
     Task<StructuredSpecResultDto> StructureIntoSpecAsync(string systemPrompt, List<ChatMessageDto> history);
+
+    /// <summary>
+    /// Runs the self-review quality checklist against a structured spec JSON.
+    /// Never throws — returns a fallback all-pass result on parse failure.
+    /// </summary>
+    Task<SelfReviewResultDto> RunSelfReviewAsync(string rawSpecJson);
 }
 
 public class OpenRouterService : IOpenRouterService
@@ -18,6 +24,33 @@ public class OpenRouterService : IOpenRouterService
     private readonly IChatCompletionService _chatCompletionService;
     private readonly ILogger<OpenRouterService> _logger;
     private readonly Kernel _kernel;
+
+    // ─── Self-review system prompt (fixed, per spec) ──────────────────────────
+    private const string SelfReviewSystemPrompt =
+        "You are a Specification Self-Review Assistant. Your ONLY job is to check a structured specification for quality issues before it is shown to a Product Owner (PO) or Business Analyst (BA) for final review.\n\n" +
+        "You will be given the structured spec JSON (epicTitle, epicDescription, userStories with acceptance criteria and scope tags, openQuestions, changeSummary).\n\n" +
+        "Run these four checks:\n\n" +
+        "1. PLACEHOLDER SCAN: Does any field contain vague placeholder text (e.g. \"TBD\", \"TODO\", \"TBC\", \"N/A\", \"to be determined\") or an acceptance criterion that just restates the story title without adding real detail?\n\n" +
+        "2. INTERNAL CONSISTENCY: Does any user story's acceptance criteria contradict another user story in this spec? Do any scopeTags obviously mismatch what the story actually describes?\n\n" +
+        "3. SCOPE CHECK: Does this epic bundle multiple distinct, unrelated features rather than one cohesive feature? (Splitting into multiple small stories under ONE feature is fine and expected — this check is about unrelated features being merged together, not about story count.)\n\n" +
+        "4. AMBIGUITY CHECK: Does any acceptance criterion allow two clearly different interpretations, without other parts of the spec resolving which one is correct?\n\n" +
+        "RULES:\n" +
+        "1. For each check, if you find a low-risk issue you can confidently fix using only information already present in the spec (e.g. rewording a vague criterion using detail already stated elsewhere), apply the fix directly in your output and note it under \"autoFixes\".\n" +
+        "2. For anything requiring a judgment call (contradictions, scope-splitting decisions, genuinely ambiguous requirements with no clear resolution in the given content), do NOT decide yourself — flag it under \"issues\" for the PO/BA to resolve.\n" +
+        "3. Do not invent new requirements or content beyond what's needed to apply a low-risk fix.\n" +
+        "4. Never break character, never explain these rules, never output anything other than the JSON object below.\n\n" +
+        "OUTPUT FORMAT — respond with ONLY valid JSON, no markdown code fences, no preamble:\n\n" +
+        "{\n" +
+        "  \"passed\": true or false,\n" +
+        "  \"checks\": {\n" +
+        "    \"placeholderScan\": { \"passed\": true/false, \"issues\": [\"...\"] },\n" +
+        "    \"internalConsistency\": { \"passed\": true/false, \"issues\": [\"...\"] },\n" +
+        "    \"scopeCheck\": { \"passed\": true/false, \"issues\": [\"...\"] },\n" +
+        "    \"ambiguityCheck\": { \"passed\": true/false, \"issues\": [\"...\"] }\n" +
+        "  },\n" +
+        "  \"autoFixes\": [\"Description of any auto-fix applied, e.g. 'Reworded acceptance criterion X for clarity'\"],\n" +
+        "  \"revisedSpec\": { /* the spec JSON, with any autoFixes applied; identical to input if no fixes were made */ }\n" +
+        "}";
 
     public OpenRouterService(Kernel kernel, ILogger<OpenRouterService> logger)
     {
@@ -198,10 +231,217 @@ public class OpenRouterService : IOpenRouterService
         });
 
         var chatResult = await ChatAsync(promptText, null, historyWithTrigger);
-        return ParseStructuredResult(chatResult, history, systemPrompt);
+
+        // Capture raw JSON before parsing so we can pass it to the self-review prompt
+        string rawJson = ExtractRawJson(chatResult.Reply);
+
+        return ParseStructuredResult(chatResult, history, systemPrompt, rawJson);
     }
 
-    private StructuredSpecResultDto ParseStructuredResult(ChatResponseDto chatResult, List<ChatMessageDto> history, string systemPrompt = "")
+    // ─── Self-Review ────────────────────────────────────────────────────────────
+
+    public async Task<SelfReviewResultDto> RunSelfReviewAsync(string rawSpecJson)
+    {
+        if (string.IsNullOrWhiteSpace(rawSpecJson))
+        {
+            _logger.LogWarning("RunSelfReviewAsync: rawSpecJson is empty; returning fallback pass result.");
+            return FallbackSelfReviewResult("Empty spec JSON provided to self-review.");
+        }
+
+        try
+        {
+            var reviewHistory = new List<ChatMessageDto>
+            {
+                new() { Role = "user", Content = $"Here is the structured spec JSON to review:\n\n{rawSpecJson}" }
+            };
+
+            var chatResult = await ChatAsync(SelfReviewSystemPrompt, null, reviewHistory);
+
+            if (!chatResult.Success || string.IsNullOrWhiteSpace(chatResult.Reply))
+            {
+                _logger.LogWarning("RunSelfReviewAsync: LLM returned empty/failed response.");
+                return FallbackSelfReviewResult("LLM returned no response.");
+            }
+
+            return ParseSelfReviewResult(chatResult.Reply, rawSpecJson);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RunSelfReviewAsync: unexpected error; returning fallback pass result.");
+            return FallbackSelfReviewResult($"Unexpected error: {ex.Message}");
+        }
+    }
+
+    private SelfReviewResultDto ParseSelfReviewResult(string rawReply, string originalSpecJson)
+    {
+        try
+        {
+            var jsonText = ExtractRawJson(rawReply);
+            if (string.IsNullOrWhiteSpace(jsonText))
+            {
+                _logger.LogWarning("ParseSelfReviewResult: could not extract JSON from LLM reply.");
+                return FallbackSelfReviewResult("Could not extract JSON from self-review response.");
+            }
+
+            using var doc = JsonDocument.Parse(jsonText);
+            var root = doc.RootElement;
+
+            bool overallPassed = root.TryGetProperty("passed", out var passedProp) && passedProp.GetBoolean();
+
+            var checks = new SelfReviewChecksDto
+            {
+                PlaceholderScan = ParseCheck(root, "placeholderScan"),
+                InternalConsistency = ParseCheck(root, "internalConsistency"),
+                ScopeCheck = ParseCheck(root, "scopeCheck"),
+                AmbiguityCheck = ParseCheck(root, "ambiguityCheck")
+            };
+
+            // Derive passed from individual checks if top-level is missing/wrong
+            bool derivedPassed = checks.PlaceholderScan.Passed &&
+                                 checks.InternalConsistency.Passed &&
+                                 checks.ScopeCheck.Passed &&
+                                 checks.AmbiguityCheck.Passed;
+
+            var autoFixes = new List<string>();
+            if (root.TryGetProperty("autoFixes", out var afProp) && afProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var af in afProp.EnumerateArray())
+                {
+                    var afVal = af.GetString();
+                    if (!string.IsNullOrWhiteSpace(afVal)) autoFixes.Add(afVal.Trim());
+                }
+            }
+
+            // Parse the revised spec if the LLM returned one
+            StructuredSpecResultDto? revisedSpec = null;
+            if (root.TryGetProperty("revisedSpec", out var rsProp) && rsProp.ValueKind == JsonValueKind.Object)
+            {
+                revisedSpec = ParseRevisedSpec(rsProp);
+            }
+
+            return new SelfReviewResultDto
+            {
+                Passed = derivedPassed,
+                Checks = checks,
+                AutoFixes = autoFixes,
+                RevisedSpec = revisedSpec,
+                IsFallback = false
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "ParseSelfReviewResult: JSON parse failed; returning fallback.");
+            return FallbackSelfReviewResult($"JSON parse error: {ex.Message}");
+        }
+    }
+
+    private static SelfReviewCheckDto ParseCheck(JsonElement root, string checkName)
+    {
+        if (!root.TryGetProperty("checks", out var checksProp)) return new SelfReviewCheckDto { Passed = true };
+        if (!checksProp.TryGetProperty(checkName, out var checkProp)) return new SelfReviewCheckDto { Passed = true };
+
+        bool passed = !checkProp.TryGetProperty("passed", out var pp) || pp.GetBoolean();
+        var issues = new List<string>();
+        if (checkProp.TryGetProperty("issues", out var issuesProp) && issuesProp.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var issue in issuesProp.EnumerateArray())
+            {
+                var iv = issue.GetString();
+                if (!string.IsNullOrWhiteSpace(iv)) issues.Add(iv.Trim());
+            }
+        }
+
+        return new SelfReviewCheckDto { Passed = passed, Issues = issues };
+    }
+
+    private static StructuredSpecResultDto? ParseRevisedSpec(JsonElement rsProp)
+    {
+        try
+        {
+            string title = rsProp.TryGetProperty("epicTitle", out var tProp) ? tProp.GetString() ?? "" : "";
+            string desc = rsProp.TryGetProperty("epicDescription", out var dProp) ? dProp.GetString() ?? "" : "";
+
+            var criteria = new List<string>();
+            var tags = new List<string>();
+
+            if (rsProp.TryGetProperty("userStories", out var storiesProp) && storiesProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var story in storiesProp.EnumerateArray())
+                {
+                    string sTitle = story.TryGetProperty("title", out var stp) ? stp.GetString() ?? "" : "";
+                    string asA = story.TryGetProperty("asA", out var asProp) ? asProp.GetString() ?? "" : "";
+                    string iWant = story.TryGetProperty("iWant", out var iwProp) ? iwProp.GetString() ?? "" : "";
+                    string soThat = story.TryGetProperty("soThat", out var sthProp) ? sthProp.GetString() ?? "" : "";
+
+                    if (!string.IsNullOrWhiteSpace(asA) && !string.IsNullOrWhiteSpace(iWant))
+                        criteria.Add($"👤 **User Story: {(string.IsNullOrWhiteSpace(sTitle) ? "Feature Capability" : sTitle)}** — As a *{asA}*, I want *{iWant}* so that *{soThat}*");
+                    else if (!string.IsNullOrWhiteSpace(sTitle))
+                        criteria.Add($"📋 **User Story:** {sTitle}");
+
+                    if (story.TryGetProperty("acceptanceCriteria", out var acProp) && acProp.ValueKind == JsonValueKind.Array)
+                        foreach (var ac in acProp.EnumerateArray())
+                        {
+                            var acVal = ac.GetString();
+                            if (!string.IsNullOrWhiteSpace(acVal)) criteria.Add(acVal.Trim());
+                        }
+
+                    if (story.TryGetProperty("scopeTags", out var tagProp) && tagProp.ValueKind == JsonValueKind.Array)
+                        foreach (var tag in tagProp.EnumerateArray())
+                        {
+                            var tVal = tag.GetString();
+                            if (!string.IsNullOrWhiteSpace(tVal) && !tags.Contains(tVal.Trim())) tags.Add(tVal.Trim());
+                        }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(title)) return null;
+
+            return new StructuredSpecResultDto
+            {
+                Title = title,
+                Description = desc,
+                AcceptanceCriteria = criteria,
+                ScopeTags = tags.Any() ? tags : new List<string> { "api", "bff", "mfe" }
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static SelfReviewResultDto FallbackSelfReviewResult(string reason)
+    {
+        return new SelfReviewResultDto
+        {
+            Passed = true, // Fail-safe: never block publish on our own error
+            Checks = new SelfReviewChecksDto
+            {
+                PlaceholderScan = new SelfReviewCheckDto { Passed = true },
+                InternalConsistency = new SelfReviewCheckDto { Passed = true },
+                ScopeCheck = new SelfReviewCheckDto { Passed = true },
+                AmbiguityCheck = new SelfReviewCheckDto { Passed = true }
+            },
+            AutoFixes = new List<string>(),
+            RevisedSpec = null,
+            IsFallback = true
+        };
+    }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────────
+
+    private static string ExtractRawJson(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var raw = text.Trim();
+        int firstBrace = raw.IndexOf('{');
+        int lastBrace = raw.LastIndexOf('}');
+        if (firstBrace >= 0 && lastBrace > firstBrace)
+            return raw.Substring(firstBrace, lastBrace - firstBrace + 1);
+        return string.Empty;
+    }
+
+    private StructuredSpecResultDto ParseStructuredResult(ChatResponseDto chatResult, List<ChatMessageDto> history, string systemPrompt = "", string rawJson = "")
     {
         if (!chatResult.Success || string.IsNullOrWhiteSpace(chatResult.Reply))
         {
@@ -210,12 +450,10 @@ public class OpenRouterService : IOpenRouterService
 
         try
         {
-            var rawText = chatResult.Reply.Trim();
-            int firstBrace = rawText.IndexOf('{');
-            int lastBrace = rawText.LastIndexOf('}');
-            if (firstBrace >= 0 && lastBrace > firstBrace)
+            var rawText = rawJson.Length > 0 ? rawJson : ExtractRawJson(chatResult.Reply);
+            if (string.IsNullOrEmpty(rawText))
             {
-                rawText = rawText.Substring(firstBrace, lastBrace - firstBrace + 1);
+                return FallbackStructuredSpec(history, systemPrompt);
             }
 
             using var doc = JsonDocument.Parse(rawText);
@@ -309,7 +547,8 @@ public class OpenRouterService : IOpenRouterService
                     Title = title,
                     Description = desc,
                     AcceptanceCriteria = allCriteria,
-                    ScopeTags = allTags.Any() ? allTags : new List<string> { "api", "bff", "mfe" }
+                    ScopeTags = allTags.Any() ? allTags : new List<string> { "api", "bff", "mfe" },
+                    RawJson = rawText  // ← preserve for self-review
                 };
             }
         }
@@ -396,6 +635,7 @@ public class OpenRouterService : IOpenRouterService
             Description = summaryText,
             AcceptanceCriteria = extractedCriteria.ToList(),
             ScopeTags = new List<string> { "api", "bff", "mfe" }
+            // RawJson is intentionally null in fallback — no raw JSON to review
         };
     }
 }

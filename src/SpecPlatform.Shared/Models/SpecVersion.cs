@@ -14,4 +14,10 @@ public class SpecVersion
     public Spec? Spec { get; set; }
     public List<AcceptanceCriterion> AcceptanceCriteria { get; set; } = new();
     public List<ScopeTag> ScopeTags { get; set; } = new();
+
+    /// <summary>
+    /// JSON-serialized SelfReviewResultDto stored for audit. Null for versions
+    /// published before the self-review feature was introduced.
+    /// </summary>
+    public string? SelfReviewJson { get; set; }
 }
