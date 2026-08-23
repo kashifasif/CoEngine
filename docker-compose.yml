@@ -84,8 +84,6 @@ services:
     image: amir20/dozzle:latest
     container_name: specplatform_dozzle
     restart: unless-stopped
-    ports:
-      - "8888:8080"
     environment:
       DOZZLE_AUTH_PROVIDER: simple
     volumes:
