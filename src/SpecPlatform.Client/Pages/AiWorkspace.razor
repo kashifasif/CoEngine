@@ -126,7 +126,7 @@
 
                                                 @if (!string.IsNullOrEmpty(q.SelectedAnswer))
                                                 {
-                                                    <span class="badge bg-success bg-opacity-15 text-success border border-success border-opacity-30 font-mono fs-xs">
+                                                    <span class="status-badge-success">
                                                         ✔ Answered
                                                     </span>
                                                 }
@@ -348,7 +348,7 @@
     <div class="modal fade show d-block" tabindex="-1" style="z-index: 1055;" role="dialog">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content bg-surface-container-high border border-outline-variant rounded-4 shadow-lg text-on-surface">
-                
+
                 <!-- Modal Header -->
                 <div class="modal-header border-bottom border-outline-variant px-4 py-3 bg-surface-container">
                     <div class="d-flex align-items-center gap-2">
@@ -382,7 +382,7 @@
 
                         <div class="col-12 col-md-6">
                             <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-1">OR UPLOAD FILE (.txt, .md, .vtt, .json)</label>
-                            <InputFile OnChange="HandleTranscriptFileUpload" class="form-control form-control-sm form-control-adaptive font-mono fs-xs" accept=".txt,.md,.vtt,.json" />
+                            <InputFile OnChange="HandleTranscriptFileUpload" class="form-control form-control-sm form-control-adaptive font-mono fs-xs" accept=".txt,.md,.vtt,.json"/>
                         </div>
                     </div>
 
@@ -541,10 +541,12 @@
                 {
                     draftTitle = result.ExtractedTitle;
                 }
+
                 if (!string.IsNullOrWhiteSpace(result.ExtractedDescription))
                 {
                     draftDesc = result.ExtractedDescription;
                 }
+
                 if (result.ExtractedCriteria != null && result.ExtractedCriteria.Any())
                 {
                     draftCriteria = new List<string>(result.ExtractedCriteria);
@@ -615,7 +617,9 @@
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         Nav.NavigateTo("/");
         return false;
