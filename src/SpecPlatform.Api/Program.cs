@@ -81,6 +81,11 @@ using (var scope = app.Services.CreateScope())
     catch { }
 }
 
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+});
+
 app.UseCors("AllowAll");
 
 // Serve Blazor WebAssembly static framework files and fallback route
