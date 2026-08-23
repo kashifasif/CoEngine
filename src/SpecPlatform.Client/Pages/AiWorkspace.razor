@@ -267,7 +267,7 @@
                     }
                 </div>
 
-                <button class="btn btn-primary-spec font-mono py-2.5 px-4 w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any())" title="@(GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+                <button class="btn btn-primary-spec font-mono py-2.5 px-4 w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
                     @if (isStructuring)
                     {
                         <span class="spinner-border spinner-border-sm me-1"></span>
@@ -901,9 +901,28 @@
         return new List<ParsedQuestion>();
     }
 
+    private bool HasSufficientDataToStructure()
+    {
+        bool hasChat = chatMessages.Any(m => m.Role == "user");
+        bool hasManualDraft = !string.IsNullOrWhiteSpace(draftTitle) || !string.IsNullOrWhiteSpace(draftDesc) || draftCriteria.Any(c => !string.IsNullOrWhiteSpace(c));
+        return hasChat || hasManualDraft;
+    }
+
     private async Task StructureIntoSpec()
     {
         if (selectedProjectId == 0) return;
+
+        if (!HasSufficientDataToStructure())
+        {
+            chatMessages.Add(new ChatMessageDto
+            {
+                Role = "assistant",
+                Content = "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation or provide a title and description before structuring."
+            });
+            StateHasChanged();
+            await ScrollToBottom();
+            return;
+        }
 
         // Block publishing if there are remaining unanswered questions in the active clarification round
         var unanswered = GetUnansweredQuestions();

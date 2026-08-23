@@ -137,7 +137,7 @@
                     <h5 class="fw-bold text-adaptive-heading mb-0 d-flex align-items-center gap-2">
                         <i class="bi bi-file-earmark-text text-primary"></i> Live Spec Draft Preview
                     </h5>
-                    <button class="btn btn-sm btn-primary-gradient font-mono px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || !chatMessages.Any())">
+                    <button class="btn btn-sm btn-primary-gradient font-mono px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || !HasSufficientDataToStructure())">
                         @if (isStructuring)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -329,9 +329,17 @@
         draftCriteria.Add("");
     }
 
+    private bool HasSufficientDataToStructure()
+    {
+        bool hasChat = chatMessages.Any(m => m.Role == "user");
+        bool hasManualDraft = !string.IsNullOrWhiteSpace(draftTitle) || !string.IsNullOrWhiteSpace(draftDesc) || draftCriteria.Any(c => !string.IsNullOrWhiteSpace(c));
+        return hasChat || hasManualDraft;
+    }
+
     private async Task StructureIntoSpec()
     {
         if (selectedProjectId == 0) return;
+        if (!HasSufficientDataToStructure()) return;
 
         isStructuring = true;
         StateHasChanged();
