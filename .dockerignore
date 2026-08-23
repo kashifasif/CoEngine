@@ -1,0 +1,26 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# Test projects — not needed in image
+tests/
+
+# Local dev secrets — never bake into image
+**/appsettings.Development.json
+**/appsettings.*.json
+!**/appsettings.json
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+*.user
+
+# Git
+.git/
+.gitignore
