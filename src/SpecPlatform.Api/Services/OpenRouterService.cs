@@ -34,7 +34,7 @@ public class OpenRouterService : IOpenRouterService
             var apiKey = _configuration["DeepSeek:ApiKey"] ??
                          Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ??
                          "sk-cccd16c9552348cda60e0ed362840130";
-            var model = _configuration["DeepSeek:Model"] ?? "deepseek-chat";
+            var model = _configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
             var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
 
             if (string.IsNullOrWhiteSpace(apiKey))
@@ -91,7 +91,7 @@ public class OpenRouterService : IOpenRouterService
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         var apiKey = _configuration["DeepSeek:ApiKey"] ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "sk-cccd16c9552348cda60e0ed362840130";
-        var model = _configuration["DeepSeek:Model"] ?? "deepseek-chat";
+        var model = _configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
         var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
 
         if (string.IsNullOrWhiteSpace(apiKey))
@@ -409,6 +409,19 @@ public class OpenRouterService : IOpenRouterService
                     messages.Add(new { role = "user", content = injectedUserMsg });
                 }
             }
+        }
+
+        if (model.Contains("deepseek-v4-pro") || model.Contains("reasoning"))
+        {
+            return new
+            {
+                model = model,
+                messages = messages,
+                temperature = 0.7,
+                stream = stream,
+                reasoning_effort = "high",
+                thinking = new { type = "enabled" }
+            };
         }
 
         return new
