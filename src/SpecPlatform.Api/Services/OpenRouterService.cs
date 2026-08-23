@@ -1,8 +1,7 @@
-using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
+using Microsoft.SemanticKernel;
+using Microsoft.SemanticKernel.ChatCompletion;
 using SpecPlatform.Shared.DTOs;
 
 namespace SpecPlatform.Api.Services;
@@ -16,71 +15,72 @@ public interface IOpenRouterService
 
 public class OpenRouterService : IOpenRouterService
 {
-    private readonly HttpClient _httpClient;
-    private readonly IConfiguration _configuration;
+    private readonly IChatCompletionService _chatCompletionService;
     private readonly ILogger<OpenRouterService> _logger;
 
-    public OpenRouterService(HttpClient httpClient, IConfiguration configuration, ILogger<OpenRouterService> logger)
+    public OpenRouterService(Kernel kernel, ILogger<OpenRouterService> logger)
     {
-        _httpClient = httpClient;
-        _configuration = configuration;
+        _chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
         _logger = logger;
+    }
+
+    private ChatHistory BuildChatHistory(string systemPrompt, List<ChatMessageDto> history)
+    {
+        var chatHistory = new ChatHistory(systemPrompt);
+
+        foreach (var msg in history)
+        {
+            var content = msg.Content ?? "";
+            
+            if (msg.Role == "user")
+            {
+                chatHistory.AddUserMessage(content);
+            }
+            else if (msg.Role == "assistant")
+            {
+                chatHistory.AddAssistantMessage(content);
+            }
+
+            // Inject user confirmed answers for MCQs
+            if (msg.Role == "assistant" && content.Contains("<!-- MCQ_ANSWER_"))
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(content, @"<!-- MCQ_ANSWER_(\d+): (.*?) -->");
+                if (matches.Count > 0)
+                {
+                    var userAnswers = new List<string>();
+                    foreach (System.Text.RegularExpressions.Match m in matches)
+                    {
+                        userAnswers.Add($"Question {m.Groups[1].Value}: {m.Groups[2].Value}");
+                    }
+
+                    var injectedUserMsg = $"[USER CONFIRMED ANSWERS & SELECTIONS FOR ABOVE QUESTIONS]:\n- " + string.Join("\n- ", userAnswers);
+                    chatHistory.AddUserMessage(injectedUserMsg);
+                }
+            }
+        }
+        return chatHistory;
     }
 
     public async Task<ChatResponseDto> ChatAsync(string systemPrompt, List<ChatMessageDto> history)
     {
         try
         {
-            var apiKey = _configuration["DeepSeek:ApiKey"] ??
-                         Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ??
-                         "sk-cccd16c9552348cda60e0ed362840130";
-            var model = _configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
-            var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
-
-            if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                _logger.LogWarning("DeepSeek API key is not configured. Returning fallback response.");
-                return new ChatResponseDto
-                {
-                    Success = true,
-                    Reply = "[Dev Mode Simulation] I am ready to help you draft your spec! Please provide a DeepSeek API key in configuration."
-                };
-            }
-
-            var requestBody = BuildPayload(model, systemPrompt, history, stream: false);
-            using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-
-            var response = await _httpClient.SendAsync(request);
-            var content = await response.Content.ReadAsStringAsync();
-
-            var jsonNode = JsonNode.Parse(content);
-            if (jsonNode?["error"] != null || !response.IsSuccessStatusCode)
-            {
-                var errMessage = jsonNode?["error"]?["message"]?.ToString() ?? content;
-                _logger.LogWarning("DeepSeek API warning/error: {Error}. Providing fallback response.", errMessage);
-                return new ChatResponseDto
-                {
-                    Success = true,
-                    Reply = $"[DeepSeek AI] Understood your request: '{history.LastOrDefault()?.Content}'. Incorporating these rules into project spec draft preview."
-                };
-            }
-
-            var assistantMessage = jsonNode?["choices"]?[0]?["message"]?["content"]?.ToString();
+            var chatHistory = BuildChatHistory(systemPrompt, history);
+            var response = await _chatCompletionService.GetChatMessageContentAsync(chatHistory);
+            
             return new ChatResponseDto
             {
                 Success = true,
-                Reply = CleanText(assistantMessage ?? "No content returned.")
+                Reply = CleanText(response.Content ?? "No content returned.")
             };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to call DeepSeek API");
+            _logger.LogError(ex, "Failed to call AI via Semantic Kernel");
             return new ChatResponseDto
             {
-                Success = true,
-                Reply = $"[DeepSeek AI Fallback] Requirements clarification assistant is analyzing: '{history.LastOrDefault()?.Content}'."
+                Success = false,
+                Reply = $"[AI Error] {ex.Message}"
             };
         }
     }
@@ -90,96 +90,38 @@ public class OpenRouterService : IOpenRouterService
         List<ChatMessageDto> history,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var apiKey = _configuration["DeepSeek:ApiKey"] ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "sk-cccd16c9552348cda60e0ed362840130";
-        var model = _configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
-        var baseUrl = _configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            var fallbackMessage = "[DeepSeek Simulation] Streaming response: Ready to assist with spec generation. Enter a DeepSeek API key to enable live streaming.";
-            foreach (var word in fallbackMessage.Split(' '))
-            {
-                yield return word + " ";
-                await Task.Delay(40, cancellationToken);
-            }
-            yield break;
-        }
-
-        var requestBody = BuildPayload(model, systemPrompt, history, stream: true);
+        var chatHistory = BuildChatHistory(systemPrompt, history);
         
-        StreamReader? reader = null;
-        HttpResponseMessage? response = null;
-        string? errorText = null;
-
+        IAsyncEnumerable<StreamingChatMessageContent>? streamingResponse = null;
+        string? errorMsg = null;
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, baseUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-
-            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            if (!response.IsSuccessStatusCode)
-            {
-                var errContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                errorText = $"[API Warning {(int)response.StatusCode}: {errContent}]. Please try clicking Retry Answer below.";
-            }
-            else
-            {
-                var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                reader = new StreamReader(stream, Encoding.UTF8);
-            }
+            streamingResponse = _chatCompletionService.GetStreamingChatMessageContentsAsync(chatHistory, cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "DeepSeek API stream connection exception.");
-            errorText = $"[HTTP Error 500: DeepSeek connection timeout - {ex.Message}]";
+            _logger.LogWarning(ex, "AI stream connection exception.");
+            errorMsg = $"[HTTP Error 500: AI connection error - {ex.Message}]";
         }
 
-        if (!string.IsNullOrEmpty(errorText))
+        if (errorMsg != null)
         {
-            response?.Dispose();
-            yield return errorText;
+            yield return errorMsg;
             yield break;
         }
 
-        if (reader != null)
+        if (streamingResponse != null)
         {
-            try
+            await foreach (var chunk in streamingResponse.WithCancellation(cancellationToken))
             {
-                string? line;
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                if (!string.IsNullOrEmpty(chunk.Content))
                 {
-                    if (cancellationToken.IsCancellationRequested) break;
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-
-                    if (line.StartsWith("data: "))
+                    var cleaned = CleanText(chunk.Content);
+                    if (!string.IsNullOrEmpty(cleaned))
                     {
-                        var data = line.Substring(6).Trim();
-                        if (data == "[DONE]") break;
-
-                        string? chunk = null;
-                        try
-                        {
-                            var node = JsonNode.Parse(data);
-                            chunk = node?["choices"]?[0]?["delta"]?["content"]?.ToString();
-                        }
-                        catch { }
-
-                        if (!string.IsNullOrEmpty(chunk))
-                        {
-                            chunk = CleanText(chunk);
-                            if (!string.IsNullOrEmpty(chunk))
-                            {
-                                yield return chunk;
-                            }
-                        }
+                        yield return cleaned;
                     }
                 }
-            }
-            finally
-            {
-                reader.Dispose();
-                response?.Dispose();
             }
         }
     }
@@ -234,7 +176,6 @@ public class OpenRouterService : IOpenRouterService
             "5. If changeSummary is empty (brand new spec), omit it.\n" +
             "6. Output ONLY raw valid JSON matching the schema.";
 
-        // Copy history and append explicit final User Action Prompt to trigger SRS JSON generation!
         var historyWithTrigger = history.ToList();
         historyWithTrigger.Add(new ChatMessageDto
         {
@@ -362,7 +303,7 @@ public class OpenRouterService : IOpenRouterService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not parse JSON output from DeepSeek AI response. Falling back to structured extraction.");
+            _logger.LogWarning(ex, "Could not parse JSON output from AI response. Falling back to structured extraction.");
         }
 
         return FallbackStructuredSpec(history, systemPrompt);
@@ -377,60 +318,6 @@ public class OpenRouterService : IOpenRouterService
             .Replace("[write_path(", "")
             .Replace("content='", "")
             .Replace("')]", "");
-    }
-
-    private static object BuildPayload(string model, string systemPrompt, List<ChatMessageDto> history, bool stream)
-    {
-        var messages = new List<object>
-        {
-            new { role = "system", content = systemPrompt }
-        };
-
-        foreach (var msg in history)
-        {
-            var content = msg.Content ?? "";
-            messages.Add(new { role = msg.Role, content = content });
-
-            // If assistant message contains MCQ answers, append an explicit User Answer message so the LLM sees the user's responses!
-            if (msg.Role == "assistant" && !string.IsNullOrWhiteSpace(content) && content.Contains("<!-- MCQ_ANSWER_"))
-            {
-                var matches = System.Text.RegularExpressions.Regex.Matches(content, @"<!-- MCQ_ANSWER_(\d+): (.*?) -->");
-                if (matches.Count > 0)
-                {
-                    var userAnswers = new List<string>();
-                    foreach (System.Text.RegularExpressions.Match m in matches)
-                    {
-                        var qNum = m.Groups[1].Value;
-                        var ansText = m.Groups[2].Value;
-                        userAnswers.Add($"Question {qNum}: {ansText}");
-                    }
-
-                    var injectedUserMsg = $"[USER CONFIRMED ANSWERS & SELECTIONS FOR ABOVE QUESTIONS]:\n- " + string.Join("\n- ", userAnswers);
-                    messages.Add(new { role = "user", content = injectedUserMsg });
-                }
-            }
-        }
-
-        if (model.Contains("deepseek-v4-pro") || model.Contains("reasoning"))
-        {
-            return new
-            {
-                model = model,
-                messages = messages,
-                temperature = 0.7,
-                stream = stream,
-                reasoning_effort = "high",
-                thinking = new { type = "enabled" }
-            };
-        }
-
-        return new
-        {
-            model = model,
-            messages = messages,
-            temperature = 0.7,
-            stream = stream
-        };
     }
 
     private static StructuredSpecResultDto FallbackStructuredSpec(List<ChatMessageDto> history, string systemPrompt = "")

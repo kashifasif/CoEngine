@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.SemanticKernel;
 using SpecPlatform.Api.Data;
 using SpecPlatform.Api.Services;
 
@@ -21,9 +22,24 @@ var connectionString = builder.Configuration.GetConnectionString("PostgresConnec
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, o => o.UseVector()));
 
-
 // Add OpenRouter AI Service, GitHub Auth Service & PostgreSQL pgvector Service
-builder.Services.AddHttpClient<IOpenRouterService, OpenRouterService>();
+builder.Services.AddScoped<IOpenRouterService, OpenRouterService>();
+
+// Configure Semantic Kernel with DeepSeek API
+var deepSeekApiKey = builder.Configuration["DeepSeek:ApiKey"] ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "sk-cccd16c9552348cda60e0ed362840130";
+var deepSeekModel = builder.Configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
+var deepSeekBaseUrl = builder.Configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
+
+// Extract base URL for the OpenAI connector (it typically expects the base like https://api.deepseek.com/v1/)
+var baseUri = new Uri(deepSeekBaseUrl);
+var deepSeekEndpoint = new Uri(baseUri.GetLeftPart(UriPartial.Authority) + "/v1"); // typically /v1 for OpenAI compatibility
+
+builder.Services.AddKernel()
+    .AddOpenAIChatCompletion(
+        modelId: deepSeekModel,
+        apiKey: deepSeekApiKey,
+        endpoint: deepSeekEndpoint);
+
 builder.Services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
 builder.Services.AddScoped<IVectorStoreService, PgVectorStoreService>();
 
