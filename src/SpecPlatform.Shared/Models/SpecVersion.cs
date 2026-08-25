@@ -10,6 +10,9 @@ public class SpecVersion
     public string Content { get; set; } = string.Empty;
     public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 
+    public int? AuthorUserId { get; set; }
+    public User? AuthorUser { get; set; }
+
     [JsonIgnore]
     public Spec? Spec { get; set; }
     public List<AcceptanceCriterion> AcceptanceCriteria { get; set; } = new();

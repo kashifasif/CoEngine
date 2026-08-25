@@ -97,14 +97,135 @@
             }
         })();
     </script>
+    <style>
+        #app-loader {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            width: 100%;
+            background-color: #fafafa;
+            color: #18181b;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            padding: 1.5rem;
+            box-sizing: border-box;
+            transition: background-color 0.2s ease, color 0.2s ease;
+        }
+
+        html.dark #app-loader,
+        html[data-theme="dark"] #app-loader {
+            background-color: #09090b;
+            color: #f4f4f5;
+        }
+
+        .loader-icon-box {
+            position: relative;
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: rgba(79, 70, 229, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+        }
+
+        html.dark .loader-icon-box,
+        html[data-theme="dark"] .loader-icon-box {
+            background: rgba(99, 102, 241, 0.12);
+            border-color: rgba(129, 140, 248, 0.3);
+        }
+
+        .loader-spinner-ring {
+            position: absolute;
+            inset: -6px;
+            border-radius: 20px;
+            border: 2px solid transparent;
+            border-top-color: #4f46e5;
+            border-right-color: #6366f1;
+            animation: spinRing 1s linear infinite;
+        }
+
+        html.dark .loader-spinner-ring,
+        html[data-theme="dark"] .loader-spinner-ring {
+            border-top-color: #818cf8;
+            border-right-color: #a5b4fc;
+        }
+
+        @keyframes spinRing {
+            to { transform: rotate(360deg); }
+        }
+
+        .loader-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+            margin: 0 0 0.35rem 0;
+            color: inherit;
+        }
+
+        .loader-subtitle {
+            font-size: 0.75rem;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #71717a;
+            margin: 0;
+            max-width: 320px;
+            line-height: 1.4;
+        }
+
+        html.dark .loader-subtitle,
+        html[data-theme="dark"] .loader-subtitle {
+            color: #a1a1aa;
+        }
+
+        .loader-bar-bg {
+            width: 160px;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.06);
+            border-radius: 9999px;
+            overflow: hidden;
+            margin-top: 1.25rem;
+            position: relative;
+        }
+
+        html.dark .loader-bar-bg,
+        html[data-theme="dark"] .loader-bar-bg {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .loader-bar-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 40%;
+            background: linear-gradient(90deg, #4f46e5, #818cf8);
+            border-radius: 9999px;
+            animation: progressPulse 1.4s ease-in-out infinite alternate;
+        }
+
+        @keyframes progressPulse {
+            0% { left: 0%; width: 25%; }
+            100% { left: 65%; width: 35%; }
+        }
+    </style>
 </head>
 
-<body class="bg-bg-base text-text-base min-h-screen flex flex-col font-ui overflow-x-hidden antialiased">
+<body class="bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen flex flex-col antialiased">
     <div id="app">
-        <div class="flex flex-col justify-center items-center min-h-screen bg-bg-base">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
-            <h5 class="text-xl font-semibold text-white mb-2">Loading SpecPlatform Engine...</h5>
-            <p class="text-slate-400 text-sm font-mono">Initializing Technical Precision Design System & AI Vector Store</p>
+        <div id="app-loader">
+            <div class="loader-icon-box">
+                <span class="material-symbols-outlined" style="font-size: 28px; color: #6366f1;">auto_awesome</span>
+                <div class="loader-spinner-ring"></div>
+            </div>
+            <h5 class="loader-title">Loading SpecPlatform Engine</h5>
+            <p class="loader-subtitle">Initializing technical workspace &amp; vector store...</p>
+            <div class="loader-bar-bg">
+                <div class="loader-bar-fill"></div>
+            </div>
         </div>
     </div>
 

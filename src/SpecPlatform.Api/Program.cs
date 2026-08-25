@@ -93,6 +93,37 @@ using (var scope = app.Services.CreateScope())
 
                 CREATE INDEX ""IX_VectorDocuments_ProjectId"" ON ""VectorDocuments"" (""ProjectId"");
             ");
+
+        // Backfill any existing notifications created before author tracking with real user info
+        var defaultUser = await db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
+        if (defaultUser != null)
+        {
+            var unassignedNotifs = await db.Notifications
+                .Where(n => n.AuthorUserId == null)
+                .ToListAsync();
+
+            if (unassignedNotifs.Any())
+            {
+                foreach (var notif in unassignedNotifs)
+                {
+                    notif.AuthorUserId = defaultUser.Id;
+                }
+                await db.SaveChangesAsync();
+            }
+
+            var unassignedVersions = await db.SpecVersions
+                .Where(v => v.AuthorUserId == null)
+                .ToListAsync();
+
+            if (unassignedVersions.Any())
+            {
+                foreach (var version in unassignedVersions)
+                {
+                    version.AuthorUserId = defaultUser.Id;
+                }
+                await db.SaveChangesAsync();
+            }
+        }
     }
     catch { }
 }

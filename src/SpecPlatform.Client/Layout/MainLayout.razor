@@ -9,17 +9,97 @@
 @if (currentUser != null && currentUser.IsAuthenticated)
 {
     <!-- Top Navigation Bar -->
-    <header class="fixed top-0 inset-x-0 h-14 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 flex items-center justify-between transition-colors">
-        <div class="flex items-center gap-6">
-            <a class="flex items-center gap-2.5 text-zinc-900 dark:text-white no-underline font-semibold tracking-tight text-base" href="dashboard">
+    <header class="fixed top-0 inset-x-0 h-14 z-30 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 flex items-center justify-between transition-colors">
+        <!-- Left: Branding, Project Switcher, and Nav Links -->
+        <div class="flex items-center gap-4 lg:gap-6 min-w-0">
+            <!-- Branding -->
+            <a class="flex items-center gap-2.5 text-zinc-900 dark:text-white no-underline font-semibold tracking-tight text-base shrink-0" href="dashboard">
                 <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
                     <span class="material-symbols-outlined text-[18px]">layers</span>
                 </div>
-                <span>SpecPlatform</span>
+                <span class="hidden sm:inline">SpecPlatform</span>
             </a>
+
+            <!-- Vertical Separator -->
+            <div class="h-5 w-px bg-zinc-200 dark:bg-zinc-800 shrink-0"></div>
+
+            <!-- Project Selector Dropdown -->
+            @if (availableProjects.Any())
+            {
+                <div class="relative">
+                    <button type="button" class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80 text-xs font-semibold text-zinc-900 dark:text-zinc-100 transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700/80" @onclick="() => showProjectSelector = !showProjectSelector" title="Switch Project Space">
+                        <div class="w-4 h-4 rounded bg-indigo-600 text-white font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                            @(selectedProjectName.Length >= 2 ? selectedProjectName.Substring(0, 2).ToUpper() : "PR")
+                        </div>
+                        <span class="truncate max-w-[110px] sm:max-w-[160px] md:max-w-[200px]">@selectedProjectName</span>
+                        <span class="material-symbols-outlined text-[16px] text-zinc-400">expand_more</span>
+                    </button>
+
+                    @if (showProjectSelector)
+                    {
+                        <div class="fixed inset-0 z-40" @onclick="() => showProjectSelector = false"></div>
+                        <div class="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-1">
+                            <div class="px-2.5 py-1.5 text-[10px] uppercase font-bold text-zinc-400 dark:text-zinc-500 tracking-wider">
+                                Active Project
+                            </div>
+                            @foreach (var proj in availableProjects)
+                            {
+                                bool isCur = proj.Name == selectedProjectName;
+                                <button type="button" class="w-full text-left px-2.5 py-2 rounded-lg text-xs font-medium flex items-center justify-between transition-colors cursor-pointer @(isCur ? "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold" : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800")"
+                                        @onclick="() => SelectProjectSpace(proj)">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <div class="w-5 h-5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono text-[10px] flex items-center justify-center shrink-0">
+                                            @(proj.Name.Length >= 2 ? proj.Name.Substring(0, 2).ToUpper() : "PR")
+                                        </div>
+                                        <span class="truncate">@proj.Name</span>
+                                    </div>
+                                    @if (isCur)
+                                    {
+                                        <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">check</span>
+                                    }
+                                </button>
+                            }
+                            <div class="border-t border-zinc-100 dark:border-zinc-800 my-0.5"></div>
+                            <a href="dashboard" class="px-2.5 py-2 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg flex items-center gap-2 no-underline cursor-pointer" @onclick="() => showProjectSelector = false">
+                                <span class="material-symbols-outlined text-[16px]">grid_view</span>
+                                <span>All Projects Dashboard</span>
+                            </a>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Horizontal Top Navigation Links -->
+            <nav class="hidden md:flex items-center gap-1">
+                <NavLink class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="dashboard" Match="NavLinkMatch.All">
+                    <span class="material-symbols-outlined text-[17px]">grid_view</span>
+                    <span>Projects</span>
+                </NavLink>
+
+                <NavLink class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="specs">
+                    <span class="material-symbols-outlined text-[17px]">description</span>
+                    <span>Specifications</span>
+                </NavLink>
+
+                <NavLink class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="ai-workspace">
+                    <span class="material-symbols-outlined text-[17px]">auto_awesome</span>
+                    <span>AI Workspace</span>
+                </NavLink>
+
+                <NavLink class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="published-specs-qa">
+                    <span class="material-symbols-outlined text-[17px]">chat</span>
+                    <span>Dev/QA Copilot</span>
+                </NavLink>
+
+                <NavLink class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="versions">
+                    <span class="material-symbols-outlined text-[17px]">history</span>
+                    <span>Versions</span>
+                </NavLink>
+            </nav>
         </div>
 
-        <div class="flex items-center gap-3">
+        <!-- Right Side Header Actions -->
+        <div class="flex items-center gap-2.5 sm:gap-3 shrink-0">
             <!-- Notifications Popover -->
             <div class="relative">
                 <button class="relative p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" @onclick="ToggleNotificationsPopover" title="Notifications">
@@ -85,8 +165,8 @@
                                             <!-- Content Text -->
                                             <div class="flex-1 min-w-0">
                                                 <p class="text-xs text-zinc-700 dark:text-zinc-300 leading-snug m-0">
-                                                    <strong class="font-bold text-zinc-900 dark:text-white">@(notif.AuthorDisplayName ?? notif.AuthorUsername ?? "Team Member")</strong>
-                                                    <span class="text-zinc-600 dark:text-zinc-400"> published </span>
+                                                    <strong class="font-bold text-zinc-900 dark:text-white">@(notif.AuthorDisplayName ?? notif.AuthorUsername ?? "Author")</strong>
+                                                    <span class="text-zinc-600 dark:text-zinc-400"> @(notif.ActionType == "undone" ? "undone publication of" : (notif.ActionType == "restored" ? "restored" : "published")) </span>
                                                     <strong class="font-bold text-zinc-900 dark:text-white">@(notif.SpecTitle)</strong>
                                                 </p>
                                                 <div class="flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 font-mono">
@@ -178,75 +258,32 @@
             </div>
         </div>
     </header>
+
+    <!-- Mobile Sub-Navigation Bar for smaller viewports -->
+    <div class="md:hidden fixed top-14 inset-x-0 h-11 bg-white/95 dark:bg-zinc-900/95 border-b border-zinc-200 dark:border-zinc-800 px-4 flex items-center gap-2 overflow-x-auto z-20 backdrop-blur-md">
+        <NavLink class="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 rounded-md whitespace-nowrap [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="dashboard" Match="NavLinkMatch.All">
+            Projects
+        </NavLink>
+        <NavLink class="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 rounded-md whitespace-nowrap [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="specs">
+            Specs
+        </NavLink>
+        <NavLink class="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 rounded-md whitespace-nowrap [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="ai-workspace">
+            AI Workspace
+        </NavLink>
+        <NavLink class="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 rounded-md whitespace-nowrap [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="published-specs-qa">
+            Copilot
+        </NavLink>
+        <NavLink class="px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 rounded-md whitespace-nowrap [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/60 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400 [&.active]:font-semibold" href="versions">
+            Versions
+        </NavLink>
+    </div>
 }
 
-<div class="flex flex-1 @(currentUser != null && currentUser.IsAuthenticated ? "pt-14" : "")">
+<div class="flex flex-1 @(currentUser != null && currentUser.IsAuthenticated ? "pt-14 md:pt-14" : "")">
     @if (currentUser != null && currentUser.IsAuthenticated)
     {
-        @if (isInsideProject)
-        {
-            <!-- Sidebar (Only displayed when inside an active Project Space) -->
-            <aside class="fixed left-0 top-14 bottom-0 w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-4 flex flex-col justify-between z-20 transition-colors">
-                <div class="flex flex-col gap-5">
-                    @if (!string.IsNullOrWhiteSpace(selectedProjectName))
-                    {
-                        <!-- Project Selector / Space Badge -->
-                        <div class="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
-                            <div class="w-8 h-8 rounded-md bg-indigo-600 text-white font-mono text-xs font-semibold flex items-center justify-center shrink-0">
-                                @(selectedProjectName.Length >= 2 ? selectedProjectName.Substring(0, 2).ToUpper() : "SP")
-                            </div>
-                            <div class="min-w-0 flex-1">
-                                <div class="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500">Project Space</div>
-                                <div class="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">@selectedProjectName</div>
-                            </div>
-                        </div>
-                    }
-
-                    <!-- Main Navigation Links -->
-                    <nav class="flex flex-col gap-1">
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="dashboard">
-                            <span class="material-symbols-outlined text-[18px]">arrow_back</span>
-                            <span>All Projects</span>
-                        </NavLink>
-
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="specs">
-                            <span class="material-symbols-outlined text-[18px]">description</span>
-                            <span>Specifications</span>
-                        </NavLink>
-
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="ai-workspace">
-                            <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-                            <span>AI Workspace</span>
-                        </NavLink>
-
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="published-specs-qa">
-                            <span class="material-symbols-outlined text-[18px]">chat</span>
-                            <span>Published Specs Q&A</span>
-                        </NavLink>
-
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="versions">
-                            <span class="material-symbols-outlined text-[18px]">history</span>
-                            <span>Version History</span>
-                        </NavLink>
-                    </nav>
-                </div>
-
-                <!-- Footer / Secondary Links -->
-                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-0.5 text-zinc-500 dark:text-zinc-400 text-xs">
-                    <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
-                        <span class="material-symbols-outlined text-[16px]">help_outline</span>
-                        <span>Documentation</span>
-                    </button>
-                    <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
-                        <span class="material-symbols-outlined text-[16px]">support</span>
-                        <span>Support</span>
-                    </button>
-                </div>
-            </aside>
-        }
-
-        <!-- Main Content Area -->
-        <main class="flex-1 @(isInsideProject ? "ml-64" : "ml-0") min-h-[calc(100vh-56px)] bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-8 transition-all">
+        <!-- Main Content Area: Spans 100% Full Width -->
+        <main class="flex-1 w-full min-h-[calc(100vh-56px)] bg-zinc-50 dark:bg-zinc-950 p-4 sm:p-6 lg:p-8 transition-all">
             <ErrorBoundary>
                 <ChildContent>
                     @Body
@@ -421,19 +458,29 @@
         Nav.NavigateTo("/login");
     }
 
+    private bool showProjectSelector = false;
+    private List<ProjectDto> availableProjects = new();
+
     private async Task LoadProjectSpace()
     {
         try
         {
-            var projects = await ApiClient.GetProjectsAsync();
-            if (projects.Any())
+            availableProjects = await ApiClient.GetProjectsAsync();
+            if (availableProjects.Any() && string.IsNullOrWhiteSpace(selectedProjectName))
             {
-                selectedProjectName = projects.First().Name;
+                selectedProjectName = availableProjects.First().Name;
             }
         }
         catch
         {
         }
+    }
+
+    private void SelectProjectSpace(ProjectDto proj)
+    {
+        selectedProjectName = proj.Name;
+        showProjectSelector = false;
+        Nav.NavigateTo($"/specs/{proj.Id}");
     }
 
     private async Task ToggleTheme()

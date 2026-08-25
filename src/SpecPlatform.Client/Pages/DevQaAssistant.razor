@@ -102,6 +102,11 @@
             {
                 @foreach (var msg in chatMessages)
                 {
+                    if (msg.Role == "assistant" && string.IsNullOrWhiteSpace(msg.Content) && isThinking)
+                    {
+                        continue;
+                    }
+
                     bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
 
                     <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
@@ -141,9 +146,14 @@
 
                 @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
                 {
-                    <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
-                        <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
-                        <span>Searching specification vector embeddings...</span>
+                    <div class="flex flex-col items-start w-full animate-in fade-in duration-150">
+                        <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
+                            @(roleMode == "qa_mode" ? "QA Copilot" : "Dev Assistant")
+                        </div>
+                        <div class="card p-4 flex items-center gap-3 text-xs text-indigo-600 dark:text-indigo-400 font-mono shadow-xs">
+                            <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full shrink-0"></div>
+                            <span>Searching specification vector embeddings &amp; generating answer...</span>
+                        </div>
                     </div>
                 }
             }

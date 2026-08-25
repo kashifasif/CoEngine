@@ -40,6 +40,10 @@ public class SpecVersionDto
     public int VersionNumber { get; set; }
     public string Content { get; set; } = string.Empty;
     public DateTime PublishedAt { get; set; }
+    public int? AuthorUserId { get; set; }
+    public string? AuthorDisplayName { get; set; }
+    public string? AuthorUsername { get; set; }
+    public string? AuthorAvatarUrl { get; set; }
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
     /// <summary>Serialized SelfReviewResultDto for audit display.</summary>

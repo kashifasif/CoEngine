@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SpecPlatform.Api.Data;
@@ -11,9 +12,11 @@ using SpecPlatform.Api.Data;
 namespace SpecPlatform.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260825161422_AddSpecVersionAuthor")]
+    partial class AddSpecVersionAuthor
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -113,8 +116,17 @@ namespace SpecPlatform.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("AuthorAvatarUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthorDisplayName")
+                        .HasColumnType("text");
+
                     b.Property<int?>("AuthorUserId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("AuthorUsername")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -138,8 +150,6 @@ namespace SpecPlatform.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthorUserId");
 
                     b.ToTable("Notifications");
                 });
@@ -231,8 +241,17 @@ namespace SpecPlatform.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AuthorAvatarUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AuthorDisplayName")
+                        .HasColumnType("text");
+
                     b.Property<int?>("AuthorUserId")
                         .HasColumnType("integer");
+
+                    b.Property<string>("AuthorUsername")
+                        .HasColumnType("text");
 
                     b.Property<string>("Content")
                         .IsRequired()
@@ -254,8 +273,6 @@ namespace SpecPlatform.Api.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AuthorUserId");
 
                     b.HasIndex("SpecId");
 
@@ -341,8 +358,6 @@ namespace SpecPlatform.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
                     b.ToTable("UserAiUsages");
                 });
 
@@ -377,16 +392,6 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Notification", b =>
-                {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "AuthorUser")
-                        .WithMany()
-                        .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("AuthorUser");
-                });
-
             modelBuilder.Entity("SpecPlatform.Shared.Models.ScopeTag", b =>
                 {
                     b.HasOne("SpecPlatform.Shared.Models.SpecVersion", null)
@@ -409,30 +414,13 @@ namespace SpecPlatform.Api.Migrations
 
             modelBuilder.Entity("SpecPlatform.Shared.Models.SpecVersion", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "AuthorUser")
-                        .WithMany()
-                        .HasForeignKey("AuthorUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("SpecPlatform.Shared.Models.Spec", "Spec")
                         .WithMany("Versions")
                         .HasForeignKey("SpecId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("AuthorUser");
-
                     b.Navigation("Spec");
-                });
-
-            modelBuilder.Entity("SpecPlatform.Shared.Models.UserAiUsage", b =>
-                {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("SpecPlatform.Shared.Models.ChatSession", b =>

@@ -163,6 +163,8 @@ public class SpecsController : ControllerBase
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
+            .Include(s => s.Versions)
+            .ThenInclude(v => v.AuthorUser)
             .Where(s => s.ProjectId == projectId)
             .OrderByDescending(s => s.CreatedAt)
             .ToListAsync();
@@ -281,12 +283,14 @@ public class SpecsController : ControllerBase
             _db.Specs.Add(spec);
             await _db.SaveChangesAsync();
 
+            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var v1 = new SpecVersion
             {
                 SpecId = spec.Id,
                 VersionNumber = 1,
                 Content = spec.Description,
                 PublishedAt = DateTime.UtcNow,
+                AuthorUserId = currentUser?.Id,
                 AcceptanceCriteria = dto.AcceptanceCriteria
                     .Where(ac => !string.IsNullOrWhiteSpace(ac))
                     .Select(ac => new AcceptanceCriterion { Text = ac.Trim() })
@@ -326,12 +330,14 @@ public class SpecsController : ControllerBase
                 .OrderByDescending(v => v.VersionNumber).ToList();
             int nextVersionNumber = publishedVersions.Any() ? publishedVersions.First().VersionNumber + 1 : 1;
 
+            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var newVersion = new SpecVersion
             {
                 SpecId = spec.Id,
                 VersionNumber = nextVersionNumber,
-                Content = spec.Description,
+                Content = dto.Description,
                 PublishedAt = DateTime.UtcNow,
+                AuthorUserId = currentUser?.Id,
                 AcceptanceCriteria = dto.AcceptanceCriteria
                     .Where(ac => !string.IsNullOrWhiteSpace(ac))
                     .Select(ac => new AcceptanceCriterion { Text = ac.Trim() })
@@ -351,7 +357,6 @@ public class SpecsController : ControllerBase
             await _vectorStore.IndexDocumentAsync(projectId, "spec", spec.Title,
                 $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
 
-            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var notification = new Notification
             {
                 SpecId = spec.Id,
@@ -361,9 +366,6 @@ public class SpecsController : ControllerBase
                 SummaryText =
                     $"[NOTIFICATION] Master Specification for project '{project.Name}' published as Version {nextVersionNumber}.",
                 AuthorUserId = currentUser?.Id,
-                AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
-                AuthorUsername = currentUser?.Username,
-                AuthorAvatarUrl = currentUser?.AvatarUrl,
                 ActionType = "published",
                 CreatedAt = DateTime.UtcNow
             };
@@ -383,6 +385,8 @@ public class SpecsController : ControllerBase
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
+            .Include(s => s.Versions)
+            .ThenInclude(v => v.AuthorUser)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (spec == null)
@@ -478,12 +482,14 @@ public class SpecsController : ControllerBase
         var draftVersion = spec.Versions.FirstOrDefault(v => v.VersionNumber == 0)
                            ?? spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var newPublishedVersion = new SpecVersion
         {
             SpecId = spec.Id,
             VersionNumber = nextVersionNumber,
             Content = spec.Description,
             PublishedAt = DateTime.UtcNow,
+            AuthorUserId = currentUser?.Id,
             AcceptanceCriteria = (draftVersion?.AcceptanceCriteria ?? new List<AcceptanceCriterion>())
                 .Select(ac => new AcceptanceCriterion { Text = ac.Text })
                 .ToList(),
@@ -501,7 +507,6 @@ public class SpecsController : ControllerBase
         var summaryText =
             $"[NOTIFICATION] Spec '{spec.Title}' in project '{spec.Project?.Name}' published as Version {nextVersionNumber}. Contains {criteriaCount} acceptance criteria and {tagsCount} scope tags.";
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var notification = new Notification
         {
             SpecId = spec.Id,
@@ -510,9 +515,6 @@ public class SpecsController : ControllerBase
             VersionNumber = nextVersionNumber,
             SummaryText = summaryText,
             AuthorUserId = currentUser?.Id,
-            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
-            AuthorUsername = currentUser?.Username,
-            AuthorAvatarUrl = currentUser?.AvatarUrl,
             ActionType = "published",
             CreatedAt = DateTime.UtcNow
         };
@@ -563,9 +565,6 @@ public class SpecsController : ControllerBase
             VersionNumber = versionNumber,
             SummaryText = summaryText,
             AuthorUserId = currentUser?.Id,
-            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
-            AuthorUsername = currentUser?.Username,
-            AuthorAvatarUrl = currentUser?.AvatarUrl,
             ActionType = "undone",
             CreatedAt = DateTime.UtcNow
         };
@@ -606,9 +605,6 @@ public class SpecsController : ControllerBase
             VersionNumber = versionNumber,
             SummaryText = summaryText,
             AuthorUserId = currentUser?.Id,
-            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
-            AuthorUsername = currentUser?.Username,
-            AuthorAvatarUrl = currentUser?.AvatarUrl,
             ActionType = "restored",
             CreatedAt = DateTime.UtcNow
         };
@@ -629,6 +625,7 @@ public class SpecsController : ControllerBase
         [FromQuery] int take = 10)
     {
         var notifications = await _db.Notifications
+            .Include(n => n.AuthorUser)
             .OrderByDescending(n => n.CreatedAt)
             .Skip(skip)
             .Take(take)
@@ -641,9 +638,9 @@ public class SpecsController : ControllerBase
                 VersionNumber = n.VersionNumber,
                 SummaryText = n.SummaryText,
                 CreatedAt = n.CreatedAt,
-                AuthorDisplayName = !string.IsNullOrWhiteSpace(n.AuthorDisplayName) ? n.AuthorDisplayName : (n.AuthorUsername ?? "System User"),
-                AuthorUsername = n.AuthorUsername ?? "system",
-                AuthorAvatarUrl = n.AuthorAvatarUrl,
+                AuthorDisplayName = n.AuthorUser != null ? n.AuthorUser.DisplayName : null,
+                AuthorUsername = n.AuthorUser != null ? n.AuthorUser.Username : null,
+                AuthorAvatarUrl = n.AuthorUser != null ? n.AuthorUser.AvatarUrl : null,
                 ActionType = n.ActionType ?? "published"
             })
             .ToListAsync();
@@ -1375,6 +1372,10 @@ Extract the key features, workflows, and specifications into an initial draft.";
                     VersionNumber = v.VersionNumber,
                     Content = v.Content,
                     PublishedAt = v.PublishedAt,
+                    AuthorUserId = v.AuthorUserId,
+                    AuthorDisplayName = v.AuthorUser != null ? v.AuthorUser.DisplayName : null,
+                    AuthorUsername = v.AuthorUser != null ? v.AuthorUser.Username : null,
+                    AuthorAvatarUrl = v.AuthorUser != null ? v.AuthorUser.AvatarUrl : null,
                     AcceptanceCriteria = v.AcceptanceCriteria.Select(ac => ac.Text).ToList(),
                     ScopeTags = v.ScopeTags.Select(st => st.TagName).ToList(),
                     SelfReviewJson = v.SelfReviewJson,

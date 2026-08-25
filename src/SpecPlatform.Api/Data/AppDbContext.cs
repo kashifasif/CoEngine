@@ -53,5 +53,23 @@ public class AppDbContext : DbContext
             .WithOne(cm => cm.ChatSession)
             .HasForeignKey(cm => cm.ChatSessionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Notification>()
+            .HasOne(n => n.AuthorUser)
+            .WithMany()
+            .HasForeignKey(n => n.AuthorUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<SpecVersion>()
+            .HasOne(v => v.AuthorUser)
+            .WithMany()
+            .HasForeignKey(v => v.AuthorUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<UserAiUsage>()
+            .HasOne(u => u.User)
+            .WithMany()
+            .HasForeignKey(u => u.UserId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
