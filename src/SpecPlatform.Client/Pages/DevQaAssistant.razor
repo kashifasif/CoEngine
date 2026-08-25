@@ -22,22 +22,16 @@
         </div>
 
         <div class="flex items-center gap-2.5">
-            <!-- Project Dropdown -->
-            <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 px-2 py-1 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60">
-                <span class="material-symbols-outlined text-zinc-400 text-[15px]">folder</span>
-                <select class="bg-transparent text-xs font-medium text-zinc-800 dark:text-zinc-200 border-none outline-none focus:ring-0 cursor-pointer pr-1" value="@selectedProjectId" @onchange="OnProjectSelected">
-                    @if (!projects.Any())
-                    {
-                        <option value="0">Loading projects...</option>
-                    }
-                    else
-                    {
-                        @foreach (var proj in projects)
-                        {
-                            <option value="@proj.Id" class="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">@proj.Name</option>
-                        }
-                    }
-                </select>
+            <!-- Project Selector Pills -->
+            <div class="flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-800/80 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60 overflow-x-auto max-w-[320px]">
+                @foreach (var proj in projects)
+                {
+                    var isSelected = proj.Id == selectedProjectId;
+                    <button class="px-2.5 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-1 whitespace-nowrap cursor-pointer @(isSelected ? "bg-white dark:bg-zinc-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-zinc-200/80 dark:border-zinc-700 font-semibold" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200")" @onclick="() => SelectProjectById(proj.Id)">
+                        <span class="material-symbols-outlined text-[14px] @(isSelected ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-400")">folder</span>
+                        <span>@proj.Name</span>
+                    </button>
+                }
             </div>
 
             <span class="badge badge-primary text-[11px] py-1 px-2.5 hidden sm:inline-flex">
@@ -52,7 +46,7 @@
 
     <!-- Chat Stream Window -->
     <div id="devQaChatStream" class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
-        <div class="max-w-4xl w-full mx-auto flex flex-col gap-6">
+        <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
 
             <!-- In-Stream Lazy Loader -->
             @if (isLoadingOlderMessages)
@@ -292,6 +286,15 @@
             await LoadDbChatSession();
             await LoadVectorStats();
         }
+    }
+
+    private async Task SelectProjectById(int pId)
+    {
+        if (selectedProjectId == pId) return;
+        selectedProjectId = pId;
+        selectedProject = projects.FirstOrDefault(p => p.Id == pId);
+        await LoadDbChatSession();
+        await LoadVectorStats();
     }
 
     private async Task OnProjectSelected(ChangeEventArgs e)

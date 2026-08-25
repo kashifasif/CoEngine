@@ -18,22 +18,15 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <!-- Project Selector -->
-            <div class="d-flex align-items-center gap-2 me-2">
-                <span class="text-adaptive-muted small font-mono">Project:</span>
-                <select class="form-select form-select-sm form-control-adaptive font-mono" style="min-width: 200px;" value="@selectedProjectId" @onchange="OnProjectSelected">
-                    @if (!projects.Any())
-                    {
-                        <option value="0">Loading projects...</option>
-                    }
-                    else
-                    {
-                        @foreach (var proj in projects)
-                        {
-                            <option value="@proj.Id">@proj.Name</option>
-                        }
-                    }
-                </select>
+            <!-- Project Selector Pills -->
+            <div class="d-flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700">
+                @foreach (var proj in projects)
+                {
+                    var isSelected = proj.Id == selectedProjectId;
+                    <button type="button" class="btn btn-sm px-2.5 py-1 text-xs font-mono transition-all @(isSelected ? "btn-primary font-bold shadow-sm" : "btn-outline-secondary border-0 text-zinc-600 dark:text-zinc-300")" @onclick="() => SelectProjectById(proj.Id)">
+                        <i class="bi bi-folder me-1"></i>@proj.Name
+                    </button>
+                }
             </div>
 
             <button class="btn btn-sm btn-secondary-dark px-3 py-1.5 rounded-3" @onclick="ClearChat" title="Clear DB Chat Session">
@@ -233,6 +226,14 @@
             selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
             await LoadDbChatSession();
         }
+    }
+
+    private async Task SelectProjectById(int pId)
+    {
+        if (selectedProjectId == pId) return;
+        selectedProjectId = pId;
+        selectedProject = projects.FirstOrDefault(p => p.Id == pId);
+        await LoadDbChatSession();
     }
 
     private async Task OnProjectSelected(ChangeEventArgs e)

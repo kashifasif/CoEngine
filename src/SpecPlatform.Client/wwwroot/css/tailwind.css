@@ -819,9 +819,6 @@
   .w-14 {
     width: calc(var(--spacing) * 14);
   }
-  .w-20 {
-    width: calc(var(--spacing) * 20);
-  }
   .w-25 {
     width: calc(var(--spacing) * 25);
   }
@@ -873,6 +870,15 @@
   .max-w-\[140px\] {
     max-width: 140px;
   }
+  .max-w-\[300px\] {
+    max-width: 300px;
+  }
+  .max-w-\[320px\] {
+    max-width: 320px;
+  }
+  .max-w-full {
+    max-width: 100%;
+  }
   .max-w-lg {
     max-width: var(--container-lg);
   }
@@ -890,12 +896,6 @@
   }
   .min-w-0 {
     min-width: 0px;
-  }
-  .min-w-\[200px\] {
-    min-width: 200px;
-  }
-  .min-w-\[220px\] {
-    min-width: 220px;
   }
   .flex-1 {
     flex: 1;
@@ -1407,6 +1407,9 @@
   .p-0 {
     padding: 0px;
   }
+  .p-0\.5 {
+    padding: calc(var(--spacing) * 0.5);
+  }
   .p-1 {
     padding: var(--spacing);
   }
@@ -1574,9 +1577,6 @@
   }
   .pt-14 {
     padding-top: calc(var(--spacing) * 14);
-  }
-  .pr-1 {
-    padding-right: var(--spacing);
   }
   .pr-2\.5 {
     padding-right: calc(var(--spacing) * 2.5);
@@ -2082,6 +2082,17 @@
     .hover\:bg-zinc-100:hover {
       background-color: var(--color-zinc-100);
     }
+    .hover\:bg-zinc-200:hover {
+      background-color: var(--color-zinc-200);
+    }
+    .hover\:bg-zinc-200\/50:hover {
+      background-color: color-mix(in srgb, oklch(92% 0.004 286.32) 50%, transparent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .hover\:bg-zinc-200\/50:hover {
+        background-color: color-mix(in oklab, var(--color-zinc-200) 50%, transparent);
+      }
+    }
     .hover\:bg-zinc-200\/80:hover {
       background-color: color-mix(in srgb, oklch(92% 0.004 286.32) 80%, transparent);
     }
@@ -2469,12 +2480,6 @@
   .dark\:bg-zinc-800:where(.dark, .dark *) {
     background-color: var(--color-zinc-800);
   }
-  .dark\:bg-zinc-800\/60:where(.dark, .dark *) {
-    background-color: color-mix(in srgb, oklch(27.4% 0.006 286.033) 60%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-zinc-800) 60%, transparent);
-    }
-  }
   .dark\:bg-zinc-800\/80:where(.dark, .dark *) {
     background-color: color-mix(in srgb, oklch(27.4% 0.006 286.033) 80%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -2682,6 +2687,9 @@
     }
     .dark\:hover\:bg-zinc-100:where(.dark, .dark *):hover {
       background-color: var(--color-zinc-100);
+    }
+    .dark\:hover\:bg-zinc-700:where(.dark, .dark *):hover {
+      background-color: var(--color-zinc-700);
     }
     .dark\:hover\:bg-zinc-700\/80:where(.dark, .dark *):hover {
       background-color: color-mix(in srgb, oklch(37% 0.013 285.805) 80%, transparent);

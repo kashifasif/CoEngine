@@ -18,22 +18,20 @@
             <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Manage published releases, rollback with Undo/Redo, and compare diffs.</p>
         </div>
 
-        <div class="flex items-center gap-2.5">
-            <label class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Specification:</label>
-            <select class="form-input text-xs w-auto min-w-[220px]" value="@selectedSpecId" @onchange="OnSpecSelected">
-                @if (!specs.Any())
+        @if (specs.Any())
+        {
+            <div class="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-lg overflow-x-auto max-w-full">
+                @foreach (var s in specs)
                 {
-                    <option value="0">Loading specifications...</option>
+                    var isSelected = s.Id == selectedSpecId;
+                    <button class="px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer @(isSelected ? "bg-white dark:bg-zinc-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-zinc-200/80 dark:border-zinc-700 font-semibold" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50")" @onclick="() => SelectSpecById(s.Id)">
+                        <span class="material-symbols-outlined text-[15px] @(isSelected ? "text-indigo-600 dark:text-indigo-400" : "text-zinc-400")">description</span>
+                        <span>@s.Title</span>
+                        <span class="badge badge-default text-[10px] py-0 px-1.5">v@(s.CurrentVersionNumber)</span>
+                    </button>
                 }
-                else
-                {
-                    @foreach (var s in specs)
-                    {
-                        <option value="@s.Id">@s.Title (v@(s.CurrentVersionNumber))</option>
-                    }
-                }
-            </select>
-        </div>
+            </div>
+        }
     </div>
 
     @if (selectedSpec != null)
@@ -117,24 +115,30 @@
                     </div>
 
                     <!-- Version Selectors -->
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-zinc-400 font-mono">From</span>
-                        <select class="form-input text-xs w-20" @bind="v1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="text-xs text-zinc-400 font-mono">From:</span>
+                        <div class="flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800">
                             @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
                             {
-                                <option value="@v.VersionNumber">v@(v.VersionNumber)</option>
+                                var isSel = v1 == v.VersionNumber;
+                                <button class="px-2 py-0.5 text-xs font-mono rounded transition-all cursor-pointer @(isSel ? "bg-indigo-600 text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200")" @onclick="() => v1 = v.VersionNumber">
+                                    v@(v.VersionNumber)
+                                </button>
                             }
-                        </select>
+                        </div>
 
-                        <span class="text-zinc-400 font-mono text-xs">&rarr;</span>
+                        <span class="text-zinc-400 font-mono text-xs px-1">&rarr;</span>
 
-                        <span class="text-xs text-zinc-400 font-mono">To</span>
-                        <select class="form-input text-xs w-20" @bind="v2">
+                        <span class="text-xs text-zinc-400 font-mono">To:</span>
+                        <div class="flex items-center gap-1 p-0.5 bg-zinc-100 dark:bg-zinc-900 rounded-md border border-zinc-200 dark:border-zinc-800">
                             @foreach (var v in selectedSpec.Versions.OrderBy(v => v.VersionNumber))
                             {
-                                <option value="@v.VersionNumber">v@(v.VersionNumber)</option>
+                                var isSel = v2 == v.VersionNumber;
+                                <button class="px-2 py-0.5 text-xs font-mono rounded transition-all cursor-pointer @(isSel ? "bg-indigo-600 text-white font-bold" : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200")" @onclick="() => v2 = v.VersionNumber">
+                                    v@(v.VersionNumber)
+                                </button>
                             }
-                        </select>
+                        </div>
 
                         <button class="btn-primary text-xs" @onclick="CompareVersions" disabled="@(v1 == v2 || isLoadingDiff)">
                             <span class="material-symbols-outlined text-[16px]">compare_arrows</span>
@@ -336,6 +340,12 @@
                 await SelectSpec(selectedSpecId);
             }
         }
+    }
+
+    private async Task SelectSpecById(int specId)
+    {
+        if (selectedSpecId == specId) return;
+        await SelectSpec(specId);
     }
 
     private async Task OnSpecSelected(ChangeEventArgs e)
