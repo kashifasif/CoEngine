@@ -58,7 +58,8 @@ public class SpecsController : ControllerBase
         return (null, "Default User");
     }
 
-    private async Task RecordAiUsageAsync(string operation, string promptText, string completionText, string modelName = "openrouter/anthropic/claude-3.5-sonnet")
+    private async Task RecordAiUsageAsync(string operation, string promptText, string completionText,
+        string modelName = "openrouter/anthropic/claude-3.5-sonnet")
     {
         try
         {
@@ -529,9 +530,9 @@ public class SpecsController : ControllerBase
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.Versions)
-                .ThenInclude(v => v.AcceptanceCriteria)
+            .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
-                .ThenInclude(v => v.ScopeTags)
+            .ThenInclude(v => v.ScopeTags)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (spec == null) return NotFound("Spec not found.");
@@ -541,7 +542,7 @@ public class SpecsController : ControllerBase
         if (targetVersion.IsUndone) return BadRequest("Version is already undone.");
 
         targetVersion.IsUndone = true;
-        
+
         var summaryText = $"Undone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -566,9 +567,9 @@ public class SpecsController : ControllerBase
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.Versions)
-                .ThenInclude(v => v.AcceptanceCriteria)
+            .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
-                .ThenInclude(v => v.ScopeTags)
+            .ThenInclude(v => v.ScopeTags)
             .FirstOrDefaultAsync(s => s.Id == id);
 
         if (spec == null) return NotFound("Spec not found.");
@@ -578,7 +579,7 @@ public class SpecsController : ControllerBase
         if (!targetVersion.IsUndone) return BadRequest("Version is not undone.");
 
         targetVersion.IsUndone = false;
-        
+
         var summaryText = $"Redone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -592,7 +593,7 @@ public class SpecsController : ControllerBase
         _db.Notifications.Add(notification);
 
         await _db.SaveChangesAsync();
-        
+
         var pubCriteria = string.Join(". ", targetVersion.AcceptanceCriteria.Select(a => a.Text));
         var pubTags = string.Join(", ", targetVersion.ScopeTags.Select(t => t.TagName));
         await _vectorStore.IndexDocumentAsync(spec.ProjectId, "published_spec", $"{spec.Title} (v{versionNumber})",
@@ -602,7 +603,8 @@ public class SpecsController : ControllerBase
     }
 
     [HttpGet("api/notifications")]
-    public async Task<ActionResult<List<NotificationDto>>> GetNotifications([FromQuery] int skip = 0, [FromQuery] int take = 10)
+    public async Task<ActionResult<List<NotificationDto>>> GetNotifications([FromQuery] int skip = 0,
+        [FromQuery] int take = 10)
     {
         var notifications = await _db.Notifications
             .OrderByDescending(n => n.CreatedAt)
@@ -686,7 +688,7 @@ public class SpecsController : ControllerBase
         var projectDesc = project?.Description ?? "Requirements brainstorming";
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
-        
+
         var allVectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 3);
         var vectorMatches = allVectorMatches
             .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
@@ -750,8 +752,10 @@ public class SpecsController : ControllerBase
         var response = await _openRouter.ChatAsync(systemPrompt, args, request.Messages);
         if (response.Success)
         {
-            await RecordAiUsageAsync("PO Brainstorming Chat", systemPrompt + string.Join(" ", request.Messages.Select(m => m.Content)), response.Reply);
+            await RecordAiUsageAsync("PO Brainstorming Chat",
+                systemPrompt + string.Join(" ", request.Messages.Select(m => m.Content)), response.Reply);
         }
+
         return Ok(response);
     }
 
@@ -896,7 +900,7 @@ public class SpecsController : ControllerBase
         var projectDesc = project?.Description ?? "Requirements brainstorming";
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
-        
+
         var allVectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 3);
         var vectorMatches = allVectorMatches
             .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
@@ -958,7 +962,8 @@ public class SpecsController : ControllerBase
         };
 
         var streamAccumulator = new StringBuilder();
-        await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
+        await foreach (var chunk in
+                       _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
         {
             streamAccumulator.Append(chunk);
             await Response.WriteAsync(chunk, cancellationToken);
@@ -1056,7 +1061,8 @@ public class SpecsController : ControllerBase
         };
 
         var streamAccumulator = new StringBuilder();
-        await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
+        await foreach (var chunk in
+                       _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
         {
             streamAccumulator.Append(chunk);
             await Response.WriteAsync(chunk, cancellationToken);
@@ -1072,9 +1078,9 @@ public class SpecsController : ControllerBase
     {
         var existingSpec = await _db.Specs
             .Include(s => s.Versions)
-                .ThenInclude(v => v.AcceptanceCriteria)
+            .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
-                .ThenInclude(v => v.ScopeTags)
+            .ThenInclude(v => v.ScopeTags)
             .FirstOrDefaultAsync(s => s.ProjectId == projectId);
 
         if (existingSpec == null) return string.Empty;
@@ -1094,12 +1100,15 @@ public class SpecsController : ControllerBase
         {
             var allAc = ver.AcceptanceCriteria.Select(a => a.Text).ToList();
             var openQuestions = allAc.Where(a => a.StartsWith("❓"))
-                .Select(a => a.Replace("❓ **Open Question:**", "").Replace("❓ **Open Business Question:**", "").Trim()).ToList();
+                .Select(a => a.Replace("❓ **Open Question:**", "").Replace("❓ **Open Business Question:**", "").Trim())
+                .ToList();
             var normalAc = allAc.Where(a => !a.StartsWith("❓")).ToList();
 
             var acText = normalAc.Any() ? string.Join("\n  - ", normalAc) : "None";
             var oqText = openQuestions.Any() ? string.Join("\n  - ", openQuestions) : "None";
-            var tagsText = ver.ScopeTags.Any() ? string.Join(", ", ver.ScopeTags.Select(t => t.TagName)) : "bff, api, mfe";
+            var tagsText = ver.ScopeTags.Any()
+                ? string.Join(", ", ver.ScopeTags.Select(t => t.TagName))
+                : "bff, api, mfe";
 
             sb.AppendLine($"\n--- Published Version v{ver.VersionNumber} (Published: {ver.PublishedAt:g}) ---");
             sb.AppendLine($"Description / SRS Narrative:\n{ver.Content}");
@@ -1152,7 +1161,8 @@ public class SpecsController : ControllerBase
 
         // ── Phase 3: Structure into Spec ────────────────────────────────────────
         var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, messagesToUse);
-        await RecordAiUsageAsync("Spec Structuring", systemPrompt + string.Join(" ", messagesToUse.Select(m => m.Content)), result.RawJson);
+        await RecordAiUsageAsync("Spec Structuring",
+            systemPrompt + string.Join(" ", messagesToUse.Select(m => m.Content)), result.RawJson);
 
         // ── Self-Review: runs automatically before PO/BA sees the review screen ─
         var rawJsonForReview = result.RawJson;
@@ -1162,14 +1172,17 @@ public class SpecsController : ControllerBase
             {
                 var selfReview = await _openRouter.RunSelfReviewAsync(rawJsonForReview);
                 result.SelfReviewResult = selfReview;
-                await RecordAiUsageAsync("Quality Self-Review", rawJsonForReview, System.Text.Json.JsonSerializer.Serialize(selfReview));
+                await RecordAiUsageAsync("Quality Self-Review", rawJsonForReview,
+                    System.Text.Json.JsonSerializer.Serialize(selfReview));
 
                 // If the LLM applied auto-fixes and produced a revised spec, use it
                 if (selfReview.RevisedSpec != null && selfReview.AutoFixes.Any())
                 {
                     var revised = selfReview.RevisedSpec;
                     result.Title = !string.IsNullOrWhiteSpace(revised.Title) ? revised.Title : result.Title;
-                    result.Description = !string.IsNullOrWhiteSpace(revised.Description) ? revised.Description : result.Description;
+                    result.Description = !string.IsNullOrWhiteSpace(revised.Description)
+                        ? revised.Description
+                        : result.Description;
                     if (revised.AcceptanceCriteria.Any()) result.AcceptanceCriteria = revised.AcceptanceCriteria;
                     if (revised.ScopeTags.Any()) result.ScopeTags = revised.ScopeTags;
                 }
@@ -1180,19 +1193,23 @@ public class SpecsController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Self-review failed for project {ProjectId}; continuing without review result.", request.ProjectId);
+                _logger.LogWarning(ex, "Self-review failed for project {ProjectId}; continuing without review result.",
+                    request.ProjectId);
             }
         }
         else
         {
-            _logger.LogWarning("Self-review skipped for project {ProjectId}: no raw JSON available (fallback spec path).", request.ProjectId);
+            _logger.LogWarning(
+                "Self-review skipped for project {ProjectId}: no raw JSON available (fallback spec path).",
+                request.ProjectId);
         }
 
         return Ok(result);
     }
 
     [HttpPost("api/specs/draft/ingest-transcript")]
-    public async Task<ActionResult<IngestTranscriptResponseDto>> IngestRawTranscript([FromBody] IngestTranscriptRequestDto request)
+    public async Task<ActionResult<IngestTranscriptResponseDto>> IngestRawTranscript(
+        [FromBody] IngestTranscriptRequestDto request)
     {
         if (string.IsNullOrWhiteSpace(request.RawTranscript))
         {
@@ -1216,7 +1233,8 @@ public class SpecsController : ControllerBase
             new ChatMessageDto
             {
                 Role = "user",
-                Content = $"Here is the raw meeting transcript / requirements dump ({request.SourceTag}):\n\n```\n{request.RawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
+                Content =
+                    $"Here is the raw meeting transcript / requirements dump ({request.SourceTag}):\n\n```\n{request.RawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
             }
         };
 
@@ -1272,7 +1290,8 @@ Extract the key features, workflows, and specifications into an initial draft.";
         {
             ChatSessionId = dbSession.Id,
             Role = "user",
-            Content = $"[Uploaded Raw Transcript - {request.SourceTag}]:\n{request.RawTranscript.Substring(0, Math.Min(500, request.RawTranscript.Length))}...",
+            Content =
+                $"[Uploaded Raw Transcript - {request.SourceTag}]:\n{request.RawTranscript.Substring(0, Math.Min(500, request.RawTranscript.Length))}...",
             Timestamp = DateTime.UtcNow
         });
 
@@ -1303,12 +1322,14 @@ Extract the key features, workflows, and specifications into an initial draft.";
     {
         var publishedVersions = spec.Versions.Where(v => v.VersionNumber > 0).OrderByDescending(v => v.VersionNumber)
             .ToList();
-        
+
         var activePublishedVersions = publishedVersions.Where(v => !v.IsUndone).ToList();
         var currentVersion = activePublishedVersions.FirstOrDefault() ??
                              spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
-        int currentVersionNumber = activePublishedVersions.Any() ? activePublishedVersions.First().VersionNumber : (publishedVersions.Any() ? publishedVersions.First().VersionNumber : 1);
+        int currentVersionNumber = activePublishedVersions.Any()
+            ? activePublishedVersions.First().VersionNumber
+            : (publishedVersions.Any() ? publishedVersions.First().VersionNumber : 1);
 
         return new SpecDto
         {

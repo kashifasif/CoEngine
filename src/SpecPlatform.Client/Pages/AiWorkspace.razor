@@ -25,6 +25,17 @@
                 }
             </select>
 
+            <!-- Specification Title / Name Input -->
+            <div class="flex items-center gap-1.5 w-48 sm:w-64">
+                <input type="text"
+                       class="form-input text-xs py-1.5 px-3 w-full font-medium @(string.IsNullOrWhiteSpace(specTitle) ? "border-amber-400/80 dark:border-amber-500/80 bg-amber-50/20 dark:bg-amber-950/20" : "")"
+                       placeholder="Specification Title (Required)..."
+                       @bind="specTitle"
+                       @bind:event="oninput"
+                       @bind:after="OnSpecTitleChanged"
+                       title="Specification Title" />
+            </div>
+
             <button class="btn-secondary text-xs py-1.5 px-3" @onclick="OpenIngestModal" title="Import transcript or notes">
                 <span class="material-symbols-outlined text-[16px]">upload_file</span>
                 <span>Import</span>
@@ -42,7 +53,7 @@
                 </span>
             }
 
-            <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+            <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
                 @if (isStructuring)
                 {
                     <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
@@ -85,23 +96,63 @@
                     <span>Loading conversation history...</span>
                 </div>
             }
+            else if (string.IsNullOrWhiteSpace(specTitle) && !chatMessages.Any())
+            {
+                <div class="my-auto flex flex-col items-center justify-center text-center py-12 max-w-lg mx-auto animate-in fade-in zoom-in-95 duration-150">
+                    <div class="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 border border-amber-200/60 dark:border-amber-800/60 shadow-xs">
+                        <span class="material-symbols-outlined text-3xl">edit_document</span>
+                    </div>
+                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-1.5">Name Your Specification</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
+                        Please provide a title for this feature specification in <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong> before starting brainstorming.
+                    </p>
+
+                    <div class="w-full flex flex-col gap-3">
+                        <div class="flex gap-2">
+                            <input type="text"
+                                   class="form-input text-xs py-2.5 px-3.5 flex-1 font-medium"
+                                   placeholder="e.g. Loan Step-Up Approval & MFA Rules"
+                                   @bind="specTitleInputSetup"
+                                   @onkeydown="@(async (e) => { if (e.Key == "Enter") await SetSpecTitleFromSetup(); })" />
+                            <button class="btn-primary text-xs px-4 py-2.5 shrink-0 flex items-center gap-1.5"
+                                    @onclick="SetSpecTitleFromSetup"
+                                    disabled="@string.IsNullOrWhiteSpace(specTitleInputSetup)">
+                                <span>Start</span>
+                                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                            </button>
+                        </div>
+                        <div class="flex flex-wrap justify-center gap-1.5 mt-1">
+                            <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("User Authentication & Step-Up MFA")'>
+                                User Authentication &amp; Step-Up MFA
+                            </button>
+                            <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("Real-time Notification Service & WebSockets")'>
+                                Notification Service &amp; WebSockets
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
             else if (!chatMessages.Any())
             {
                 <div class="my-auto flex flex-col items-center justify-center text-center py-12">
                     <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
                         <span class="material-symbols-outlined text-2xl">auto_awesome</span>
                     </div>
+                    <div class="inline-flex items-center gap-1.5 badge badge-primary text-xs px-3 py-1 font-medium mb-3">
+                        <span class="material-symbols-outlined text-[14px]">description</span>
+                        <span>@specTitle</span>
+                    </div>
                     <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ready to brainstorm requirements</h3>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
-                        Describe your user story, security boundaries, or APIs for <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong>.
+                        Describe your user story, security boundaries, or APIs for <strong class="text-zinc-800 dark:text-zinc-200">@specTitle</strong>.
                     </p>
 
                     <div class="flex flex-wrap justify-center gap-2 max-w-lg">
-                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Let us define user authentication and step-up MFA for loan approval.")'>
-                            MFA Authentication Rules
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"Let us define the core requirements and acceptance criteria for {specTitle}.")'>
+                            Define Core Criteria
                         </button>
-                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("What API rate limits and HTTP error status codes should be specified?")'>
-                            Rate Limiting & Errors
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"What API error codes and security boundaries apply to {specTitle}?")'>
+                            Security &amp; Error Boundaries
                         </button>
                     </div>
                 </div>
@@ -277,16 +328,31 @@
     <!-- Input Bar -->
     <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
         <div class="max-w-6xl mx-auto flex flex-col gap-2.5">
+            @if (string.IsNullOrWhiteSpace(specTitle))
+            {
+                <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2">
+                    <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
+                    <span>Please enter a <strong>Specification Title</strong> in the toolbar above before starting brainstorming.</span>
+                </div>
+            }
             <div class="flex gap-2 items-end">
-                <textarea id="aiWorkspaceInput" class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36" placeholder="Describe requirements, acceptance criteria, or ask questions..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]" @onclick="() => SendChatMessage(false)" disabled="@isThinking" title="Send (Enter)">
+                <textarea id="aiWorkspaceInput"
+                          class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36"
+                          placeholder="@(string.IsNullOrWhiteSpace(specTitle) ? "Please enter a Specification Title above first..." : "Describe requirements, acceptance criteria, or ask questions for " + specTitle + "...")"
+                          @bind="userPromptInput"
+                          @onkeydown="HandleKeyDown"
+                          disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"></textarea>
+                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]"
+                        @onclick="() => SendChatMessage(false)"
+                        disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"
+                        title="@(string.IsNullOrWhiteSpace(specTitle) ? "Enter specification title first" : "Send (Enter)")">
                     <span class="material-symbols-outlined text-[18px]">send</span>
                 </button>
             </div>
 
             <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
                 <span>Press Enter to send</span>
-                <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || !chatMessages.Any())">
+                <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
                     Start Clarification Round &rarr;
                 </button>
             </div>
@@ -490,6 +556,9 @@
     private bool hasMoreOlderMessages => allMessages.Count > chatMessages.Count;
     private DotNetObjectReference<AiWorkspace>? dotNetRef;
 
+    private string specTitle = "";
+    private string specTitleInputSetup = "";
+
     private string userPromptInput = "";
     private bool isThinking = false;
     private bool isLoadingChat = false;
@@ -589,6 +658,13 @@
                 chatMessages.Add(userMsg);
                 chatMessages.Add(aiMsg);
 
+                if (string.IsNullOrWhiteSpace(specTitle) && !string.IsNullOrWhiteSpace(result.ExtractedTitle))
+                {
+                    specTitle = result.ExtractedTitle;
+                    specTitleInputSetup = result.ExtractedTitle;
+                    await OnSpecTitleChanged();
+                }
+
                 showIngestModal = false;
                 rawTranscriptText = "";
                 await SaveDbChatSession();
@@ -685,6 +761,22 @@
         StateHasChanged();
         try
         {
+            try
+            {
+                var savedTitle = await JS.InvokeAsync<string>("localStorage.getItem", $"spec_title_proj_{selectedProjectId}");
+                if (!string.IsNullOrWhiteSpace(savedTitle))
+                {
+                    specTitle = savedTitle;
+                    specTitleInputSetup = savedTitle;
+                }
+                else
+                {
+                    specTitle = "";
+                    specTitleInputSetup = "";
+                }
+            }
+            catch { }
+
             var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
             if (session != null && session.Messages.Any())
             {
@@ -711,6 +803,31 @@
             await Task.Delay(100);
             await ScrollToBottom();
         }
+    }
+
+    private async Task OnSpecTitleChanged()
+    {
+        if (selectedProjectId != 0)
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", $"spec_title_proj_{selectedProjectId}", specTitle ?? "");
+        }
+        StateHasChanged();
+    }
+
+    private async Task SetSpecTitleFromSetup()
+    {
+        if (!string.IsNullOrWhiteSpace(specTitleInputSetup))
+        {
+            specTitle = specTitleInputSetup.Trim();
+            await OnSpecTitleChanged();
+        }
+    }
+
+    private async Task SetSuggestedTitle(string title)
+    {
+        specTitle = title;
+        specTitleInputSetup = title;
+        await OnSpecTitleChanged();
     }
 
     [JSInvokable]
@@ -763,7 +880,7 @@
 
     private async Task SendChatMessage(bool isClarificationPhase = false)
     {
-        if (selectedProjectId == 0 || isThinking) return;
+        if (selectedProjectId == 0 || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
 
         var domVal = await JS.InvokeAsync<string>("getChatInputValue", "aiWorkspaceInput");
         var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
@@ -810,7 +927,7 @@
 
     private async Task TriggerClarificationRound()
     {
-        if (selectedProjectId == 0 || isThinking) return;
+        if (selectedProjectId == 0 || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
 
         if (!string.IsNullOrWhiteSpace(userPromptInput))
         {
@@ -966,6 +1083,18 @@
     {
         if (selectedProjectId == 0) return;
 
+        if (string.IsNullOrWhiteSpace(specTitle))
+        {
+            chatMessages.Add(new ChatMessageDto
+            {
+                Role = "assistant",
+                Content = "⚠️ **Cannot Publish Specification:** Please give a title or name to this specification before publishing."
+            });
+            StateHasChanged();
+            await ScrollToBottom();
+            return;
+        }
+
         if (!HasSufficientDataToStructure())
         {
             chatMessages.Add(new ChatMessageDto
@@ -1056,7 +1185,7 @@
 
     private async Task DoPublish(StructuredSpecResultDto result)
     {
-        string finalTitle = result.Title ?? "Master Feature Specification";
+        string finalTitle = !string.IsNullOrWhiteSpace(specTitle) ? specTitle.Trim() : (!string.IsNullOrWhiteSpace(result.Title) ? result.Title : "Master Feature Specification");
         string finalDesc = result.Description ?? "Synthesized from AI brainstorming chat.";
         var finalCriteria = result.AcceptanceCriteria?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
 

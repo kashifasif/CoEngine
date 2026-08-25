@@ -63,7 +63,9 @@
         <div class="card p-3.5 border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 flex items-center justify-between animate-in fade-in duration-150">
             <div class="flex items-center gap-2.5">
                 <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-lg">check_circle</span>
-                <span class="text-xs font-mono"><strong>Publish Release:</strong> @notificationAlert</span>
+                <span class="text-xs font-mono">
+                    <strong>Publish Release:</strong> @notificationAlert
+                </span>
             </div>
             <button class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 p-1 cursor-pointer" @onclick="() => notificationAlert = null">
                 <span class="material-symbols-outlined text-[16px]">close</span>
@@ -111,7 +113,7 @@
                                 @masterSpec.Status
                             </span>
                             <span class="badge badge-primary">Version @(masterSpec.CurrentVersionNumber)</span>
-                            
+
                             <!-- Direct Quick Undo / Redo Actions -->
                             @if (masterSpec.Versions.Any())
                             {
@@ -142,10 +144,6 @@
                         <button class="btn-secondary text-xs" @onclick="OpenVersionHistory" title="View Version History and Rollbacks">
                             <span class="material-symbols-outlined text-[16px]">history</span>
                             <span>Versions (@masterSpec.Versions.Count)</span>
-                        </button>
-                        <button class="btn-secondary text-xs" @onclick="OpenAiWorkspace" title="Brainstorm Update">
-                            <span class="material-symbols-outlined text-[16px]">edit</span>
-                            <span>Brainstorm Update</span>
                         </button>
                         <button class="btn-secondary text-xs p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => ConfirmDeleteSpec(masterSpec)" title="Delete Specification">
                             <span class="material-symbols-outlined text-[16px]">delete</span>
@@ -243,7 +241,7 @@
             <div class="p-5 flex flex-col gap-4 overflow-y-auto">
                 <div>
                     <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Title</label>
-                    <input type="text" class="form-input text-xs" placeholder="e.g. Customer Portal & KYC Pipeline" @bind="specFormTitle" />
+                    <input type="text" class="form-input text-xs" placeholder="e.g. Customer Portal & KYC Pipeline" @bind="specFormTitle"/>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Description</label>
@@ -262,7 +260,7 @@
                             var idx = i;
                             <div class="flex items-center gap-2">
                                 <span class="text-zinc-400 text-xs font-mono w-6 text-center">#@(idx + 1)</span>
-                                <input type="text" class="form-input text-xs" placeholder="Criteria definition..." @bind="specFormCriteria[idx]" />
+                                <input type="text" class="form-input text-xs" placeholder="Criteria definition..." @bind="specFormCriteria[idx]"/>
                                 <button class="text-zinc-400 hover:text-rose-600 p-1 cursor-pointer" @onclick="() => specFormCriteria.RemoveAt(idx)">
                                     <span class="material-symbols-outlined text-[16px]">delete</span>
                                 </button>
@@ -273,7 +271,7 @@
 
                 <div>
                     <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Scope Tags (Comma-separated)</label>
-                    <input type="text" class="form-input text-xs font-mono" placeholder="api, auth, sec-rule, bff" @bind="specFormTagsRaw" />
+                    <input type="text" class="form-input text-xs font-mono" placeholder="api, auth, sec-rule, bff" @bind="specFormTagsRaw"/>
                 </div>
             </div>
 
@@ -370,7 +368,7 @@
                 <div class="flex-1 min-w-0">
                     <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Redo & Restore Release (v@(redoVersionTarget.Value))</h3>
                     <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
-                        This will reactivate Version <strong>@(redoVersionTarget.Value)</strong> and restore all its criteria into the PostgreSQL vector store for developer queries.
+                        This will reactivate Version <strong>@(redoVersionTarget.Value)</strong> and restore all its criteria for developer queries.
                     </p>
                 </div>
             </div>
@@ -433,7 +431,9 @@
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         Nav.NavigateTo("/");
         return false;
@@ -459,7 +459,9 @@
                 await LoadSpecs();
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async Task OnProjectSelected(ChangeEventArgs e)
@@ -644,4 +646,5 @@
 
         await JS.InvokeVoidAsync("exportSpecToPdf", payload);
     }
+
 }
