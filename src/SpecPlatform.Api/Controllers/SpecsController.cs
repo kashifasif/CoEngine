@@ -523,13 +523,14 @@ public class SpecsController : ControllerBase
                 $"CONTEXT: Project: {{{{$projectName}}}} — {{{{$projectDesc}}}}\n\n" +
                 "{{$specContext}}\n\n" +
                 "You will be given:\n" +
-                "1. EXISTING SPECIFICATION (via context above).\n" +
+                "1. EXISTING SPECIFICATION & UNRESOLVED OPEN BUSINESS QUESTIONS (via context above).\n" +
                 "2. The full brainstorming conversation so far.\n" +
                 "STRICT RULES:\n" +
                 "1. Your response must ALWAYS be a numbered list of clarifying questions. For EACH question, provide 2 to 4 suggested options (A, B, C...) to make it easy for the PO/BA to answer.\n" +
                 "2. Ask a MAXIMUM of 5 questions per round. Never more.\n" +
-                "3. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
-                "4. Keep each question short — one sentence, plain language, no jargon.\n" +
+                "3. PRIORITIZE UNRESOLVED OPEN BUSINESS QUESTIONS: If the existing spec or previous rounds have unresolved Open Business Questions, YOU MUST TURN THOSE INTO CLARIFYING QUESTIONS.\n" +
+                "4. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
+                "5. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
                 "OUTPUT FORMAT (strict):\n" +
                 "1. [Question text]\n" +
                 "   - A) [Option 1]\n" +
@@ -966,8 +967,13 @@ public class SpecsController : ControllerBase
             }
         };
 
+        var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
+
         var systemPrompt = $@"You are a Principal Software Architect and Lead Business Analyst.
 Analyze the provided raw meeting notes or MS Teams transcript for Project: '{projectName}' ({projectDesc}).
+CONTEXT:
+{existingSpecContext}
+
 Extract the key features, workflows, and specifications into an initial draft.";
 
         var structuredDraft = await _openRouter.StructureIntoSpecAsync(systemPrompt, analysisMessages);
