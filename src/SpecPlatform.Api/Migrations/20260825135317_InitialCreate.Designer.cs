@@ -12,8 +12,8 @@ using SpecPlatform.Api.Data;
 namespace SpecPlatform.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260823222016_AddSelfReviewJsonToSpecVersion")]
-    partial class AddSelfReviewJsonToSpecVersion
+    [Migration("20260825135317_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -231,9 +231,6 @@ namespace SpecPlatform.Api.Migrations
 
                     b.Property<DateTime>("PublishedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("SelfReviewJson")
-                        .HasColumnType("text");
 
                     b.Property<int>("SpecId")
                         .HasColumnType("integer");
