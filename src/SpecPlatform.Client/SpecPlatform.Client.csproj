@@ -17,7 +17,7 @@
   </ItemGroup>
 
   <Target Name="TailwindCSS" BeforeTargets="Compile">
-    <Exec Command="npx @tailwindcss/cli -i wwwroot/css/app.css -o wwwroot/css/tailwind.css" />
+    <Exec Command="npx @tailwindcss/cli -i wwwroot/css/app.css -o wwwroot/css/tailwind.css" ContinueOnError="true" />
   </Target>
 
 </Project>

@@ -4,6 +4,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+# Install Node.js & npm for Tailwind CSS CLI during build
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy project files first for optimal layer caching
 COPY src/SpecPlatform.Shared/SpecPlatform.Shared.csproj       src/SpecPlatform.Shared/
 COPY src/SpecPlatform.Client/SpecPlatform.Client.csproj       src/SpecPlatform.Client/
