@@ -28,7 +28,7 @@ public class SpecsController : ControllerBase
         _logger = logger;
     }
 
-    private async Task<(int? userId, string username)> GetCurrentUserInfoAsync()
+    private async Task<User?> GetCurrentAuthenticatedUserAsync()
     {
         var authHeader = Request.Headers["Authorization"].FirstOrDefault();
         var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
@@ -44,18 +44,12 @@ public class SpecsController : ControllerBase
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == uid);
                 if (user != null)
                 {
-                    return (user.Id, user.Username);
+                    return user;
                 }
             }
         }
 
-        var firstUser = await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
-        if (firstUser != null)
-        {
-            return (firstUser.Id, firstUser.Username);
-        }
-
-        return (null, "Default User");
+        return await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
     }
 
     private async Task RecordAiUsageAsync(string operation, string promptText, string completionText,
@@ -63,7 +57,9 @@ public class SpecsController : ControllerBase
     {
         try
         {
-            var (userId, username) = await GetCurrentUserInfoAsync();
+            var user = await GetCurrentAuthenticatedUserAsync();
+            var userId = user?.Id;
+            var username = user?.Username ?? "anonymous";
 
             int promptTokens = Math.Max(1, (promptText?.Length ?? 0) / 4);
             int completionTokens = Math.Max(1, (completionText?.Length ?? 0) / 4);
@@ -96,12 +92,14 @@ public class SpecsController : ControllerBase
     [HttpGet("api/users/me/ai-usage")]
     public async Task<ActionResult<UserAiUsageSummaryDto>> GetCurrentUserAiUsage()
     {
-        var (userId, username) = await GetCurrentUserInfoAsync();
+        var user = await GetCurrentAuthenticatedUserAsync();
+        var userId = user?.Id;
+        var username = user?.Username;
 
         var query = _db.UserAiUsages.AsQueryable();
         if (userId.HasValue)
         {
-            query = query.Where(u => u.UserId == userId.Value || u.Username == username);
+            query = query.Where(u => u.UserId == userId.Value || (username != null && u.Username == username));
         }
 
         var list = await query.OrderByDescending(u => u.CreatedAt).ToListAsync();
@@ -353,6 +351,7 @@ public class SpecsController : ControllerBase
             await _vectorStore.IndexDocumentAsync(projectId, "spec", spec.Title,
                 $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
 
+            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var notification = new Notification
             {
                 SpecId = spec.Id,
@@ -361,6 +360,11 @@ public class SpecsController : ControllerBase
                 VersionNumber = nextVersionNumber,
                 SummaryText =
                     $"[NOTIFICATION] Master Specification for project '{project.Name}' published as Version {nextVersionNumber}.",
+                AuthorUserId = currentUser?.Id,
+                AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
+                AuthorUsername = currentUser?.Username,
+                AuthorAvatarUrl = currentUser?.AvatarUrl,
+                ActionType = "published",
                 CreatedAt = DateTime.UtcNow
             };
             _db.Notifications.Add(notification);
@@ -497,6 +501,7 @@ public class SpecsController : ControllerBase
         var summaryText =
             $"[NOTIFICATION] Spec '{spec.Title}' in project '{spec.Project?.Name}' published as Version {nextVersionNumber}. Contains {criteriaCount} acceptance criteria and {tagsCount} scope tags.";
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var notification = new Notification
         {
             SpecId = spec.Id,
@@ -504,6 +509,11 @@ public class SpecsController : ControllerBase
             ProjectName = spec.Project?.Name ?? "General",
             VersionNumber = nextVersionNumber,
             SummaryText = summaryText,
+            AuthorUserId = currentUser?.Id,
+            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
+            AuthorUsername = currentUser?.Username,
+            AuthorAvatarUrl = currentUser?.AvatarUrl,
+            ActionType = "published",
             CreatedAt = DateTime.UtcNow
         };
         _db.Notifications.Add(notification);
@@ -543,6 +553,7 @@ public class SpecsController : ControllerBase
 
         targetVersion.IsUndone = true;
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var summaryText = $"Undone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -551,6 +562,11 @@ public class SpecsController : ControllerBase
             ProjectName = spec.Project?.Name ?? "General",
             VersionNumber = versionNumber,
             SummaryText = summaryText,
+            AuthorUserId = currentUser?.Id,
+            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
+            AuthorUsername = currentUser?.Username,
+            AuthorAvatarUrl = currentUser?.AvatarUrl,
+            ActionType = "undone",
             CreatedAt = DateTime.UtcNow
         };
         _db.Notifications.Add(notification);
@@ -580,6 +596,7 @@ public class SpecsController : ControllerBase
 
         targetVersion.IsUndone = false;
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var summaryText = $"Redone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -588,6 +605,11 @@ public class SpecsController : ControllerBase
             ProjectName = spec.Project?.Name ?? "General",
             VersionNumber = versionNumber,
             SummaryText = summaryText,
+            AuthorUserId = currentUser?.Id,
+            AuthorDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
+            AuthorUsername = currentUser?.Username,
+            AuthorAvatarUrl = currentUser?.AvatarUrl,
+            ActionType = "restored",
             CreatedAt = DateTime.UtcNow
         };
         _db.Notifications.Add(notification);
@@ -619,9 +641,10 @@ public class SpecsController : ControllerBase
                 VersionNumber = n.VersionNumber,
                 SummaryText = n.SummaryText,
                 CreatedAt = n.CreatedAt,
-                AuthorDisplayName = "Kashif Asif",
-                AuthorUsername = "kashifasif",
-                ActionType = "published"
+                AuthorDisplayName = !string.IsNullOrWhiteSpace(n.AuthorDisplayName) ? n.AuthorDisplayName : (n.AuthorUsername ?? "System User"),
+                AuthorUsername = n.AuthorUsername ?? "system",
+                AuthorAvatarUrl = n.AuthorAvatarUrl,
+                ActionType = n.ActionType ?? "published"
             })
             .ToListAsync();
 

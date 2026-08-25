@@ -9,355 +9,358 @@
 
 <div class="fixed inset-0 top-14 left-0 lg:left-64 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
 
-    <!-- Top Chat Toolbar (Fixed at Top) -->
-    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
-        <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">auto_awesome</span>
-            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">AI Brainstorming Workspace</h2>
+<!-- Top Chat Toolbar (Fixed at Top) -->
+<header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
+    <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">auto_awesome</span>
+        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">AI Brainstorming Workspace</h2>
+    </div>
+
+    <div class="flex items-center gap-2.5 flex-wrap">
+        <!-- Project Dropdown -->
+        <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
+            @foreach (var p in projects)
+            {
+                <option value="@p.Id">@p.Name</option>
+            }
+        </select>
+
+        <!-- Specification Title / Name Input -->
+        <div class="flex items-center gap-1.5 w-48 sm:w-64">
+            <input type="text"
+                   class="form-input text-xs py-1.5 px-3 w-full font-medium @(string.IsNullOrWhiteSpace(specTitle) ? "border-amber-400/80 dark:border-amber-500/80 bg-amber-50/20 dark:bg-amber-950/20" : "")"
+                   placeholder="Specification Title (Required)..."
+                   @bind="specTitle"
+                   @bind:event="oninput"
+                   @bind:after="OnSpecTitleChanged"
+                   title="Specification Title"/>
         </div>
 
-        <div class="flex items-center gap-2.5 flex-wrap">
-            <!-- Project Dropdown -->
-            <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
-                @foreach (var p in projects)
-                {
-                    <option value="@p.Id">@p.Name</option>
-                }
-            </select>
+        <button class="btn-secondary text-xs py-1.5 px-3" @onclick="OpenIngestModal" title="Import transcript or notes">
+            <span class="material-symbols-outlined text-[16px]">upload_file</span>
+            <span>Import</span>
+        </button>
 
-            <!-- Specification Title / Name Input -->
-            <div class="flex items-center gap-1.5 w-48 sm:w-64">
-                <input type="text"
-                       class="form-input text-xs py-1.5 px-3 w-full font-medium @(string.IsNullOrWhiteSpace(specTitle) ? "border-amber-400/80 dark:border-amber-500/80 bg-amber-50/20 dark:bg-amber-950/20" : "")"
-                       placeholder="Specification Title (Required)..."
-                       @bind="specTitle"
-                       @bind:event="oninput"
-                       @bind:after="OnSpecTitleChanged"
-                       title="Specification Title" />
-            </div>
+        <button class="btn-secondary text-xs p-1.5 cursor-pointer text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => showClearChatModal = true" title="Clear Brainstorming History">
+            <span class="material-symbols-outlined text-[16px]">delete</span>
+        </button>
 
-            <button class="btn-secondary text-xs py-1.5 px-3" @onclick="OpenIngestModal" title="Import transcript or notes">
-                <span class="material-symbols-outlined text-[16px]">upload_file</span>
-                <span>Import</span>
-            </button>
+        @if (GetUnansweredQuestions().Any())
+        {
+            var pendingCount = GetUnansweredQuestions().Count;
+            <span class="badge badge-warning text-xs py-1 px-2.5" title="Answer or skip remaining questions to publish">
+                @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
+            </span>
+        }
 
-            <button class="btn-secondary text-xs p-1.5 cursor-pointer text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => showClearChatModal = true" title="Clear Brainstorming History">
-                <span class="material-symbols-outlined text-[16px]">delete</span>
-            </button>
-
-            @if (GetUnansweredQuestions().Any())
+        <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+            @if (isStructuring)
             {
-                var pendingCount = GetUnansweredQuestions().Count;
-                <span class="badge badge-warning text-xs py-1 px-2.5" title="Answer or skip remaining questions to publish">
-                    @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
-                </span>
-            }
-
-            <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
-                @if (isStructuring)
-                {
-                    <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
-                    <span>Structuring...</span>
-                }
-                else
-                {
-                    <span class="material-symbols-outlined text-[16px]">publish</span>
-                    <span>Publish Spec</span>
-                }
-            </button>
-        </div>
-    </header>
-
-    <!-- Chat Messages Stream -->
-    <div id="aiWorkspaceChatStream" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
-        <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
-
-            <!-- Top Lazy / Infinite Scroll Loader -->
-            @if (isLoadingOlderMessages)
-            {
-                <div class="py-2.5 flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono">
-                    <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
-                    <span>Loading older messages...</span>
-                </div>
-            }
-            else if (hasMoreOlderMessages)
-            {
-                <div class="py-1 text-center">
-                    <button class="text-[11px] text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-mono transition-colors cursor-pointer" @onclick="LoadOlderMessagesManually">
-                        ↑ Scroll up to load older messages (@(allMessages.Count - chatMessages.Count) older)
-                    </button>
-                </div>
-            }
-
-            @if (isLoadingChat)
-            {
-                <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
-                    <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
-                    <span>Loading conversation history...</span>
-                </div>
-            }
-            else if (string.IsNullOrWhiteSpace(specTitle) && !chatMessages.Any())
-            {
-                <div class="my-auto flex flex-col items-center justify-center text-center py-12 max-w-lg mx-auto animate-in fade-in zoom-in-95 duration-150">
-                    <div class="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 border border-amber-200/60 dark:border-amber-800/60 shadow-xs">
-                        <span class="material-symbols-outlined text-3xl">edit_document</span>
-                    </div>
-                    <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-1.5">Name Your Specification</h3>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
-                        Please provide a title for this feature specification in <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong> before starting brainstorming.
-                    </p>
-
-                    <div class="w-full flex flex-col gap-3">
-                        <div class="flex gap-2">
-                            <input type="text"
-                                   class="form-input text-xs py-2.5 px-3.5 flex-1 font-medium"
-                                   placeholder="e.g. Loan Step-Up Approval & MFA Rules"
-                                   @bind="specTitleInputSetup"
-                                   @onkeydown="@(async (e) => { if (e.Key == "Enter") await SetSpecTitleFromSetup(); })" />
-                            <button class="btn-primary text-xs px-4 py-2.5 shrink-0 flex items-center gap-1.5"
-                                    @onclick="SetSpecTitleFromSetup"
-                                    disabled="@string.IsNullOrWhiteSpace(specTitleInputSetup)">
-                                <span>Start</span>
-                                <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
-                            </button>
-                        </div>
-                        <div class="flex flex-wrap justify-center gap-1.5 mt-1">
-                            <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("User Authentication & Step-Up MFA")'>
-                                User Authentication &amp; Step-Up MFA
-                            </button>
-                            <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("Real-time Notification Service & WebSockets")'>
-                                Notification Service &amp; WebSockets
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (!chatMessages.Any())
-            {
-                <div class="my-auto flex flex-col items-center justify-center text-center py-12">
-                    <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
-                        <span class="material-symbols-outlined text-2xl">auto_awesome</span>
-                    </div>
-                    <div class="inline-flex items-center gap-1.5 badge badge-primary text-xs px-3 py-1 font-medium mb-3">
-                        <span class="material-symbols-outlined text-[14px]">description</span>
-                        <span>@specTitle</span>
-                    </div>
-                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ready to brainstorm requirements</h3>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
-                        Describe your user story, security boundaries, or APIs for <strong class="text-zinc-800 dark:text-zinc-200">@specTitle</strong>.
-                    </p>
-
-                    <div class="flex flex-wrap justify-center gap-2 max-w-lg">
-                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"Let us define the core requirements and acceptance criteria for {specTitle}.")'>
-                            Define Core Criteria
-                        </button>
-                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"What API error codes and security boundaries apply to {specTitle}?")'>
-                            Security &amp; Error Boundaries
-                        </button>
-                    </div>
-                </div>
+                <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
+                <span>Structuring...</span>
             }
             else
             {
-                @foreach (var msg in chatMessages)
-                {
-                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
+                <span class="material-symbols-outlined text-[16px]">publish</span>
+                <span>Publish Spec</span>
+            }
+        </button>
+    </div>
+</header>
 
-                    <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
-                        <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
-                            @(msg.Role == "user" ? "You" : "SpecAI")
+<!-- Chat Messages Stream -->
+<div id="aiWorkspaceChatStream" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
+    <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
+
+        <!-- Top Lazy / Infinite Scroll Loader -->
+        @if (isLoadingOlderMessages)
+        {
+            <div class="py-2.5 flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono">
+                <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                <span>Loading older messages...</span>
+            </div>
+        }
+        else if (hasMoreOlderMessages)
+        {
+            <div class="py-1 text-center">
+                <button class="text-[11px] text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-mono transition-colors cursor-pointer" @onclick="LoadOlderMessagesManually">
+                    ↑ Scroll up to load older messages (@(allMessages.Count - chatMessages.Count) older)
+                </button>
+            </div>
+        }
+
+        @if (isLoadingChat)
+        {
+            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                <span>Loading conversation history...</span>
+            </div>
+        }
+        else if (string.IsNullOrWhiteSpace(specTitle) && !chatMessages.Any())
+        {
+            <div class="my-auto flex flex-col items-center justify-center text-center py-12 max-w-lg mx-auto animate-in fade-in zoom-in-95 duration-150">
+                <div class="w-14 h-14 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-4 border border-amber-200/60 dark:border-amber-800/60 shadow-xs">
+                    <span class="material-symbols-outlined text-3xl">edit_document</span>
+                </div>
+                <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 mb-1.5">Name Your Specification</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-6 leading-relaxed">
+                    Please provide a title for this feature specification in <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong> before starting brainstorming.
+                </p>
+
+                <div class="w-full flex flex-col gap-3">
+                    <div class="flex gap-2">
+                        <input type="text"
+                               class="form-input text-xs py-2.5 px-3.5 flex-1 font-medium"
+                               placeholder="e.g. Loan Step-Up Approval & MFA Rules"
+                               @bind="specTitleInputSetup"
+                               @onkeydown="@(async (e) =>
+                                           {
+                                               if (e.Key == "Enter") await SetSpecTitleFromSetup();
+                                           })"/>
+                        <button class="btn-primary text-xs px-4 py-2.5 shrink-0 flex items-center gap-1.5"
+                                @onclick="SetSpecTitleFromSetup"
+                                disabled="@string.IsNullOrWhiteSpace(specTitleInputSetup)">
+                            <span>Start</span>
+                            <span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap justify-center gap-1.5 mt-1">
+                        <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("User Authentication & Step-Up MFA")'>
+                            User Authentication &amp; Step-Up MFA
+                        </button>
+                        <button type="button" class="btn-secondary text-[11px] py-1 px-2.5" @onclick='() => SetSuggestedTitle("Real-time Notification Service & WebSockets")'>
+                            Notification Service &amp; WebSockets
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (!chatMessages.Any())
+        {
+            <div class="my-auto flex flex-col items-center justify-center text-center py-12">
+                <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-2xl">auto_awesome</span>
+                </div>
+                <div class="inline-flex items-center gap-1.5 badge badge-primary text-xs px-3 py-1 font-medium mb-3">
+                    <span class="material-symbols-outlined text-[14px]">description</span>
+                    <span>@specTitle</span>
+                </div>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ready to brainstorm requirements</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
+                    Describe your user story, security boundaries, or APIs for <strong class="text-zinc-800 dark:text-zinc-200">@specTitle</strong>.
+                </p>
+
+                <div class="flex flex-wrap justify-center gap-2 max-w-lg">
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"Let us define the core requirements and acceptance criteria for {specTitle}.")'>
+                        Define Core Criteria
+                    </button>
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt($"What API error codes and security boundaries apply to {specTitle}?")'>
+                        Security &amp; Error Boundaries
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var msg in chatMessages)
+            {
+                bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
+
+                <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
+                    <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
+                        @(msg.Role == "user" ? "You" : "SpecAI")
+                    </div>
+
+                    @if (msg.Role == "user")
+                    {
+                        <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 text-xs leading-relaxed max-w-2xl sm:max-w-3xl whitespace-pre-wrap shadow-xs">
+                            @msg.Content
                         </div>
+                    }
+                    else
+                    {
+                        <div class="card p-6 w-full flex flex-col gap-3 shadow-xs">
+                            @if (isError)
+                            {
+                                <div class="flex items-center gap-3">
+                                    <span class="text-rose-600 text-xs font-mono">Failed to receive response</span>
+                                    <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
+                                        <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                        <span>Retry</span>
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                var parsedQuestions = ParseQuestionOptions(msg.Content);
 
-                        @if (msg.Role == "user")
-                        {
-                            <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 text-xs leading-relaxed max-w-2xl sm:max-w-3xl whitespace-pre-wrap shadow-xs">
-                                @msg.Content
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="card p-6 w-full flex flex-col gap-3 shadow-xs">
-                                @if (isError)
+                                @if (!parsedQuestions.Any())
                                 {
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-rose-600 text-xs font-mono">Failed to receive response</span>
-                                        <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
-                                            <span class="material-symbols-outlined text-[14px]">refresh</span>
-                                            <span>Retry</span>
-                                        </button>
+                                    <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
+                                        @((MarkupString)Markdig.Markdown.ToHtml(CleanAnswerTags(msg.Content)))
                                     </div>
                                 }
                                 else
                                 {
-                                    var parsedQuestions = ParseQuestionOptions(msg.Content);
+                                    <div class="flex flex-col gap-4">
+                                        @foreach (var q in parsedQuestions)
+                                        {
+                                            var qKey = $"{msg.GetHashCode()}_{q.Number}";
+                                            bool isEditingManual = activeManualInputQKey == qKey;
+                                            bool isSkipped = q.SelectedAnswer == "Not sure yet" || q.SelectedAnswer.StartsWith("Skipped");
+                                            bool isCustom = !string.IsNullOrEmpty(q.SelectedAnswer) && q.SelectedAnswer.StartsWith("Manual: ");
+                                            string customText = isCustom ? q.SelectedAnswer.Substring("Manual: ".Length) : "";
 
-                                    @if (!parsedQuestions.Any())
-                                    {
-                                        <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
-                                            @((MarkupString)Markdig.Markdown.ToHtml(CleanAnswerTags(msg.Content)))
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <div class="flex flex-col gap-4">
-                                            @foreach (var q in parsedQuestions)
-                                            {
-                                                var qKey = $"{msg.GetHashCode()}_{q.Number}";
-                                                bool isEditingManual = activeManualInputQKey == qKey;
-                                                bool isSkipped = q.SelectedAnswer == "Not sure yet" || q.SelectedAnswer.StartsWith("Skipped");
-                                                bool isCustom = !string.IsNullOrEmpty(q.SelectedAnswer) && q.SelectedAnswer.StartsWith("Manual: ");
-                                                string customText = isCustom ? q.SelectedAnswer.Substring("Manual: ".Length) : "";
-
-                                                <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 flex flex-col gap-3">
-                                                    <div class="flex items-start justify-between gap-2">
-                                                        <div class="flex items-start gap-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                                                            <span class="badge badge-primary text-[10px] shrink-0 mt-0.5">Q@(q.Number)</span>
-                                                            <span>@q.QuestionText</span>
-                                                        </div>
-
-                                                        @if (isSkipped)
-                                                        {
-                                                            <span class="badge badge-warning text-[10px] shrink-0">Skipped</span>
-                                                        }
-                                                        else if (!string.IsNullOrEmpty(q.SelectedAnswer))
-                                                        {
-                                                            <span class="badge badge-success text-[10px] shrink-0">Answered</span>
-                                                        }
+                                            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 flex flex-col gap-3">
+                                                <div class="flex items-start justify-between gap-2">
+                                                    <div class="flex items-start gap-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                                                        <span class="badge badge-primary text-[10px] shrink-0 mt-0.5">Q@(q.Number)</span>
+                                                        <span>@q.QuestionText</span>
                                                     </div>
 
-                                                    <!-- Options List -->
-                                                    <div class="flex flex-col gap-2">
-                                                        @foreach (var opt in q.Options)
-                                                        {
-                                                            bool isSelected = q.SelectedAnswer == opt;
-                                                            <button type="button" class="text-left px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-colors flex items-center justify-between cursor-pointer @(isSelected ? "bg-indigo-50 border-indigo-300 text-indigo-900 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-200 font-semibold" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700")"
-                                                                    @onclick="() => SaveInlineMCQAnswer(msg, q.Number, opt)"
-                                                                    disabled="@isThinking">
-                                                                <span>@opt</span>
-                                                                @if (isSelected)
-                                                                {
-                                                                    <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">check</span>
-                                                                }
-                                                            </button>
-                                                        }
-                                                    </div>
-
-                                                    <!-- Custom Answer Display -->
-                                                    @if (isCustom && !isEditingManual)
-                                                    {
-                                                        <div class="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-lg flex items-center justify-between gap-2 text-xs text-indigo-950 dark:text-indigo-200">
-                                                            <div class="flex items-center gap-2 min-w-0">
-                                                                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400 shrink-0">edit_note</span>
-                                                                <span class="font-medium truncate">
-                                                                    <strong>Custom Answer:</strong> @customText
-                                                                </span>
-                                                            </div>
-                                                            <button type="button" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
-                                                                Edit
-                                                            </button>
-                                                        </div>
-                                                    }
-
-                                                    <!-- Skipped Banner -->
                                                     @if (isSkipped)
                                                     {
-                                                        <div class="p-2.5 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-300">
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0">help_outline</span>
-                                                                <span><strong>Skipped:</strong> Requirement marked as <em>"Not sure yet"</em></span>
-                                                            </div>
-                                                            <button type="button" class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, string.Empty)">
-                                                                Provide Answer
-                                                            </button>
-                                                        </div>
+                                                        <span class="badge badge-warning text-[10px] shrink-0">Skipped</span>
                                                     }
-
-                                                    <!-- Quick Actions (Manual input / Skip / Clear) -->
-                                                    <div class="flex items-center justify-between pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
-                                                        <div class="flex items-center gap-2">
-                                                            <button type="button" class="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
-                                                                @(isCustom ? "Edit Custom Answer" : "+ Custom Answer")
-                                                            </button>
-                                                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                                            <button type="button" class="text-[11px] @(isSkipped ? "font-semibold text-amber-700 dark:text-amber-300" : "text-amber-600 dark:text-amber-400 hover:underline") cursor-pointer" @onclick="() => SkipInlineMCQQuestion(msg, q.Number)">
-                                                                @(isSkipped ? "✓ Skipped (\"Not sure yet\")" : "Skip (\"Not sure yet\")")
-                                                            </button>
-                                                        </div>
-
-                                                        @if (!string.IsNullOrEmpty(q.SelectedAnswer))
-                                                        {
-                                                            <button type="button" class="text-[11px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer" @onclick="() => ClearInlineMCQAnswer(msg, q.Number)" title="Clear answer">
-                                                                Reset / Clear
-                                                            </button>
-                                                        }
-                                                    </div>
-
-                                                    @if (isEditingManual)
+                                                    else if (!string.IsNullOrEmpty(q.SelectedAnswer))
                                                     {
-                                                        <div class="flex gap-2 pt-2 animate-in fade-in duration-100">
-                                                            <input type="text" class="form-input text-xs" placeholder="Type custom answer for Q@q.Number..." @bind="manualInputText" @onkeydown="@(async (e) =>
-                                                                                                                                                                                                 {
-                                                                                                                                                                                                     if (e.Key == "Enter") await SaveManualInputAnswer(msg, q.Number);
-                                                                                                                                                                                                 })"/>
-                                                            <button type="button" class="btn-primary text-xs shrink-0" @onclick="() => SaveManualInputAnswer(msg, q.Number)">Save</button>
-                                                            <button type="button" class="btn-secondary text-xs shrink-0" @onclick="() => { activeManualInputQKey = string.Empty; }">Cancel</button>
-                                                        </div>
+                                                        <span class="badge badge-success text-[10px] shrink-0">Answered</span>
                                                     }
                                                 </div>
-                                            }
-                                        </div>
-                                    }
+
+                                                <!-- Options List -->
+                                                <div class="flex flex-col gap-2">
+                                                    @foreach (var opt in q.Options)
+                                                    {
+                                                        bool isSelected = q.SelectedAnswer == opt;
+                                                        <button type="button" class="text-left px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-colors flex items-center justify-between cursor-pointer @(isSelected ? "bg-indigo-50 border-indigo-300 text-indigo-900 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-200 font-semibold" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700")"
+                                                                @onclick="() => SaveInlineMCQAnswer(msg, q.Number, opt)"
+                                                                disabled="@isThinking">
+                                                            <span>@opt</span>
+                                                            @if (isSelected)
+                                                            {
+                                                                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">check</span>
+                                                            }
+                                                        </button>
+                                                    }
+                                                </div>
+
+                                                <!-- Custom Answer Display -->
+                                                @if (isCustom && !isEditingManual)
+                                                {
+                                                    <div class="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800/80 rounded-lg flex items-center justify-between gap-2 text-xs text-indigo-950 dark:text-indigo-200">
+                                                        <div class="flex items-center gap-2 min-w-0">
+                                                            <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400 shrink-0">edit_note</span>
+                                                            <span class="font-medium truncate">
+                                                                <strong>Custom Answer:</strong> @customText
+                                                            </span>
+                                                        </div>
+                                                        <button type="button" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
+                                                            Edit
+                                                        </button>
+                                                    </div>
+                                                }
+
+                                                <!-- Skipped Banner -->
+                                                @if (isSkipped)
+                                                {
+                                                    <div class="p-2.5 bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-lg flex items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-300">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0">help_outline</span>
+                                                            <span><strong>Skipped:</strong> Requirement marked as <em>"Not sure yet"</em></span>
+                                                        </div>
+                                                        <button type="button" class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, string.Empty)">
+                                                            Provide Answer
+                                                        </button>
+                                                    </div>
+                                                }
+
+                                                <!-- Quick Actions (Manual input / Skip / Clear) -->
+                                                <div class="flex items-center justify-between pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
+                                                    <div class="flex items-center gap-2">
+                                                        <button type="button" class="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
+                                                            @(isCustom ? "Edit Custom Answer" : "+ Custom Answer")
+                                                        </button>
+                                                        <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                                        <button type="button" class="text-[11px] @(isSkipped ? "font-semibold text-amber-700 dark:text-amber-300" : "text-amber-600 dark:text-amber-400 hover:underline") cursor-pointer" @onclick="() => SkipInlineMCQQuestion(msg, q.Number)">
+                                                            @(isSkipped ? "✓ Skipped (\"Not sure yet\")" : "Skip (\"Not sure yet\")")
+                                                        </button>
+                                                    </div>
+
+                                                    @if (!string.IsNullOrEmpty(q.SelectedAnswer))
+                                                    {
+                                                        <button type="button" class="text-[11px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer" @onclick="() => ClearInlineMCQAnswer(msg, q.Number)" title="Clear answer">
+                                                            Reset / Clear
+                                                        </button>
+                                                    }
+                                                </div>
+
+                                                @if (isEditingManual)
+                                                {
+                                                    <div class="flex gap-2 pt-2 animate-in fade-in duration-100">
+                                                        <input type="text" class="form-input text-xs" placeholder="Type custom answer for Q@q.Number..." @bind="manualInputText" @onkeydown="@(async (e) =>
+                                                                                                                                                                                             {
+                                                                                                                                                                                                 if (e.Key == "Enter") await SaveManualInputAnswer(msg, q.Number);
+                                                                                                                                                                                             })"/>
+                                                        <button type="button" class="btn-primary text-xs shrink-0" @onclick="() => SaveManualInputAnswer(msg, q.Number)">Save</button>
+                                                        <button type="button" class="btn-secondary text-xs shrink-0" @onclick="() => { activeManualInputQKey = string.Empty; }">Cancel</button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
                                 }
-                            </div>
-                        }
-                    </div>
-                }
-
-                @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
-                {
-                    <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
-                        <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
-                        <span>SpecAI is formulating response...</span>
-                    </div>
-                }
-            }
-
-        </div>
-    </div>
-
-    <!-- Input Bar -->
-    <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-        <div class="max-w-6xl mx-auto flex flex-col gap-2.5">
-            @if (string.IsNullOrWhiteSpace(specTitle))
-            {
-                <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2">
-                    <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
-                    <span>Please enter a <strong>Specification Title</strong> in the toolbar above before starting brainstorming.</span>
+                            }
+                        </div>
+                    }
                 </div>
             }
-            <div class="flex gap-2 items-end">
-                <textarea id="aiWorkspaceInput"
+
+            @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+            {
+                <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
+                    <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                    <span>SpecAI is formulating response...</span>
+                </div>
+            }
+        }
+
+    </div>
+</div>
+
+<!-- Input Bar -->
+<footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+    <div class="max-w-6xl mx-auto flex flex-col gap-2.5">
+        @if (string.IsNullOrWhiteSpace(specTitle))
+        {
+            <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2">
+                <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
+                <span>Please enter a <strong>Specification Title</strong> in the toolbar above before starting brainstorming.</span>
+            </div>
+        }
+        <div class="flex gap-2 items-end">
+            <textarea id="aiWorkspaceInput"
                           class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36"
                           placeholder="@(string.IsNullOrWhiteSpace(specTitle) ? "Please enter a Specification Title above first..." : "Describe requirements, acceptance criteria, or ask questions for " + specTitle + "...")"
                           @bind="userPromptInput"
                           @onkeydown="HandleKeyDown"
                           disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"></textarea>
-                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]"
-                        @onclick="() => SendChatMessage(false)"
-                        disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"
-                        title="@(string.IsNullOrWhiteSpace(specTitle) ? "Enter specification title first" : "Send (Enter)")">
-                    <span class="material-symbols-outlined text-[18px]">send</span>
-                </button>
-            </div>
-
-            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-                <span>Press Enter to send</span>
-                <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
-                    Start Clarification Round &rarr;
-                </button>
-            </div>
+            <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]"
+                    @onclick="() => SendChatMessage(false)"
+                    disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"
+                    title="@(string.IsNullOrWhiteSpace(specTitle) ? "Enter specification title first" : "Send (Enter)")">
+                <span class="material-symbols-outlined text-[18px]">send</span>
+            </button>
         </div>
-    </footer>
+
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+            <span>Press Enter to send</span>
+            <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
+                Start Clarification Round &rarr;
+            </button>
+        </div>
+    </div>
+</footer>
 
 </div>
 
@@ -775,7 +778,9 @@
                     specTitleInputSetup = "";
                 }
             }
-            catch { }
+            catch
+            {
+            }
 
             var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
             if (session != null && session.Messages.Any())
@@ -811,6 +816,7 @@
         {
             await JS.InvokeVoidAsync("localStorage.setItem", $"spec_title_proj_{selectedProjectId}", specTitle ?? "");
         }
+
         StateHasChanged();
     }
 
