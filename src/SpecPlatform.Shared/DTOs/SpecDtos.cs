@@ -28,6 +28,10 @@ public class SpecDto
     public string Status { get; set; } = "Draft";
     public DateTime CreatedAt { get; set; }
     public int CurrentVersionNumber { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public string? CreatedByDisplayName { get; set; }
+    public string? CreatedByUsername { get; set; }
+    public string? CreatedByAvatarUrl { get; set; }
     public List<string> CurrentAcceptanceCriteria { get; set; } = new();
     public List<string> CurrentScopeTags { get; set; } = new();
     public List<SpecVersionDto> Versions { get; set; } = new();

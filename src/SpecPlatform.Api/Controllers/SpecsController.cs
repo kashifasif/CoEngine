@@ -159,6 +159,7 @@ public class SpecsController : ControllerBase
 
         var specs = await _db.Specs
             .Include(s => s.Project)
+            .Include(s => s.CreatedByUser)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
@@ -212,12 +213,14 @@ public class SpecsController : ControllerBase
             return BadRequest(new { message = "Spec Title is required." });
         }
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var spec = new Spec
         {
             ProjectId = projectId,
             Title = dto.Title.Trim(),
             Description = dto.Description?.Trim() ?? string.Empty,
             Status = "Draft",
+            CreatedByUserId = currentUser?.Id,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -230,6 +233,7 @@ public class SpecsController : ControllerBase
             VersionNumber = 0,
             Content = spec.Description,
             PublishedAt = DateTime.UtcNow,
+            AuthorUserId = currentUser?.Id,
             AcceptanceCriteria = dto.AcceptanceCriteria
                 .Where(ac => !string.IsNullOrWhiteSpace(ac))
                 .Select(ac => new AcceptanceCriterion { Text = ac.Trim() })
@@ -250,6 +254,7 @@ public class SpecsController : ControllerBase
             $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
 
         spec.Project = project;
+        spec.CreatedByUser = currentUser;
         return CreatedAtAction(nameof(GetSpec), new { id = spec.Id }, MapToSpecDto(spec));
     }
 
@@ -264,6 +269,7 @@ public class SpecsController : ControllerBase
 
         var spec = await _db.Specs
             .Include(s => s.Project)
+            .Include(s => s.CreatedByUser)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
@@ -272,18 +278,19 @@ public class SpecsController : ControllerBase
 
         if (spec == null)
         {
+            var currentUser = await GetCurrentAuthenticatedUserAsync();
             spec = new Spec
             {
                 ProjectId = projectId,
                 Title = string.IsNullOrWhiteSpace(dto.Title) ? $"{project.Name} Specification" : dto.Title.Trim(),
                 Description = dto.Description?.Trim() ?? string.Empty,
                 Status = "Published",
+                CreatedByUserId = currentUser?.Id,
                 CreatedAt = DateTime.UtcNow
             };
             _db.Specs.Add(spec);
             await _db.SaveChangesAsync();
 
-            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var v1 = new SpecVersion
             {
                 SpecId = spec.Id,
@@ -381,6 +388,7 @@ public class SpecsController : ControllerBase
     {
         var spec = await _db.Specs
             .Include(s => s.Project)
+            .Include(s => s.CreatedByUser)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
@@ -402,6 +410,7 @@ public class SpecsController : ControllerBase
     {
         var spec = await _db.Specs
             .Include(s => s.Project)
+            .Include(s => s.CreatedByUser)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
@@ -1361,6 +1370,10 @@ Extract the key features, workflows, and specifications into an initial draft.";
             Status = spec.Status,
             CreatedAt = spec.CreatedAt,
             CurrentVersionNumber = currentVersionNumber,
+            CreatedByUserId = spec.CreatedByUserId,
+            CreatedByDisplayName = spec.CreatedByUser != null ? spec.CreatedByUser.DisplayName : null,
+            CreatedByUsername = spec.CreatedByUser != null ? spec.CreatedByUser.Username : null,
+            CreatedByAvatarUrl = spec.CreatedByUser != null ? spec.CreatedByUser.AvatarUrl : null,
             CurrentAcceptanceCriteria =
                 currentVersion?.AcceptanceCriteria.Select(ac => ac.Text).ToList() ?? new List<string>(),
             CurrentScopeTags = currentVersion?.ScopeTags.Select(st => st.TagName).ToList() ?? new List<string>(),

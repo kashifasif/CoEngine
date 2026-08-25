@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
+<div class="w-full flex flex-col lg:flex-row gap-8">
 
     <!-- Main Editor Column -->
     <div class="flex-1 flex flex-col gap-6">
@@ -28,6 +28,10 @@
                 </div>
 
                 <div class="flex items-center gap-2">
+                    <button class="btn-secondary text-xs cursor-pointer" @onclick="DownloadMarkdownAsync" title="Download Markdown (.md) File">
+                        <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">download</span>
+                        <span>Download .md</span>
+                    </button>
                     <button class="btn-secondary text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer" @onclick="() => showDeleteModal = true" title="Delete Specification">
                         <span class="material-symbols-outlined text-[16px]">delete</span>
                         <span>Delete</span>
@@ -341,5 +345,48 @@
         {
             isDeleting = false;
         }
+    }
+
+    private async Task DownloadMarkdownAsync()
+    {
+        if (spec == null) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# {title}");
+        sb.AppendLine();
+        sb.AppendLine($"**Project:** {spec.ProjectName}  ");
+        sb.AppendLine($"**Status:** {spec.Status}  ");
+        sb.AppendLine($"**Version:** v{spec.CurrentVersionNumber}  ");
+        sb.AppendLine($"**Date:** {spec.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC  ");
+        sb.AppendLine();
+        sb.AppendLine("## Description");
+        sb.AppendLine();
+        sb.AppendLine(description);
+        sb.AppendLine();
+
+        var validCriteria = criteria.Where(ac => !string.IsNullOrWhiteSpace(ac)).ToList();
+        if (validCriteria.Any())
+        {
+            sb.AppendLine("## Acceptance Criteria");
+            sb.AppendLine();
+            foreach (var ac in validCriteria)
+            {
+                sb.AppendLine($"- [ ] {ac}");
+            }
+            sb.AppendLine();
+        }
+
+        var validTags = tagsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToList();
+        if (validTags.Any())
+        {
+            sb.AppendLine("## Scope Tags");
+            sb.AppendLine();
+            sb.AppendLine(string.Join(" ", validTags.Select(t => $"`{t}`")));
+            sb.AppendLine();
+        }
+
+        var safeTitle = string.Concat((title ?? "Specification").Split(System.IO.Path.GetInvalidFileNameChars())).Replace(" ", "_");
+        var fileName = $"{safeTitle}_v{spec.CurrentVersionNumber}.md";
+        await JS.InvokeVoidAsync("downloadFileFromText", fileName, sb.ToString(), "text/markdown");
     }
 }

@@ -19,17 +19,41 @@ public class ProjectsController : ControllerBase
         _db = db;
     }
 
+    private async Task<User?> GetCurrentAuthenticatedUserAsync()
+    {
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer "))
+        {
+            var token = authHeader.Substring("Bearer ".Length).Trim();
+            if (token.StartsWith("gh_session_"))
+            {
+                var parts = token.Split('_');
+                if (parts.Length >= 3 && int.TryParse(parts[2], out var userId))
+                {
+                    return await _db.Users.FindAsync(userId);
+                }
+            }
+        }
+
+        return await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
+    }
+
     [HttpGet]
     public async Task<ActionResult<List<ProjectDto>>> GetProjects()
     {
         var projects = await _db.Projects
+            .Include(p => p.CreatedByUser)
             .Select(p => new ProjectDto
             {
                 Id = p.Id,
                 Name = p.Name,
                 Description = p.Description,
                 CreatedAt = p.CreatedAt,
-                SpecCount = p.Specs.Count
+                SpecCount = p.Specs.Count,
+                CreatedByUserId = p.CreatedByUserId,
+                CreatedByDisplayName = p.CreatedByUser != null ? p.CreatedByUser.DisplayName : null,
+                CreatedByUsername = p.CreatedByUser != null ? p.CreatedByUser.Username : null,
+                CreatedByAvatarUrl = p.CreatedByUser != null ? p.CreatedByUser.AvatarUrl : null
             })
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync();
@@ -42,6 +66,7 @@ public class ProjectsController : ControllerBase
     {
         var project = await _db.Projects
             .Include(p => p.Specs)
+            .Include(p => p.CreatedByUser)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (project == null)
@@ -55,7 +80,11 @@ public class ProjectsController : ControllerBase
             Name = project.Name,
             Description = project.Description,
             CreatedAt = project.CreatedAt,
-            SpecCount = project.Specs.Count
+            SpecCount = project.Specs.Count,
+            CreatedByUserId = project.CreatedByUserId,
+            CreatedByDisplayName = project.CreatedByUser?.DisplayName,
+            CreatedByUsername = project.CreatedByUser?.Username,
+            CreatedByAvatarUrl = project.CreatedByUser?.AvatarUrl
         });
     }
 
@@ -67,10 +96,12 @@ public class ProjectsController : ControllerBase
             return BadRequest(new { message = "Project Name is required." });
         }
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var project = new Project
         {
             Name = dto.Name.Trim(),
             Description = dto.Description?.Trim() ?? string.Empty,
+            CreatedByUserId = currentUser?.Id,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -83,7 +114,11 @@ public class ProjectsController : ControllerBase
             Name = project.Name,
             Description = project.Description,
             CreatedAt = project.CreatedAt,
-            SpecCount = 0
+            SpecCount = 0,
+            CreatedByUserId = currentUser?.Id,
+            CreatedByDisplayName = currentUser?.DisplayName ?? currentUser?.Username,
+            CreatedByUsername = currentUser?.Username,
+            CreatedByAvatarUrl = currentUser?.AvatarUrl
         };
 
         return CreatedAtAction(nameof(GetProject), new { id = project.Id }, result);

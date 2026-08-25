@@ -7,32 +7,40 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="fixed inset-0 top-14 left-0 lg:left-64 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
+<div class="fixed inset-0 top-14 left-0 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
 
     <!-- Header Toolbar (Fixed at Top) -->
-    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
-        <div class="flex items-center gap-3">
-            <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">chat</span>
-            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">Published Specs Q&amp;A</h2>
+    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60 shadow-2xs">
+                <span class="material-symbols-outlined text-[18px]">chat</span>
+            </div>
+            <div>
+                <h2 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight m-0 leading-none">Published Specs Q&amp;A</h2>
+                <span class="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">RAG & Vector Grounded Assistant</span>
+            </div>
         </div>
 
         <div class="flex items-center gap-2.5">
             <!-- Project Dropdown -->
-            <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
-                @if (!projects.Any())
-                {
-                    <option value="0">Loading projects...</option>
-                }
-                else
-                {
-                    @foreach (var proj in projects)
+            <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 px-2 py-1 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60">
+                <span class="material-symbols-outlined text-zinc-400 text-[15px]">folder</span>
+                <select class="bg-transparent text-xs font-medium text-zinc-800 dark:text-zinc-200 border-none outline-none focus:ring-0 cursor-pointer pr-1" value="@selectedProjectId" @onchange="OnProjectSelected">
+                    @if (!projects.Any())
                     {
-                        <option value="@proj.Id">@proj.Name</option>
+                        <option value="0">Loading projects...</option>
                     }
-                }
-            </select>
+                    else
+                    {
+                        @foreach (var proj in projects)
+                        {
+                            <option value="@proj.Id" class="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">@proj.Name</option>
+                        }
+                    }
+                </select>
+            </div>
 
-            <span class="badge badge-primary text-xs py-1 px-2.5 hidden sm:inline-flex">
+            <span class="badge badge-primary text-[11px] py-1 px-2.5 hidden sm:inline-flex">
                 @(vectorStats?.TotalVectorCount ?? 0) Vectors
             </span>
 
@@ -43,8 +51,8 @@
     </header>
 
     <!-- Chat Stream Window -->
-    <div id="devQaChatStream" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
-        <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
+    <div id="devQaChatStream" class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
+        <div class="max-w-4xl w-full mx-auto flex flex-col gap-6">
 
             <!-- In-Stream Lazy Loader -->
             @if (isLoadingOlderMessages)
@@ -162,17 +170,17 @@
     </div>
 
     <!-- Input Bar -->
-    <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-        <div class="max-w-6xl mx-auto flex flex-col gap-2">
-            <div class="flex gap-2 items-end">
-                <textarea id="devQaAssistantInput" class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36" placeholder="Ask about endpoints, validations, business logic, or edge cases..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]" @onclick="SendDevQaQuery" disabled="@isThinking" title="Send (Enter)">
+    <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shrink-0">
+        <div class="max-w-4xl mx-auto flex flex-col gap-2">
+            <div class="relative flex items-center bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all p-1.5 shadow-2xs">
+                <textarea id="devQaAssistantInput" class="w-full bg-transparent text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-3 py-2 leading-relaxed resize-none min-h-[48px] max-h-36 border-none outline-none focus:ring-0" placeholder="Ask about endpoints, validations, business logic, or edge cases..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn-primary p-2.5 rounded-xl shrink-0 h-[40px] w-[40px] flex items-center justify-center self-end mb-0.5 mr-0.5" @onclick="SendDevQaQuery" disabled="@isThinking" title="Send (Enter)">
                     <span class="material-symbols-outlined text-[18px]">send</span>
                 </button>
             </div>
 
-            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-                <span>Press Enter to ask</span>
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono px-1">
+                <span>Press <kbd class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-[10px]">Enter</kbd> to ask</span>
                 <span>Grounded with PgVector Embeddings</span>
             </div>
         </div>

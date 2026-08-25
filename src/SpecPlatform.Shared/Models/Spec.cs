@@ -11,6 +11,9 @@ public class Spec
     public string Status { get; set; } = "Draft"; // Draft or Published
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public int? CreatedByUserId { get; set; }
+    public User? CreatedByUser { get; set; }
+
     public Project? Project { get; set; }
     public List<SpecVersion> Versions { get; set; } = new();
 }

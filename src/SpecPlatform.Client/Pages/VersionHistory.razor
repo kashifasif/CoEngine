@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="max-w-6xl mx-auto flex flex-col gap-6">
+<div class="w-full flex flex-col gap-6">
 
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
@@ -79,8 +79,12 @@
                                 }
                             </div>
 
-                            <!-- Action Buttons: Undo / Redo -->
+                            <!-- Action Buttons: Download .md / Undo / Redo -->
                             <div class="flex items-center gap-2 shrink-0">
+                                <button class="btn-secondary text-xs py-1.5 px-3 cursor-pointer" @onclick="() => DownloadVersionMarkdownAsync(ver)" title="Download version .md file">
+                                    <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">download</span>
+                                    <span>Download .md</span>
+                                </button>
                                 @if (isUndone)
                                 {
                                     <button class="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer" @onclick="() => PromptRedoVersion(ver.VersionNumber)" disabled="@isTogglingStatus" title="Restore this version into active search index">
@@ -430,5 +434,50 @@
             isTogglingStatus = false;
             StateHasChanged();
         }
+    }
+
+    private async Task DownloadVersionMarkdownAsync(SpecVersionDto ver)
+    {
+        if (selectedSpec == null || ver == null) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# {selectedSpec.Title} (v{ver.VersionNumber})");
+        sb.AppendLine();
+        sb.AppendLine($"**Project:** {selectedSpec.ProjectName}  ");
+        sb.AppendLine($"**Status:** {(ver.IsUndone ? "Archived / Undone" : "Published")}  ");
+        sb.AppendLine($"**Version:** v{ver.VersionNumber}  ");
+        sb.AppendLine($"**Published At:** {ver.PublishedAt:yyyy-MM-dd HH:mm:ss} UTC  ");
+        if (!string.IsNullOrWhiteSpace(ver.AuthorDisplayName) || !string.IsNullOrWhiteSpace(ver.AuthorUsername))
+        {
+            sb.AppendLine($"**Published By:** {ver.AuthorDisplayName ?? ver.AuthorUsername}  ");
+        }
+        sb.AppendLine();
+        sb.AppendLine("## Description");
+        sb.AppendLine();
+        sb.AppendLine(ver.Content);
+        sb.AppendLine();
+
+        if (ver.AcceptanceCriteria.Any())
+        {
+            sb.AppendLine("## Acceptance Criteria");
+            sb.AppendLine();
+            foreach (var ac in ver.AcceptanceCriteria)
+            {
+                sb.AppendLine($"- [ ] {ac}");
+            }
+            sb.AppendLine();
+        }
+
+        if (ver.ScopeTags.Any())
+        {
+            sb.AppendLine("## Scope Tags");
+            sb.AppendLine();
+            sb.AppendLine(string.Join(" ", ver.ScopeTags.Select(t => $"`{t}`")));
+            sb.AppendLine();
+        }
+
+        var safeTitle = string.Concat(selectedSpec.Title.Split(System.IO.Path.GetInvalidFileNameChars())).Replace(" ", "_");
+        var fileName = $"{safeTitle}_v{ver.VersionNumber}.md";
+        await JS.InvokeVoidAsync("downloadFileFromText", fileName, sb.ToString(), "text/markdown");
     }
 }

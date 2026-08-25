@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="max-w-6xl mx-auto flex flex-col gap-6">
+<div class="w-full flex flex-col gap-6">
 
     <!-- Header & Project Selector -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
@@ -47,6 +47,11 @@
                 <button class="btn-secondary text-xs" @onclick="OpenVersionHistory" title="View Version Diff History & Manage Releases">
                     <span class="material-symbols-outlined text-[16px]">history</span>
                     <span>Version History &amp; Undo/Redo (v@(masterSpec.CurrentVersionNumber))</span>
+                </button>
+
+                <button class="btn-secondary text-xs cursor-pointer" @onclick="DownloadMarkdownAsync" title="Download Markdown (.md) File">
+                    <span class="material-symbols-outlined text-[16px] text-emerald-600 dark:text-emerald-400">download</span>
+                    <span>Download .md</span>
                 </button>
 
                 <button class="btn-primary text-xs" @onclick="ExportPdfAsync" title="Export PDF Specification">
@@ -113,6 +118,21 @@
                                 @masterSpec.Status
                             </span>
                             <span class="badge badge-primary">Version @(masterSpec.CurrentVersionNumber)</span>
+
+                            @if (!string.IsNullOrEmpty(masterSpec.CreatedByDisplayName) || !string.IsNullOrEmpty(masterSpec.CreatedByUsername))
+                            {
+                                <span class="badge badge-default flex items-center gap-1 text-[11px]" title="Created by @(masterSpec.CreatedByDisplayName ?? masterSpec.CreatedByUsername)">
+                                    @if (!string.IsNullOrEmpty(masterSpec.CreatedByAvatarUrl))
+                                    {
+                                        <img src="@masterSpec.CreatedByAvatarUrl" class="w-3.5 h-3.5 rounded-full object-cover border border-zinc-300 dark:border-zinc-700" />
+                                    }
+                                    else
+                                    {
+                                        <span class="material-symbols-outlined text-[13px]">person</span>
+                                    }
+                                    <span>Created by @(masterSpec.CreatedByDisplayName ?? masterSpec.CreatedByUsername)</span>
+                                </span>
+                            }
 
                             <!-- Direct Quick Undo / Redo Actions -->
                             @if (masterSpec.Versions.Any())
@@ -645,6 +665,47 @@
         };
 
         await JS.InvokeVoidAsync("exportSpecToPdf", payload);
+    }
+
+    private async Task DownloadMarkdownAsync()
+    {
+        if (masterSpec == null || selectedProject == null) return;
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"# {masterSpec.Title}");
+        sb.AppendLine();
+        sb.AppendLine($"**Project:** {selectedProject.Name}  ");
+        sb.AppendLine($"**Status:** {masterSpec.Status}  ");
+        sb.AppendLine($"**Version:** v{masterSpec.CurrentVersionNumber}  ");
+        sb.AppendLine($"**Date:** {masterSpec.CreatedAt:yyyy-MM-dd HH:mm:ss} UTC  ");
+        sb.AppendLine();
+        sb.AppendLine("## Description");
+        sb.AppendLine();
+        sb.AppendLine(masterSpec.Description);
+        sb.AppendLine();
+
+        if (masterSpec.CurrentAcceptanceCriteria.Any())
+        {
+            sb.AppendLine("## Acceptance Criteria");
+            sb.AppendLine();
+            foreach (var ac in masterSpec.CurrentAcceptanceCriteria)
+            {
+                sb.AppendLine($"- [ ] {ac}");
+            }
+            sb.AppendLine();
+        }
+
+        if (masterSpec.CurrentScopeTags.Any())
+        {
+            sb.AppendLine("## Scope Tags");
+            sb.AppendLine();
+            sb.AppendLine(string.Join(" ", masterSpec.CurrentScopeTags.Select(t => $"`{t}`")));
+            sb.AppendLine();
+        }
+
+        var safeTitle = string.Concat(masterSpec.Title.Split(System.IO.Path.GetInvalidFileNameChars())).Replace(" ", "_");
+        var fileName = $"{safeTitle}_v{masterSpec.CurrentVersionNumber}.md";
+        await JS.InvokeVoidAsync("downloadFileFromText", fileName, sb.ToString(), "text/markdown");
     }
 
 }

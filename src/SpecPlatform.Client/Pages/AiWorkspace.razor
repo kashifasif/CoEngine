@@ -7,53 +7,62 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="fixed inset-0 top-14 left-0 lg:left-64 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
+<div class="fixed inset-0 top-14 left-0 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
 
 <!-- Top Chat Toolbar (Fixed at Top) -->
-<header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
-    <div class="flex items-center gap-3">
-        <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">auto_awesome</span>
-        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">AI Brainstorming Workspace</h2>
+<header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between shrink-0 gap-3 shadow-2xs">
+    <div class="flex items-center gap-2.5 shrink-0">
+        <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60 shadow-2xs">
+            <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+        </div>
+        <div>
+            <h2 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight m-0 leading-none">AI Brainstorming Workspace</h2>
+            <span class="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">PO & Specification Co-Pilot</span>
+        </div>
     </div>
 
-    <div class="flex items-center gap-2.5 flex-wrap">
+    <div class="flex items-center gap-2 flex-wrap justify-end">
         <!-- Project Dropdown -->
-        <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
-            @foreach (var p in projects)
-            {
-                <option value="@p.Id">@p.Name</option>
-            }
-        </select>
+        <div class="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 px-2 py-1 rounded-lg border border-zinc-200/80 dark:border-zinc-700/60">
+            <span class="material-symbols-outlined text-zinc-400 text-[15px]">folder</span>
+            <select class="bg-transparent text-xs font-medium text-zinc-800 dark:text-zinc-200 border-none outline-none focus:ring-0 cursor-pointer pr-1" value="@selectedProjectId" @onchange="OnProjectSelected">
+                @foreach (var p in projects)
+                {
+                    <option value="@p.Id" class="bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">@p.Name</option>
+                }
+            </select>
+        </div>
 
         <!-- Specification Title / Name Input -->
-        <div class="flex items-center gap-1.5 w-48 sm:w-64">
+        <div class="relative flex items-center w-40 sm:w-56">
+            <span class="absolute left-2.5 material-symbols-outlined text-zinc-400 text-[15px] pointer-events-none">edit_note</span>
             <input type="text"
-                   class="form-input text-xs py-1.5 px-3 w-full font-medium @(string.IsNullOrWhiteSpace(specTitle) ? "border-amber-400/80 dark:border-amber-500/80 bg-amber-50/20 dark:bg-amber-950/20" : "")"
-                   placeholder="Specification Title (Required)..."
+                   class="form-input text-xs py-1.5 pl-8 pr-2.5 w-full font-medium rounded-lg @(string.IsNullOrWhiteSpace(specTitle) ? "border-amber-400/90 dark:border-amber-500/90 bg-amber-50/40 dark:bg-amber-950/30" : "bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700")"
+                   placeholder="Spec Title (Required)..."
                    @bind="specTitle"
                    @bind:event="oninput"
                    @bind:after="OnSpecTitleChanged"
                    title="Specification Title"/>
         </div>
 
-        <button class="btn-secondary text-xs py-1.5 px-3" @onclick="OpenIngestModal" title="Import transcript or notes">
-            <span class="material-symbols-outlined text-[16px]">upload_file</span>
-            <span>Import</span>
+        <button class="btn-secondary text-xs py-1.5 px-2.5 gap-1" @onclick="OpenIngestModal" title="Import transcript or notes">
+            <span class="material-symbols-outlined text-[15px]">upload_file</span>
+            <span class="hidden md:inline">Import</span>
         </button>
 
         <button class="btn-secondary text-xs p-1.5 cursor-pointer text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => showClearChatModal = true" title="Clear Brainstorming History">
-            <span class="material-symbols-outlined text-[16px]">delete</span>
+            <span class="material-symbols-outlined text-[15px]">delete</span>
         </button>
 
         @if (GetUnansweredQuestions().Any())
         {
             var pendingCount = GetUnansweredQuestions().Count;
-            <span class="badge badge-warning text-xs py-1 px-2.5" title="Answer or skip remaining questions to publish">
-                @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
+            <span class="badge badge-warning text-[10px] py-1 px-2 shrink-0" title="Answer or skip remaining questions to publish">
+                @pendingCount Left
             </span>
         }
 
-        <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+        <button class="btn-primary text-xs py-1.5 px-3 font-semibold" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
             @if (isStructuring)
             {
                 <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
@@ -61,7 +70,7 @@
             }
             else
             {
-                <span class="material-symbols-outlined text-[16px]">publish</span>
+                <span class="material-symbols-outlined text-[15px]">publish</span>
                 <span>Publish Spec</span>
             }
         </button>
@@ -69,8 +78,8 @@
 </header>
 
 <!-- Chat Messages Stream -->
-<div id="aiWorkspaceChatStream" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
-    <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
+<div id="aiWorkspaceChatStream" class="flex-1 overflow-y-auto px-4 sm:px-6 py-6 w-full">
+    <div class="max-w-4xl w-full mx-auto flex flex-col gap-6">
 
         <!-- Top Lazy / Infinite Scroll Loader -->
         @if (isLoadingOlderMessages)
@@ -339,23 +348,23 @@
 </div>
 
 <!-- Input Bar -->
-<footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-    <div class="max-w-6xl mx-auto flex flex-col gap-2.5">
+<footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shrink-0">
+    <div class="max-w-4xl mx-auto flex flex-col gap-2.5">
         @if (string.IsNullOrWhiteSpace(specTitle))
         {
-            <div class="p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2">
+            <div class="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2 font-medium">
                 <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-[18px]">info</span>
-                <span>Please enter a <strong>Specification Title</strong> in the toolbar above before starting brainstorming.</span>
+                <span>Please enter a <strong>Specification Title</strong> in the header above before starting brainstorming.</span>
             </div>
         }
-        <div class="flex gap-2 items-end">
+        <div class="relative flex items-center bg-zinc-50 dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 focus-within:border-indigo-500 dark:focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all p-1.5 shadow-2xs">
             <textarea id="aiWorkspaceInput"
-                          class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36"
-                          placeholder="@(string.IsNullOrWhiteSpace(specTitle) ? "Please enter a Specification Title above first..." : "Describe requirements, acceptance criteria, or ask questions for " + specTitle + "...")"
-                          @bind="userPromptInput"
-                          @onkeydown="HandleKeyDown"
-                          disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"></textarea>
-            <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]"
+                      class="w-full bg-transparent text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 px-3 py-2 leading-relaxed resize-none min-h-[48px] max-h-36 border-none outline-none focus:ring-0"
+                      placeholder="@(string.IsNullOrWhiteSpace(specTitle) ? "Please enter a Specification Title above first..." : "Describe requirements, acceptance criteria, or ask questions for " + specTitle + "...")"
+                      @bind="userPromptInput"
+                      @onkeydown="HandleKeyDown"
+                      disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"></textarea>
+            <button class="btn-primary p-2.5 rounded-xl shrink-0 h-[40px] w-[40px] flex items-center justify-center self-end mb-0.5 mr-0.5"
                     @onclick="() => SendChatMessage(false)"
                     disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"
                     title="@(string.IsNullOrWhiteSpace(specTitle) ? "Enter specification title first" : "Send (Enter)")">
@@ -363,10 +372,11 @@
             </button>
         </div>
 
-        <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
-            <span>Press Enter to send</span>
-            <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
-                Start Clarification Round &rarr;
+        <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono px-1">
+            <span>Press <kbd class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-[10px]">Enter</kbd> to send</span>
+            <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer flex items-center gap-1" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
+                <span>Start Clarification Round</span>
+                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
             </button>
         </div>
     </div>

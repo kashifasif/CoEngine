@@ -123,6 +123,27 @@ using (var scope = app.Services.CreateScope())
                 }
                 await db.SaveChangesAsync();
             }
+
+            var unassignedProjects = await db.Projects.Where(p => p.CreatedByUserId == null).ToListAsync();
+            if (unassignedProjects.Any())
+            {
+                foreach (var p in unassignedProjects) p.CreatedByUserId = defaultUser.Id;
+                await db.SaveChangesAsync();
+            }
+
+            var unassignedSpecs = await db.Specs.Where(s => s.CreatedByUserId == null).ToListAsync();
+            if (unassignedSpecs.Any())
+            {
+                foreach (var s in unassignedSpecs) s.CreatedByUserId = defaultUser.Id;
+                await db.SaveChangesAsync();
+            }
+
+            var unassignedChatSessions = await db.ChatSessions.Where(cs => cs.UserId == null).ToListAsync();
+            if (unassignedChatSessions.Any())
+            {
+                foreach (var cs in unassignedChatSessions) cs.UserId = defaultUser.Id;
+                await db.SaveChangesAsync();
+            }
         }
     }
     catch { }

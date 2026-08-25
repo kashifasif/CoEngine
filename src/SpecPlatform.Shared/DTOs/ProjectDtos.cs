@@ -13,4 +13,8 @@ public class ProjectDto
     public string Description { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int SpecCount { get; set; }
+    public int? CreatedByUserId { get; set; }
+    public string? CreatedByDisplayName { get; set; }
+    public string? CreatedByUsername { get; set; }
+    public string? CreatedByAvatarUrl { get; set; }
 }
