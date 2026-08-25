@@ -4,26 +4,65 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="d-flex flex-column align-items-center justify-content-center min-vh-100 bg-surface-dim p-4">
-    <div class="card bg-surface-container border border-outline-variant p-5 rounded-4 text-center shadow-lg" style="max-width: 480px;">
+<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-6 transition-colors">
+    <div class="card p-8 sm:p-10 w-full max-w-md shadow-xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200 border border-zinc-200 dark:border-zinc-800">
         @if (isProcessing)
         {
-            <div class="spinner-border text-primary-custom mb-3" style="width: 3rem; height: 3rem;" role="status"></div>
-            <h4 class="fw-bold text-on-surface mb-2 font-ui">Authenticating with GitHub</h4>
-            <p class="text-on-surface-variant font-mono small mb-0">Exchanging authorization code and setting up your workspace session...</p>
+            <div class="relative w-16 h-16 mb-6 flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-indigo-600/20 dark:border-indigo-400/20 animate-ping"></div>
+                <div class="w-14 h-14 rounded-full border-3 border-indigo-600 border-t-transparent animate-spin"></div>
+                <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-2xl absolute">key</span>
+            </div>
+            
+            <h2 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Authenticating with GitHub</h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed max-w-xs font-mono">
+                Exchanging secure authorization code and preparing your workspace session...
+            </p>
         }
         else if (!string.IsNullOrEmpty(errorMessage))
         {
-            <span class="material-symbols-outlined text-danger mb-3" style="font-size: 48px;">error</span>
-            <h4 class="fw-bold text-on-surface mb-2 font-ui">Authentication Failed</h4>
-            <p class="text-danger font-mono small mb-4">@errorMessage</p>
-            <button class="btn btn-primary-spec font-mono" @onclick="GoHome">Return to Dashboard</button>
+            <div class="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200 dark:border-rose-800/60 mb-5 shadow-xs">
+                <span class="material-symbols-outlined text-3xl">error</span>
+            </div>
+            
+            <h2 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-2">Authentication Failed</h2>
+            <div class="p-3 rounded-lg bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 text-xs text-rose-800 dark:text-rose-300 font-mono mb-6 w-full text-left break-words">
+                @errorMessage
+            </div>
+            
+            <button class="btn-primary w-full text-xs py-2.5" @onclick="GoHome">
+                <span class="material-symbols-outlined text-[16px]">arrow_back</span>
+                <span>Return to Login</span>
+            </button>
         }
         else
         {
-            <span class="material-symbols-outlined text-success mb-3" style="font-size: 48px;">check_circle</span>
-            <h4 class="fw-bold text-on-surface mb-2 font-ui">Welcome, @currentUser?.DisplayName!</h4>
-            <p class="text-on-surface-variant font-mono small mb-4">Single Sign-On complete. Redirecting to workspace...</p>
+            <div class="relative mb-5 flex items-center justify-center">
+                @if (!string.IsNullOrEmpty(currentUser?.AvatarUrl))
+                {
+                    <img src="@currentUser.AvatarUrl" class="w-16 h-16 rounded-full object-cover border-2 border-emerald-500 shadow-md animate-in zoom-in-75 duration-200" alt="Avatar" />
+                }
+                else
+                {
+                    <div class="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-xl border-2 border-emerald-500 shadow-md">
+                        @((currentUser?.DisplayName ?? currentUser?.Username ?? "U")[0])
+                    </div>
+                }
+                <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs border-2 border-white dark:border-zinc-900">
+                    <span class="material-symbols-outlined text-[14px]">check</span>
+                </div>
+            </div>
+
+            <h2 class="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 mb-1">
+                Welcome back, @(currentUser?.DisplayName ?? currentUser?.Username ?? "Team Member")!
+            </h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 font-mono mb-5">
+                Single Sign-On verified. Redirecting to workspace...
+            </p>
+
+            <div class="w-full bg-zinc-100 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                <div class="bg-indigo-600 h-full rounded-full animate-pulse w-full"></div>
+            </div>
         }
     </div>
 </div>
