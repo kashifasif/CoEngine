@@ -2,14 +2,15 @@
 @page "/published-specs-qa/{ProjectId:int}"
 @page "/dev-qa-assistant"
 @page "/dev-qa-assistant/{ProjectId:int}"
+@implements IDisposable
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="flex flex-col h-[calc(100vh-56px)] -m-6 sm:-m-8 bg-zinc-50 dark:bg-zinc-950">
+<div class="fixed inset-0 top-14 left-0 lg:left-64 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
 
-    <!-- Header Toolbar -->
-    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4">
+    <!-- Header Toolbar (Fixed at Top) -->
+    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4 shadow-2xs">
         <div class="flex items-center gap-3">
             <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">chat</span>
             <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">Published Specs Q&amp;A</h2>
@@ -35,105 +36,124 @@
                 @(vectorStats?.TotalVectorCount ?? 0) Vectors
             </span>
 
-            <button class="btn-secondary text-xs p-1.5" @onclick="ClearChat" title="Clear Chat History">
+            <button class="btn-secondary text-xs p-1.5 cursor-pointer text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => showClearChatModal = true" title="Clear Chat History">
                 <span class="material-symbols-outlined text-[16px]">delete</span>
             </button>
         </div>
     </header>
 
     <!-- Chat Stream Window -->
-    <div id="devQaChatStream" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 max-w-4xl w-full mx-auto">
+    <div id="devQaChatStream" class="flex-1 overflow-y-auto px-4 sm:px-8 py-6 w-full">
+        <div class="max-w-8xl w-full mx-auto flex flex-col gap-6">
 
-        @if (isLoadingChat)
-        {
-            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
-                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
-                <span>Querying vector store knowledge base...</span>
-            </div>
-        }
-        else if (!chatMessages.Any())
-        {
-            <div class="my-auto flex flex-col items-center justify-center text-center py-12">
-                <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
-                    <span class="material-symbols-outlined text-2xl">search</span>
-                </div>
-                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ask questions about published specifications</h3>
-                <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
-                    Grounded in the indexed requirements of <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong>.
-                </p>
-
-                <!-- Prompt Suggestions -->
-                <div class="flex flex-wrap justify-center gap-2 max-w-xl">
-                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("What API endpoint contracts and payload formats are specified for this project?")'>
-                        What API contracts are specified?
-                    </button>
-                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("List error handling scenarios, HTTP status codes, and exception boundaries.")'>
-                        List HTTP error codes &amp; status mapping
-                    </button>
-                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Generate Given-When-Then Gherkin syntax feature files for all published acceptance criteria.")'>
-                        Generate Gherkin test scenarios
-                    </button>
-                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Summarize all key acceptance criteria and business rules for this project.")'>
-                        Summarize key business rules
-                    </button>
-                </div>
-            </div>
-        }
-        else
-        {
-            @foreach (var msg in chatMessages)
+            <!-- In-Stream Lazy Loader -->
+            @if (isLoadingOlderMessages)
             {
-                bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
-
-                <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
-                    <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
-                        @(msg.Role == "user" ? "You" : "Q&A Assistant")
-                    </div>
-
-                    @if (msg.Role == "user")
-                    {
-                        <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-4 py-3 text-xs leading-relaxed max-w-[85%] whitespace-pre-wrap shadow-xs">
-                            @msg.Content
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="card p-5 max-w-[90%] w-full flex flex-col gap-3 shadow-xs">
-                            @if (isError)
-                            {
-                                <div class="flex items-center gap-3">
-                                    <span class="text-rose-600 text-xs font-mono">Failed to receive answer</span>
-                                    <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
-                                        <span class="material-symbols-outlined text-[14px]">refresh</span>
-                                        <span>Retry</span>
-                                    </button>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
-                                    @((MarkupString)Markdig.Markdown.ToHtml(msg.Content))
-                                </div>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-
-            @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
-            {
-                <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
+                <div class="py-2.5 flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono animate-in fade-in duration-100">
                     <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
-                    <span>Searching specification vector embeddings...</span>
+                    <span>Loading older messages...</span>
                 </div>
             }
-        }
+            else if (hasMoreOlderMessages)
+            {
+                <div class="py-1 text-center">
+                    <button class="text-[11px] text-zinc-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-mono transition-colors cursor-pointer" @onclick="LoadOlderMessagesManually">
+                        ↑ Scroll up to load older messages (@(allMessages.Count - chatMessages.Count) older)
+                    </button>
+                </div>
+            }
 
+            @if (isLoadingChat)
+            {
+                <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                    <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                    <span>Querying vector store knowledge base...</span>
+                </div>
+            }
+            else if (!chatMessages.Any())
+            {
+                <div class="my-auto flex flex-col items-center justify-center text-center py-12">
+                    <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
+                        <span class="material-symbols-outlined text-2xl">search</span>
+                    </div>
+                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ask questions about published specifications</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
+                        Grounded in the indexed requirements of <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong>.
+                    </p>
+
+                    <!-- Prompt Suggestions -->
+                    <div class="flex flex-wrap justify-center gap-2 max-w-xl">
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("What API endpoint contracts and payload formats are specified for this project?")'>
+                            What API contracts are specified?
+                        </button>
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("List error handling scenarios, HTTP status codes, and exception boundaries.")'>
+                            List HTTP error codes &amp; status mapping
+                        </button>
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Generate Given-When-Then Gherkin syntax feature files for all published acceptance criteria.")'>
+                            Generate Gherkin test scenarios
+                        </button>
+                        <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Summarize all key acceptance criteria and business rules for this project.")'>
+                            Summarize key business rules
+                        </button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var msg in chatMessages)
+                {
+                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
+
+                    <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
+                        <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
+                            @(msg.Role == "user" ? "You" : "Q&A Assistant")
+                        </div>
+
+                        @if (msg.Role == "user")
+                        {
+                            <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 text-xs leading-relaxed max-w-2xl sm:max-w-3xl whitespace-pre-wrap shadow-xs">
+                                @msg.Content
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="card p-6 w-full flex flex-col gap-3 shadow-xs">
+                                @if (isError)
+                                {
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-rose-600 text-xs font-mono">Failed to receive answer</span>
+                                        <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
+                                            <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                            <span>Retry</span>
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
+                                        @((MarkupString)Markdig.Markdown.ToHtml(msg.Content))
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+                {
+                    <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
+                        <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                        <span>Searching specification vector embeddings...</span>
+                    </div>
+                }
+            }
+
+        </div>
     </div>
 
     <!-- Input Bar -->
     <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
-        <div class="max-w-4xl mx-auto flex flex-col gap-2">
+        <div class="max-w-6xl mx-auto flex flex-col gap-2">
             <div class="flex gap-2 items-end">
                 <textarea id="devQaAssistantInput" class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36" placeholder="Ask about endpoints, validations, business logic, or edge cases..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
                 <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]" @onclick="SendDevQaQuery" disabled="@isThinking" title="Send (Enter)">
@@ -150,6 +170,42 @@
 
 </div>
 
+<!-- Clear Chat Confirmation Modal -->
+@if (showClearChatModal)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => showClearChatModal = false"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-rose-200 dark:border-rose-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">delete_sweep</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Clear Q&amp;A History</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you sure you want to clear the Dev &amp; QA query history for <strong class="text-zinc-900 dark:text-zinc-100">@(selectedProject?.Name ?? "this project")</strong>?
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => showClearChatModal = false" disabled="@isClearingChat">Cancel</button>
+                <button class="btn-danger text-xs flex items-center gap-1.5" @onclick="ExecuteClearChat" disabled="@isClearingChat">
+                    @if (isClearingChat)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Clearing...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Clear History</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int? ProjectId { get; set; }
 
@@ -158,7 +214,13 @@
     private int selectedProjectId = 0;
     private string roleMode = "qa_mode";
 
+    private List<ChatMessageDto> allMessages = new();
     private List<ChatMessageDto> chatMessages = new();
+    private const int PageSize = 15;
+    private bool isLoadingOlderMessages = false;
+    private bool hasMoreOlderMessages => allMessages.Count > chatMessages.Count;
+    private DotNetObjectReference<DevQaAssistant>? dotNetRef;
+
     private VectorStoreStatsDto? vectorStats;
     private string userPromptInput = "";
     private bool isThinking = false;
@@ -186,7 +248,9 @@
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         Nav.NavigateTo("/");
         return false;
@@ -205,6 +269,7 @@
             {
                 selectedProjectId = projects.First().Id;
             }
+
             selectedProject = projects.FirstOrDefault(p => p.Id == selectedProjectId);
             await LoadDbChatSession();
             await LoadVectorStats();
@@ -232,9 +297,10 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (chatMessages.Any())
+        if (firstRender)
         {
-            await ScrollToBottom();
+            dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("chatScrollManager.initInfiniteScroll", "devQaChatStream", dotNetRef);
         }
     }
 
@@ -248,10 +314,19 @@
             var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
             if (session != null && session.Messages.Any())
             {
-                chatMessages = session.Messages;
+                allMessages = session.Messages;
+                if (allMessages.Count > PageSize)
+                {
+                    chatMessages = allMessages.Skip(allMessages.Count - PageSize).Take(PageSize).ToList();
+                }
+                else
+                {
+                    chatMessages = allMessages.ToList();
+                }
             }
             else
             {
+                allMessages = new();
                 chatMessages = new();
             }
         }
@@ -264,10 +339,39 @@
         }
     }
 
+    [JSInvokable]
+    public async Task<int> OnLoadOlderMessagesAsync()
+    {
+        if (isLoadingOlderMessages || !hasMoreOlderMessages) return 0;
+        isLoadingOlderMessages = true;
+        StateHasChanged();
+
+        await Task.Delay(250); // brief smooth animation for loader
+
+        int currentlyLoaded = chatMessages.Count;
+        int total = allMessages.Count;
+        int toLoad = Math.Min(PageSize, total - currentlyLoaded);
+
+        if (toLoad > 0)
+        {
+            var olderBatch = allMessages.Skip(total - currentlyLoaded - toLoad).Take(toLoad).ToList();
+            chatMessages.InsertRange(0, olderBatch);
+        }
+
+        isLoadingOlderMessages = false;
+        StateHasChanged();
+        return toLoad;
+    }
+
+    private async Task LoadOlderMessagesManually()
+    {
+        await OnLoadOlderMessagesAsync();
+    }
+
     private async Task SaveDbChatSession()
     {
         if (selectedProjectId == 0) return;
-        await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, chatMessages);
+        await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, allMessages);
         await LoadVectorStats();
     }
 
@@ -295,9 +399,12 @@
         userPromptInput = "";
         await JS.InvokeVoidAsync("clearChatInputValue", "devQaAssistantInput");
 
-        chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
-
+        var userMsg = new ChatMessageDto { Role = "user", Content = prompt };
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+
+        allMessages.Add(userMsg);
+        allMessages.Add(assistantMsg);
+        chatMessages.Add(userMsg);
         chatMessages.Add(assistantMsg);
 
         isThinking = true;
@@ -310,7 +417,7 @@
             await ApiClient.SendDevQaQueryStreamAsync(
                 selectedProjectId,
                 roleMode,
-                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                allMessages.Take(allMessages.Count - 1).ToList(),
                 chunk =>
                 {
                     currentStreamingResponse += chunk;
@@ -337,9 +444,15 @@
             chatMessages.RemoveAt(chatMessages.Count - 1);
         }
 
+        if (allMessages.Any() && allMessages.Last().Role == "assistant")
+        {
+            allMessages.RemoveAt(allMessages.Count - 1);
+        }
+
         if (!chatMessages.Any(m => m.Role == "user")) return;
 
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        allMessages.Add(assistantMsg);
         chatMessages.Add(assistantMsg);
 
         isThinking = true;
@@ -352,7 +465,7 @@
             await ApiClient.SendDevQaQueryStreamAsync(
                 selectedProjectId,
                 roleMode,
-                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                allMessages.Take(allMessages.Count - 1).ToList(),
                 chunk =>
                 {
                     currentStreamingResponse += chunk;
@@ -380,16 +493,39 @@
         {
             await JS.InvokeVoidAsync("eval", "const el = document.getElementById('devQaChatStream'); if(el) { el.scrollTop = el.scrollHeight; }");
         }
-        catch { }
-    }
-
-    private async Task ClearChat()
-    {
-        chatMessages.Clear();
-        if (selectedProjectId > 0)
+        catch
         {
-            await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
-            await LoadVectorStats();
         }
     }
+
+    private bool showClearChatModal = false;
+    private bool isClearingChat = false;
+
+    private async Task ExecuteClearChat()
+    {
+        isClearingChat = true;
+        try
+        {
+            allMessages.Clear();
+            chatMessages.Clear();
+            if (selectedProjectId > 0)
+            {
+                await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
+                await LoadVectorStats();
+            }
+
+            showClearChatModal = false;
+        }
+        finally
+        {
+            isClearingChat = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        dotNetRef?.Dispose();
+    }
+
 }

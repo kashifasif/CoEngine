@@ -29,6 +29,64 @@
                 return localStorage.getItem('theme_preference') || 'dark';
             }
         };
+
+        window.chatScrollManager = {
+            initInfiniteScroll: function (containerId, dotNetHelper) {
+                const el = document.getElementById(containerId);
+                if (!el) return;
+                
+                el.onscroll = function () {
+                    if (el.scrollTop < 60) {
+                        const prevScrollHeight = el.scrollHeight;
+                        const prevScrollTop = el.scrollTop;
+
+                        dotNetHelper.invokeMethodAsync("OnLoadOlderMessagesAsync")
+                            .then((loadedCount) => {
+                                if (loadedCount > 0) {
+                                    requestAnimationFrame(() => {
+                                        const newScrollHeight = el.scrollHeight;
+                                        el.scrollTop = (newScrollHeight - prevScrollHeight) + prevScrollTop;
+                                    });
+                                }
+                            })
+                            .catch(() => {});
+                    }
+                };
+            },
+            scrollToBottom: function (containerId, smooth) {
+                const el = document.getElementById(containerId);
+                if (el) {
+                    if (smooth) {
+                        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+                    } else {
+                        el.scrollTop = el.scrollHeight;
+                    }
+                }
+            },
+            getScrollTop: function (containerId) {
+                const el = document.getElementById(containerId);
+                return el ? el.scrollTop : 0;
+            },
+            setScrollTop: function (containerId, pos) {
+                const el = document.getElementById(containerId);
+                if (el) {
+                    el.scrollTop = pos;
+                }
+            }
+        };
+
+        window.notificationScrollManager = {
+            initInfiniteScroll: function (containerId, dotNetHelper) {
+                const el = document.getElementById(containerId);
+                if (!el) return;
+                el.onscroll = function () {
+                    if (el.scrollHeight - el.scrollTop - el.clientHeight < 30) {
+                        dotNetHelper.invokeMethodAsync("OnLoadOlderNotificationsAsync");
+                    }
+                };
+            }
+        };
+
         (function () {
             var savedTheme = localStorage.getItem('theme_preference') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);

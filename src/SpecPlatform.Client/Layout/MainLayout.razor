@@ -1,91 +1,193 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
 <div class="min-h-screen flex flex-col bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
 
-    @if (currentUser != null && currentUser.IsAuthenticated)
-    {
-        <!-- Top Navigation Bar -->
-        <header class="fixed top-0 inset-x-0 h-14 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 flex items-center justify-between transition-colors">
-            <div class="flex items-center gap-6">
-                <a class="flex items-center gap-2.5 text-zinc-900 dark:text-white no-underline font-semibold tracking-tight text-base" href="dashboard">
-                    <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
-                        <span class="material-symbols-outlined text-[18px]">layers</span>
-                    </div>
-                    <span>SpecPlatform</span>
-                </a>
-            </div>
-
-            <div class="flex items-center gap-3">
-                <!-- Search Bar -->
-                <div class="hidden md:flex items-center bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 rounded-lg px-3 py-1.5 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
-                    <span class="material-symbols-outlined text-zinc-400 dark:text-zinc-500 text-base mr-2">search</span>
-                    <input type="text" class="bg-transparent border-none text-zinc-900 dark:text-zinc-100 text-xs placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none w-44" placeholder="Search specs, APIs..." />
-                    <kbd class="text-[10px] font-mono bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-400 px-1.5 py-0.5 rounded shadow-2xs ml-2">⌘K</kbd>
+@if (currentUser != null && currentUser.IsAuthenticated)
+{
+    <!-- Top Navigation Bar -->
+    <header class="fixed top-0 inset-x-0 h-14 z-30 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-md border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 sm:px-6 flex items-center justify-between transition-colors">
+        <div class="flex items-center gap-6">
+            <a class="flex items-center gap-2.5 text-zinc-900 dark:text-white no-underline font-semibold tracking-tight text-base" href="dashboard">
+                <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+                    <span class="material-symbols-outlined text-[18px]">layers</span>
                 </div>
+                <span>SpecPlatform</span>
+            </a>
+        </div>
 
-                <!-- Notifications -->
-                <button class="relative p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" @onclick="ToggleNotificationsDrawer" title="Notifications">
+        <div class="flex items-center gap-3">
+            <!-- Notifications Popover -->
+            <div class="relative">
+                <button class="relative p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer" @onclick="ToggleNotificationsPopover" title="Notifications">
                     <span class="material-symbols-outlined text-[20px]">notifications</span>
-                    @if (notifications.Any())
+                    @if (hasUnreadNotifications || displayedNotifications.Any())
                     {
                         <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-indigo-600 rounded-full"></span>
                     }
                 </button>
 
-                <!-- Theme Toggle -->
-                <button class="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" @onclick="ToggleTheme" title="Toggle Light/Dark Theme">
-                    @if (currentTheme == "light")
+                @if (showNotificationsPopover)
+                {
+                    <!-- Background Click Catcher -->
+                    <div class="fixed inset-0 z-40" @onclick="() => showNotificationsPopover = false"></div>
+
+                    <!-- Notification Card matching Tailwind CSS Design -->
+                    <div class="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col max-h-[30rem] overflow-hidden">
+                        <!-- Header -->
+                        <div class="px-5 py-4 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800/80">
+                            <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">Notification</h3>
+                            <button class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer p-1 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" @onclick="() => showNotificationsPopover = false">
+                                <span class="material-symbols-outlined text-[18px]">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Scrollable List with Lazy Loading -->
+                        <div id="notificationScrollContainer" class="overflow-y-auto px-3.5 py-3 flex-1 flex flex-col gap-1.5 divide-y divide-zinc-100 dark:divide-zinc-800/50">
+                            @if (isLoadingInitialNotifications)
+                            {
+                                <div class="py-8 flex flex-col items-center justify-center gap-2 text-xs text-zinc-400 font-mono">
+                                    <div class="animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                                    <span>Loading notifications...</span>
+                                </div>
+                            }
+                            else if (!displayedNotifications.Any())
+                            {
+                                <div class="py-10 text-center flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500">
+                                    <span class="material-symbols-outlined text-3xl mb-1 text-zinc-300 dark:text-zinc-600">notifications_off</span>
+                                    <span class="text-xs font-mono">No notifications found</span>
+                                </div>
+                            }
+                            else
+                            {
+                                @foreach (var notif in displayedNotifications)
+                                {
+                                    <div class="pt-2 first:pt-0">
+                                        <div class="flex items-start gap-3 group cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50 p-2.5 rounded-xl transition-colors" @onclick="() => NavigateToNotificationSpec(notif)">
+                                            <!-- Avatar with Status Indicator Dot -->
+                                            <div class="relative shrink-0 mt-0.5">
+                                                @if (!string.IsNullOrWhiteSpace(notif.AuthorAvatarUrl))
+                                                {
+                                                    <img src="@notif.AuthorAvatarUrl" class="w-10 h-10 rounded-full object-cover border border-zinc-200 dark:border-zinc-700" alt="Avatar"/>
+                                                }
+                                                else
+                                                {
+                                                    <div class="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-semibold text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shadow-2xs font-mono">
+                                                        @(GetInitials(notif.AuthorDisplayName ?? notif.AuthorUsername ?? notif.ProjectName))
+                                                    </div>
+                                                }
+                                                <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-zinc-900 rounded-full"></span>
+                                            </div>
+
+                                            <!-- Content Text -->
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-xs text-zinc-700 dark:text-zinc-300 leading-snug m-0">
+                                                    <strong class="font-bold text-zinc-900 dark:text-white">@(notif.AuthorDisplayName ?? notif.AuthorUsername ?? "Team Member")</strong>
+                                                    <span class="text-zinc-600 dark:text-zinc-400"> published </span>
+                                                    <strong class="font-bold text-zinc-900 dark:text-white">@(notif.SpecTitle)</strong>
+                                                </p>
+                                                <div class="flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500 mt-1 font-mono">
+                                                    <span class="truncate max-w-[120px]">@notif.ProjectName</span>
+                                                    <span>&bull;</span>
+                                                    <span>@(GetTimeAgo(notif.CreatedAt))</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+
+                                @if (isLoadingMoreNotifications)
+                                {
+                                    <div class="py-2.5 flex items-center justify-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono">
+                                        <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                                        <span>Loading more...</span>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                        <!-- Footer Button -->
+                        <div class="p-3.5 border-t border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900">
+                            <button class="w-full py-2.5 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors shadow-2xs cursor-pointer text-center" @onclick="ViewAllNotifications">
+                                View All Notification
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- AI Total Tokens Indicator Pill (Header) -->
+            <a href="dashboard" class="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-950/70 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 transition-colors text-xs font-mono font-medium no-underline cursor-pointer" title="Total AI Tokens Used — Click to view Dashboard Analytics">
+                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">bolt</span>
+                <span>@(FormatTokenCount(aiUsageSummary?.TotalTokens ?? 0))</span>
+                <span class="text-[10px] text-indigo-500/70 dark:text-indigo-400/70 font-sans">tokens</span>
+            </a>
+
+            <!-- Theme Toggle -->
+            <button class="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors" @onclick="ToggleTheme" title="Toggle Light/Dark Theme">
+                @if (currentTheme == "light")
+                {
+                    <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+                }
+                else
+                {
+                    <span class="material-symbols-outlined text-[20px]">light_mode</span>
+                }
+            </button>
+
+            <!-- User Dropdown -->
+            <div class="relative ml-1 pl-3 border-l border-zinc-200 dark:border-zinc-800">
+                <button class="flex items-center gap-2 focus:outline-none cursor-pointer" @onclick="ToggleUserMenu" title="@currentUser.DisplayName (@currentUser.Username)">
+                    @if (!string.IsNullOrWhiteSpace(currentUser.AvatarUrl))
                     {
-                        <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+                        <img src="@currentUser.AvatarUrl" class="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover" alt="Avatar"/>
                     }
                     else
                     {
-                        <span class="material-symbols-outlined text-[20px]">light_mode</span>
+                        <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-mono font-medium text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
+                            @(currentUser.Username.Length >= 2 ? currentUser.Username.Substring(0, 2).ToUpper() : "GH")
+                        </div>
                     }
                 </button>
 
-                <!-- User Dropdown -->
-                <div class="relative ml-1 pl-3 border-l border-zinc-200 dark:border-zinc-800">
-                    <button class="flex items-center gap-2 focus:outline-none cursor-pointer" @onclick="ToggleUserMenu" title="@currentUser.DisplayName (@currentUser.Username)">
-                        @if (!string.IsNullOrWhiteSpace(currentUser.AvatarUrl))
-                        {
-                            <img src="@currentUser.AvatarUrl" class="w-8 h-8 rounded-full border border-zinc-200 dark:border-zinc-700 object-cover" alt="Avatar" />
-                        }
-                        else
-                        {
-                            <div class="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-mono font-medium text-xs flex items-center justify-center border border-indigo-200 dark:border-indigo-800">
-                                @(currentUser.Username.Length >= 2 ? currentUser.Username.Substring(0, 2).ToUpper() : "GH")
-                            </div>
-                        }
-                    </button>
-
-                    @if (showUserMenu)
-                    {
-                        <div class="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-lg p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                            <div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/80 mb-1">
-                                <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">@currentUser.DisplayName</div>
-                                <div class="text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">@currentUser.Username</div>
-                            </div>
-                            <button class="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-2 transition-colors cursor-pointer" @onclick="LogoutUser">
-                                <span class="material-symbols-outlined text-[16px]">logout</span>
-                                <span>Sign Out</span>
-                            </button>
+                @if (showUserMenu)
+                {
+                    <div class="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-lg p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5">
+                        <div class="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800/80 mb-1">
+                            <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">@currentUser.DisplayName</div>
+                            <div class="text-xs text-zinc-400 dark:text-zinc-500 font-mono truncate">@currentUser.Username</div>
                         </div>
-                    }
-                </div>
-            </div>
-        </header>
-    }
 
-    <div class="flex flex-1 @(currentUser != null && currentUser.IsAuthenticated ? "pt-14" : "")">
-        @if (currentUser != null && currentUser.IsAuthenticated)
-        {
-            <!-- Sidebar -->
-            <aside class="fixed left-0 top-14 bottom-0 w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-4 flex flex-col justify-between z-20 transition-colors">
-                <div class="flex flex-col gap-5">
+                        <a href="dashboard" class="w-full text-left px-3 py-2 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg flex items-center justify-between transition-colors no-underline cursor-pointer" @onclick="() => showUserMenu = false">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">bolt</span>
+                                <span>AI Token Analytics</span>
+                            </div>
+                            <span class="badge badge-primary text-[10px] font-mono">@(FormatTokenCount(aiUsageSummary?.TotalTokens ?? 0))</span>
+                        </a>
+
+                        <button class="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg flex items-center gap-2 transition-colors cursor-pointer" @onclick="LogoutUser">
+                            <span class="material-symbols-outlined text-[16px]">logout</span>
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </header>
+}
+
+<div class="flex flex-1 @(currentUser != null && currentUser.IsAuthenticated ? "pt-14" : "")">
+    @if (currentUser != null && currentUser.IsAuthenticated)
+    {
+        <!-- Sidebar -->
+        <aside class="fixed left-0 top-14 bottom-0 w-64 bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800 p-4 flex flex-col justify-between z-20 transition-colors">
+            <div class="flex flex-col gap-5">
+                @if (isInsideProject && !string.IsNullOrWhiteSpace(selectedProjectName))
+                {
                     <!-- Project Selector / Space Badge -->
                     <div class="flex items-center gap-3 p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200/80 dark:border-zinc-800">
                         <div class="w-8 h-8 rounded-md bg-indigo-600 text-white font-mono text-xs font-semibold flex items-center justify-center shrink-0">
@@ -96,148 +198,112 @@
                             <div class="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate">@selectedProjectName</div>
                         </div>
                     </div>
+                }
 
-                    <!-- Main Navigation Links -->
-                    <nav class="flex flex-col gap-1">
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="dashboard" Match="NavLinkMatch.All">
-                            <span class="material-symbols-outlined text-[18px]">dashboard</span>
-                            <span>Dashboard</span>
-                        </NavLink>
+                <!-- Main Navigation Links -->
+                <nav class="flex flex-col gap-1">
+                    <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="dashboard" Match="NavLinkMatch.All">
+                        <span class="material-symbols-outlined text-[18px]">dashboard</span>
+                        <span>Dashboard</span>
+                    </NavLink>
 
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="specs">
-                            <span class="material-symbols-outlined text-[18px]">description</span>
-                            <span>Specifications</span>
-                        </NavLink>
+                    <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="specs">
+                        <span class="material-symbols-outlined text-[18px]">description</span>
+                        <span>Specifications</span>
+                    </NavLink>
 
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="ai-workspace">
-                            <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
-                            <span>AI Workspace</span>
-                        </NavLink>
+                    <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="ai-workspace">
+                        <span class="material-symbols-outlined text-[18px]">auto_awesome</span>
+                        <span>AI Workspace</span>
+                    </NavLink>
 
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="published-specs-qa">
-                            <span class="material-symbols-outlined text-[18px]">chat</span>
-                            <span>Published Specs Q&A</span>
-                        </NavLink>
+                    <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="published-specs-qa">
+                        <span class="material-symbols-outlined text-[18px]">chat</span>
+                        <span>Published Specs Q&A</span>
+                    </NavLink>
 
-                        <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="versions">
-                            <span class="material-symbols-outlined text-[18px]">history</span>
-                            <span>Version History</span>
-                        </NavLink>
-                    </nav>
-                </div>
-
-                <!-- Footer / Secondary Links -->
-                <div class="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-0.5 text-zinc-500 dark:text-zinc-400 text-xs">
-                    <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
-                        <span class="material-symbols-outlined text-[16px]">help_outline</span>
-                        <span>Documentation</span>
-                    </button>
-                    <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
-                        <span class="material-symbols-outlined text-[16px]">support</span>
-                        <span>Support</span>
-                    </button>
-                </div>
-            </aside>
-
-            <!-- Main Content Area -->
-            <main class="flex-1 ml-64 min-h-[calc(100vh-56px)] bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-8 transition-colors">
-                <ErrorBoundary>
-                    <ChildContent>
-                        @Body
-                    </ChildContent>
-                    <ErrorContent Context="ex">
-                        <div class="card p-4 border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100 flex items-center justify-between mb-6">
-                            <div class="flex items-center gap-3">
-                                <span class="material-symbols-outlined text-rose-600 dark:text-rose-400 text-xl">error_outline</span>
-                                <div>
-                                    <div class="font-medium text-xs">An unexpected error occurred.</div>
-                                    <div class="text-[11px] text-rose-600 dark:text-rose-400 font-mono">Please refresh the page to reload the state.</div>
-                                </div>
-                            </div>
-                            <button class="btn-danger text-xs px-3 py-1.5" onclick="location.reload()">Reload</button>
-                        </div>
-                    </ErrorContent>
-                </ErrorBoundary>
-            </main>
-        }
-        else
-        {
-            <!-- Unauthenticated View -->
-            <main class="flex-1 w-full min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-                <ErrorBoundary>
-                    <ChildContent>
-                        @Body
-                    </ChildContent>
-                    <ErrorContent Context="ex">
-                        <div class="card p-4 border-rose-200 dark:border-rose-900 bg-rose-50 text-rose-900">
-                            <div class="font-medium text-sm">An error occurred.</div>
-                            <button class="btn-danger text-xs mt-2" onclick="location.reload()">Reload</button>
-                        </div>
-                    </ErrorContent>
-                </ErrorBoundary>
-            </main>
-        }
-    </div>
-
-    <!-- Notification Drawer / Modal -->
-    @if (showNotificationsDrawer)
-    {
-        <div class="fixed inset-0 bg-zinc-950/40 dark:bg-zinc-950/70 backdrop-blur-xs z-40 transition-opacity" @onclick="() => showNotificationsDrawer = false"></div>
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-            <div class="card w-full max-w-lg shadow-xl overflow-hidden pointer-events-auto flex flex-col max-h-[80vh] animate-in fade-in zoom-in-95 duration-150">
-                <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
-                    <div class="flex items-center gap-2">
-                        <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-lg">notifications</span>
-                        <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Release Audit Feed</h3>
-                    </div>
-                    <button class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer" @onclick="() => showNotificationsDrawer = false">
-                        <span class="material-symbols-outlined text-[18px]">close</span>
-                    </button>
-                </div>
-
-                <div class="overflow-y-auto p-4 flex-1 divide-y divide-zinc-100 dark:divide-zinc-800/60">
-                    @if (!notifications.Any())
-                    {
-                        <div class="py-12 text-center text-zinc-400 dark:text-zinc-500 text-xs font-mono">
-                            No published release logs found.
-                        </div>
-                    }
-                    else
-                    {
-                        @foreach (var notif in notifications)
-                        {
-                            <div class="py-3 first:pt-0 last:pb-0">
-                                <div class="flex items-center justify-between mb-1">
-                                    <span class="badge badge-primary text-[10px]">@notif.ProjectName &bull; v@(notif.VersionNumber)</span>
-                                    <span class="text-zinc-400 text-[10px] font-mono">@notif.CreatedAt.ToLocalTime().ToString("g")</span>
-                                </div>
-                                <div class="font-medium text-xs text-zinc-900 dark:text-zinc-100">@notif.SpecTitle</div>
-                                <div class="text-zinc-500 dark:text-zinc-400 text-xs mt-0.5 line-clamp-2">@notif.SummaryText</div>
-                            </div>
-                        }
-                    }
-                </div>
-
-                <div class="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end">
-                    <button class="btn-secondary text-xs px-3 py-1.5" @onclick="() => showNotificationsDrawer = false">Close</button>
-                </div>
+                    <NavLink class="flex items-center gap-3 px-3 py-2 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg no-underline transition-colors [&.active]:bg-indigo-50 dark:[&.active]:bg-indigo-950/50 [&.active]:text-indigo-600 dark:[&.active]:text-indigo-400" href="versions">
+                        <span class="material-symbols-outlined text-[18px]">history</span>
+                        <span>Version History</span>
+                    </NavLink>
+                </nav>
             </div>
-        </div>
+
+            <!-- Footer / Secondary Links -->
+            <div class="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col gap-0.5 text-zinc-500 dark:text-zinc-400 text-xs">
+                <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
+                    <span class="material-symbols-outlined text-[16px]">help_outline</span>
+                    <span>Documentation</span>
+                </button>
+                <button class="flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors w-full text-left cursor-pointer">
+                    <span class="material-symbols-outlined text-[16px]">support</span>
+                    <span>Support</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 ml-64 min-h-[calc(100vh-56px)] bg-zinc-50 dark:bg-zinc-950 p-6 sm:p-8 transition-colors">
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="card p-4 border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 text-rose-900 dark:text-rose-100 flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-3">
+                            <span class="material-symbols-outlined text-rose-600 dark:text-rose-400 text-xl">error_outline</span>
+                            <div>
+                                <div class="font-medium text-xs">An unexpected error occurred.</div>
+                                <div class="text-[11px] text-rose-600 dark:text-rose-400 font-mono">Please refresh the page to reload the state.</div>
+                            </div>
+                        </div>
+                        <button class="btn-danger text-xs px-3 py-1.5" onclick="location.reload()">Reload</button>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </main>
     }
+    else
+    {
+        <!-- Unauthenticated View -->
+        <main class="flex-1 w-full min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+            <ErrorBoundary>
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent Context="ex">
+                    <div class="card p-4 border-rose-200 dark:border-rose-900 bg-rose-50 text-rose-900">
+                        <div class="font-medium text-sm">An error occurred.</div>
+                        <button class="btn-danger text-xs mt-2" onclick="location.reload()">Reload</button>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        </main>
+    }
+</div>
 
 </div>
 
 @code {
     private HealthCheckResponse? healthResponse;
     private string currentTheme = "dark";
-    private bool showNotificationsDrawer = false;
-    private List<NotificationDto> notifications = new();
     private string selectedProjectName = "Loan Approval Feature";
     private UserDto? currentUser;
     private bool showUserMenu = false;
 
+    private bool showNotificationsPopover = false;
+    private bool hasUnreadNotifications = false;
+    private bool isLoadingInitialNotifications = false;
+    private bool isLoadingMoreNotifications = false;
+    private bool hasMoreNotifications = true;
+    private List<NotificationDto> displayedNotifications = new();
+    private DotNetObjectReference<MainLayout>? notifDotNetRef;
+
+    private UserAiUsageSummaryDto? aiUsageSummary;
+
     protected override async Task OnInitializedAsync()
     {
+        Nav.LocationChanged += OnLocationChanged;
         await LoadUserSession();
         EnforceAuthRedirect();
 
@@ -246,6 +312,7 @@
             await CheckHealth();
             await LoadNotifications();
             await LoadProjectSpace();
+            await LoadAiUsage();
         }
     }
 
@@ -385,28 +452,165 @@
         }
     }
 
-    private async Task ToggleNotificationsDrawer()
+    private async Task ToggleNotificationsPopover()
     {
-        showNotificationsDrawer = !showNotificationsDrawer;
-        if (showNotificationsDrawer)
+        showNotificationsPopover = !showNotificationsPopover;
+        if (showNotificationsPopover)
         {
-            await LoadNotifications();
+            if (!displayedNotifications.Any())
+            {
+                await LoadInitialNotifications();
+            }
+
+            await Task.Yield();
+            notifDotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("notificationScrollManager.initInfiniteScroll", "notificationScrollContainer", notifDotNetRef);
+        }
+    }
+
+    private async Task LoadInitialNotifications()
+    {
+        isLoadingInitialNotifications = true;
+        StateHasChanged();
+        try
+        {
+            var list = await ApiClient.GetNotificationsAsync(skip: 0, take: 5);
+            displayedNotifications = list;
+            hasMoreNotifications = list.Count >= 5;
+            hasUnreadNotifications = list.Any();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            isLoadingInitialNotifications = false;
+            StateHasChanged();
         }
     }
 
     private async Task LoadNotifications()
     {
+        await LoadInitialNotifications();
+    }
+
+    [JSInvokable]
+    public async Task OnLoadOlderNotificationsAsync()
+    {
+        if (isLoadingMoreNotifications || !hasMoreNotifications) return;
+        isLoadingMoreNotifications = true;
+        StateHasChanged();
+
+        await Task.Delay(250); // brief smooth animation for loader
+
         try
         {
-            notifications = await ApiClient.GetNotificationsAsync();
+            int currentCount = displayedNotifications.Count;
+            var older = await ApiClient.GetNotificationsAsync(skip: currentCount, take: 5);
+            if (older.Any())
+            {
+                displayedNotifications.AddRange(older);
+                hasMoreNotifications = older.Count >= 5;
+            }
+            else
+            {
+                hasMoreNotifications = false;
+            }
         }
         catch
         {
         }
+        finally
+        {
+            isLoadingMoreNotifications = false;
+            StateHasChanged();
+        }
+    }
+
+    private void NavigateToNotificationSpec(NotificationDto notif)
+    {
+        showNotificationsPopover = false;
+        Nav.NavigateTo("/specs");
+    }
+
+    private void ViewAllNotifications()
+    {
+        showNotificationsPopover = false;
+        Nav.NavigateTo("/versions");
+    }
+
+    private static string GetInitials(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "SP";
+        var parts = text.Trim().Split(new[] { ' ', '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+        {
+            return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        }
+
+        return text.Length >= 2 ? text.Substring(0, 2).ToUpper() : text.ToUpper();
+    }
+
+    private static string GetTimeAgo(DateTime dt)
+    {
+        var span = DateTime.UtcNow - dt;
+        if (span.TotalMinutes < 1) return "just now";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes} min ago";
+        if (span.TotalHours < 24) return $"{(int)span.TotalHours} hr ago";
+        if (span.TotalDays < 30) return $"{(int)span.TotalDays} days ago";
+        return dt.ToString("MMM dd");
+    }
+
+    private bool isInsideProject
+    {
+        get
+        {
+            var relative = Nav.ToBaseRelativePath(Nav.Uri).ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(relative) || relative == "dashboard" || relative == "login" || relative.StartsWith("auth"))
+            {
+                return false;
+            }
+
+            return !string.IsNullOrWhiteSpace(selectedProjectName);
+        }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+
+    private async Task LoadAiUsage()
+    {
+        try
+        {
+            aiUsageSummary = await ApiClient.GetUserAiUsageAsync();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
+    private static string FormatTokenCount(int tokens)
+    {
+        if (tokens >= 1_000_000) return $"{(tokens / 1_000_000.0):F1}M";
+        if (tokens >= 1_000) return $"{(tokens / 1_000.0):F1}k";
+        return tokens.ToString();
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        notifDotNetRef?.Dispose();
     }
 
     private void TriggerNewSpec()
     {
         Nav.NavigateTo("/specs");
     }
+
 }

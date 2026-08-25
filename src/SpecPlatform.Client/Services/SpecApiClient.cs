@@ -139,9 +139,28 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<List<NotificationDto>> GetNotificationsAsync()
+    public async Task<List<NotificationDto>> GetNotificationsAsync(int skip = 0, int take = 10)
     {
-        return await _http.GetFromJsonAsync<List<NotificationDto>>("api/notifications") ?? new();
+        try
+        {
+            return await _http.GetFromJsonAsync<List<NotificationDto>>($"api/notifications?skip={skip}&take={take}") ?? new();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+
+    public async Task<UserAiUsageSummaryDto?> GetUserAiUsageAsync()
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<UserAiUsageSummaryDto>("api/users/me/ai-usage");
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     public async Task<SpecDiffDto?> CompareVersionsAsync(int specId, int v1, int v2)
@@ -161,11 +180,16 @@ public class SpecApiClient
         }
     }
 
-    public async Task<ChatSessionDto?> GetChatSessionAsync(int projectId, string personaMode)
+    public async Task<ChatSessionDto?> GetChatSessionAsync(int projectId, string personaMode, int? skip = null, int? take = null)
     {
         try
         {
-            return await _http.GetFromJsonAsync<ChatSessionDto>($"api/projects/{projectId}/chat-session/{personaMode}");
+            var url = $"api/projects/{projectId}/chat-session/{personaMode}";
+            if (take.HasValue)
+            {
+                url += $"?skip={skip ?? 0}&take={take.Value}";
+            }
+            return await _http.GetFromJsonAsync<ChatSessionDto>(url);
         }
         catch
         {

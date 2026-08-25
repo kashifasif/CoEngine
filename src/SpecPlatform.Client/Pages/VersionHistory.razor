@@ -83,14 +83,14 @@
                             <div class="flex items-center gap-2 shrink-0">
                                 @if (isUndone)
                                 {
-                                    <button class="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500" @onclick="() => RedoVersion(ver.VersionNumber)" disabled="@isTogglingStatus" title="Restore this version into active search index">
+                                    <button class="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 cursor-pointer" @onclick="() => PromptRedoVersion(ver.VersionNumber)" disabled="@isTogglingStatus" title="Restore this version into active search index">
                                         <span class="material-symbols-outlined text-[16px]">redo</span>
                                         <span>Redo Version</span>
                                     </button>
                                 }
                                 else
                                 {
-                                    <button class="btn-secondary text-xs py-1.5 px-3 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/60" @onclick="() => UndoVersion(ver.VersionNumber)" disabled="@isTogglingStatus" title="Undo / Rollback this published specification release">
+                                    <button class="btn-secondary text-xs py-1.5 px-3 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 cursor-pointer" @onclick="() => PromptUndoVersion(ver.VersionNumber)" disabled="@isTogglingStatus" title="Undo / Rollback this published specification release">
                                         <span class="material-symbols-outlined text-[16px]">undo</span>
                                         <span>Undo Version</span>
                                     </button>
@@ -207,6 +207,78 @@
 
 </div>
 
+<!-- Undo Version Modal Dialog -->
+@if (undoVersionTarget.HasValue)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => undoVersionTarget = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-amber-200 dark:border-amber-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">undo</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Undo Specification Release (v@(undoVersionTarget.Value))</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you sure you want to rollback Version <strong>@(undoVersionTarget.Value)</strong>? It will be marked as undone/archived and excluded from AI queries. You can restore it at any time.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => undoVersionTarget = null" disabled="@isTogglingStatus">Cancel</button>
+                <button class="btn-primary text-xs bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-500 border-none flex items-center gap-1.5" @onclick="ExecuteUndoVersion" disabled="@isTogglingStatus">
+                    @if (isTogglingStatus)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Undoing...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">undo</span>
+                        <span>Confirm Undo</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Redo Version Modal Dialog -->
+@if (redoVersionTarget.HasValue)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => redoVersionTarget = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">redo</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Redo & Restore Release (v@(redoVersionTarget.Value))</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        This will restore Version <strong>@(redoVersionTarget.Value)</strong> back into active status and re-index all its criteria into the PostgreSQL vector store.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => redoVersionTarget = null" disabled="@isTogglingStatus">Cancel</button>
+                <button class="btn-primary text-xs bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 border-none flex items-center gap-1.5" @onclick="ExecuteRedoVersion" disabled="@isTogglingStatus">
+                    @if (isTogglingStatus)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Restoring...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">redo</span>
+                        <span>Confirm Redo</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public int? SpecId { get; set; }
 
@@ -303,19 +375,28 @@
         }
     }
 
-    private async Task UndoVersion(int versionNumber)
+    private int? undoVersionTarget;
+    private int? redoVersionTarget;
+
+    private void PromptUndoVersion(int versionNumber)
     {
-        if (selectedSpecId == 0) return;
+        undoVersionTarget = versionNumber;
+    }
+
+    private async Task ExecuteUndoVersion()
+    {
+        if (selectedSpecId == 0 || !undoVersionTarget.HasValue) return;
         isTogglingStatus = true;
         try
         {
-            var updatedSpec = await ApiClient.UndoPublishSpecAsync(selectedSpecId, versionNumber);
+            var updatedSpec = await ApiClient.UndoPublishSpecAsync(selectedSpecId, undoVersionTarget.Value);
             if (updatedSpec != null)
             {
                 var index = specs.FindIndex(s => s.Id == selectedSpecId);
                 if (index != -1) specs[index] = updatedSpec;
                 selectedSpec = updatedSpec;
             }
+            undoVersionTarget = null;
         }
         finally
         {
@@ -324,19 +405,25 @@
         }
     }
 
-    private async Task RedoVersion(int versionNumber)
+    private void PromptRedoVersion(int versionNumber)
     {
-        if (selectedSpecId == 0) return;
+        redoVersionTarget = versionNumber;
+    }
+
+    private async Task ExecuteRedoVersion()
+    {
+        if (selectedSpecId == 0 || !redoVersionTarget.HasValue) return;
         isTogglingStatus = true;
         try
         {
-            var updatedSpec = await ApiClient.RedoPublishSpecAsync(selectedSpecId, versionNumber);
+            var updatedSpec = await ApiClient.RedoPublishSpecAsync(selectedSpecId, redoVersionTarget.Value);
             if (updatedSpec != null)
             {
                 var index = specs.FindIndex(s => s.Id == selectedSpecId);
                 if (index != -1) specs[index] = updatedSpec;
                 selectedSpec = updatedSpec;
             }
+            redoVersionTarget = null;
         }
         finally
         {

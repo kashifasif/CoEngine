@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="max-w-6xl mx-auto flex flex-col gap-8">
+<div class="max-w-8xl mx-auto flex flex-col gap-8">
 
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
@@ -83,6 +83,121 @@
         </div>
     }
 
+    <!-- AI Token Consumption & Analytics Section -->
+    <div class="flex flex-col gap-5 mt-2">
+        <div class="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800/60">
+                    <span class="material-symbols-outlined text-[18px]">bolt</span>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-zinc-900 dark:text-zinc-100 m-0">AI Token Consumption &amp; Analytics</h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Real-time usage breakdown for @(currentUser?.DisplayName ?? currentUser?.Username ?? "Current User")</p>
+                </div>
+            </div>
+            <button class="btn-secondary text-xs px-3 py-1.5 flex items-center gap-1.5 cursor-pointer" @onclick="LoadAiUsage" disabled="@isLoadingAiUsage" title="Refresh Analytics">
+                <span class="material-symbols-outlined text-[16px] @(isLoadingAiUsage ? "animate-spin" : "")">refresh</span>
+                <span>Refresh</span>
+            </button>
+        </div>
+
+        @if (isLoadingAiUsage)
+        {
+            <div class="py-12 card flex flex-col items-center justify-center gap-2.5 text-zinc-400 font-mono text-xs">
+                <div class="animate-spin w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                <span>Loading token analytics...</span>
+            </div>
+        }
+        else if (aiUsageSummary == null || aiUsageSummary.TotalRequests == 0)
+        {
+            <div class="card p-10 text-center flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500">
+                <span class="material-symbols-outlined text-4xl mb-2 text-zinc-300 dark:text-zinc-600">bolt</span>
+                <div class="text-xs font-semibold text-zinc-700 dark:text-zinc-300">No AI Token Usage Recorded Yet</div>
+                <div class="text-[11px] text-zinc-400 mt-1 max-w-sm">Token usage is logged automatically whenever you use PO Brainstorming, Spec Structuring, or Dev Q&A.</div>
+            </div>
+        }
+        else
+        {
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="card p-4 border-indigo-200/80 dark:border-indigo-900/60 bg-indigo-50/30 dark:bg-indigo-950/20">
+                    <div class="text-[10px] uppercase font-semibold tracking-wider text-indigo-600 dark:text-indigo-400">Total Tokens Consumed</div>
+                    <div class="text-2xl font-bold font-mono text-indigo-950 dark:text-indigo-100 mt-1">@aiUsageSummary.TotalTokens.ToString("N0")</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Across @aiUsageSummary.TotalRequests total AI requests</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400">Prompt Tokens (Input Context)</div>
+                    <div class="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">@aiUsageSummary.PromptTokens.ToString("N0")</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">Input prompts & meeting transcripts</div>
+                </div>
+                <div class="card p-4">
+                    <div class="text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400">Completion Tokens (Generated)</div>
+                    <div class="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100 mt-1">@aiUsageSummary.CompletionTokens.ToString("N0")</div>
+                    <div class="text-xs text-zinc-400 dark:text-zinc-500 mt-0.5">AI responses & synthesized criteria</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <!-- Breakdown by Feature -->
+                <div class="card p-5 flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[18px]">pie_chart</span>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 m-0">Usage by AI Feature</h3>
+                    </div>
+                    <div class="flex flex-col gap-3">
+                        @foreach (var item in aiUsageSummary.BreakdownByOperation)
+                        {
+                            <div class="p-3 rounded-lg border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/40 dark:bg-zinc-950/20">
+                                <div class="flex justify-between items-center text-xs mb-1.5">
+                                    <span class="font-medium text-zinc-800 dark:text-zinc-200">@item.Operation</span>
+                                    <span class="font-mono text-zinc-500 dark:text-zinc-400">@item.TotalTokens.ToString("N0") tokens (@item.Percentage%)</span>
+                                </div>
+                                <div class="w-full bg-zinc-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden">
+                                    <div class="bg-indigo-600 h-full rounded-full transition-all" style="width: @item.Percentage%;"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Recent Invocations Log -->
+                <div class="card p-5 flex flex-col gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[18px]">history</span>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 m-0">Recent Invocations</h3>
+                    </div>
+                    <div class="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden text-xs">
+                        <div class="overflow-x-auto max-h-64">
+                            <table class="w-full text-left">
+                                <thead class="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 font-mono text-[11px] sticky top-0">
+                                    <tr>
+                                        <th class="py-2 px-3">Operation</th>
+                                        <th class="py-2 px-3">Prompt</th>
+                                        <th class="py-2 px-3">Output</th>
+                                        <th class="py-2 px-3">Total</th>
+                                        <th class="py-2 px-3 text-right">Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800/60 font-mono">
+                                    @foreach (var log in aiUsageSummary.RecentLogs)
+                                    {
+                                        <tr class="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30">
+                                            <td class="py-2 px-3 font-sans font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-[140px]">@log.Operation</td>
+                                            <td class="py-2 px-3 text-zinc-500">@log.PromptTokens.ToString("N0")</td>
+                                            <td class="py-2 px-3 text-zinc-500">@log.CompletionTokens.ToString("N0")</td>
+                                            <td class="py-2 px-3 font-bold text-indigo-600 dark:text-indigo-400">@log.TotalTokens.ToString("N0")</td>
+                                            <td class="py-2 px-3 text-right text-zinc-400 text-[10px]">@log.CreatedAt.ToLocalTime().ToString("t")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
 </div>
 
 <!-- Create Project Modal -->
@@ -101,7 +216,7 @@
             <div class="p-5 flex flex-col gap-4">
                 <div>
                     <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Project Name</label>
-                    <input type="text" class="form-input text-xs" placeholder="e.g. Loan Approval Feature" @bind="newProjectName" />
+                    <input type="text" class="form-input text-xs" placeholder="e.g. Loan Approval Feature" @bind="newProjectName"/>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Description</label>
@@ -117,6 +232,42 @@
     </div>
 }
 
+<!-- Delete Project Modal -->
+@if (projectToDelete != null)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => projectToDelete = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-rose-200 dark:border-rose-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">delete_forever</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Delete Project Space</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you sure you want to permanently delete <strong class="text-zinc-900 dark:text-zinc-100">@projectToDelete.Name</strong> and all its specifications, versions, and chat history?
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => projectToDelete = null" disabled="@isDeletingProject">Cancel</button>
+                <button class="btn-danger text-xs flex items-center gap-1.5" @onclick="ExecuteDeleteProject" disabled="@isDeletingProject">
+                    @if (isDeletingProject)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete Project</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<ProjectDto> projects = new();
     private bool isLoadingProjects = true;
@@ -126,6 +277,12 @@
     private string newProjectName = "";
     private string newProjectDesc = "";
 
+    private ProjectDto? projectToDelete;
+    private bool isDeletingProject = false;
+
+    private bool isLoadingAiUsage = false;
+    private UserAiUsageSummaryDto? aiUsageSummary;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadUserSession();
@@ -134,7 +291,9 @@
             Nav.NavigateTo("/");
             return;
         }
+
         await LoadProjects();
+        await LoadAiUsage();
     }
 
     private async Task LoadUserSession()
@@ -147,7 +306,9 @@
                 currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
             }
         }
-        catch { }
+        catch
+        {
+        }
 
         if (currentUser == null)
         {
@@ -155,7 +316,9 @@
             {
                 currentUser = await ApiClient.GetCurrentUserAsync();
             }
-            catch { }
+            catch
+            {
+            }
         }
     }
 
@@ -202,13 +365,42 @@
         }
     }
 
-    private async Task ConfirmDeleteProject(ProjectDto proj)
+    private async Task LoadAiUsage()
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete project '{proj.Name}' and all its specifications?");
-        if (confirmed)
+        isLoadingAiUsage = true;
+        StateHasChanged();
+        try
         {
-            await ApiClient.DeleteProjectAsync(proj.Id);
+            aiUsageSummary = await ApiClient.GetUserAiUsageAsync();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            isLoadingAiUsage = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ConfirmDeleteProject(ProjectDto proj)
+    {
+        projectToDelete = proj;
+    }
+
+    private async Task ExecuteDeleteProject()
+    {
+        if (projectToDelete == null || isDeletingProject) return;
+        isDeletingProject = true;
+        try
+        {
+            await ApiClient.DeleteProjectAsync(projectToDelete.Id);
+            projectToDelete = null;
             await LoadProjects();
+        }
+        finally
+        {
+            isDeletingProject = false;
         }
     }
 }

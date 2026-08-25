@@ -28,14 +28,14 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button class="btn-secondary text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="ConfirmDeleteSpec" title="Delete Specification">
+                    <button class="btn-secondary text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer" @onclick="() => showDeleteModal = true" title="Delete Specification">
                         <span class="material-symbols-outlined text-[16px]">delete</span>
                         <span>Delete</span>
                     </button>
-                    <button class="btn-secondary text-xs" @onclick="SaveDraft" disabled="@isSaving">
+                    <button class="btn-secondary text-xs cursor-pointer" @onclick="SaveDraft" disabled="@isSaving">
                         <span>Save Draft</span>
                     </button>
-                    <button class="btn-primary text-xs" @onclick="PublishSpec" disabled="@isPublishing">
+                    <button class="btn-primary text-xs cursor-pointer" @onclick="() => showPublishModal = true" disabled="@isPublishing">
                         <span class="material-symbols-outlined text-[16px]">publish</span>
                         <span>Publish Version</span>
                     </button>
@@ -130,6 +130,78 @@
     </div>
 
 </div>
+
+<!-- Publish Spec Modal Dialog -->
+@if (showPublishModal && spec != null)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => showPublishModal = false"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-indigo-200 dark:border-indigo-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">publish</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Publish Release v@(spec.CurrentVersionNumber + 1)</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you ready to publish <strong class="text-zinc-900 dark:text-zinc-100">@title</strong> as Version <strong>v@(spec.CurrentVersionNumber + 1)</strong>? This will create an immutable version snapshot and update the vector embeddings for developer Q&A.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => showPublishModal = false" disabled="@isPublishing">Cancel</button>
+                <button class="btn-primary text-xs flex items-center gap-1.5" @onclick="ExecutePublishSpec" disabled="@isPublishing">
+                    @if (isPublishing)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Publishing...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">publish</span>
+                        <span>Confirm Publish</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Spec Modal Dialog -->
+@if (showDeleteModal && spec != null)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => showDeleteModal = false"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-rose-200 dark:border-rose-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">delete_forever</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Delete Specification</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you sure you want to permanently delete <strong class="text-zinc-900 dark:text-zinc-100">@spec.Title</strong>? This action cannot be undone.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => showDeleteModal = false" disabled="@isDeleting">Cancel</button>
+                <button class="btn-danger text-xs flex items-center gap-1.5" @onclick="ExecuteDeleteSpec" disabled="@isDeleting">
+                    @if (isDeleting)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete Specification</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public int? SpecId { get; set; }
@@ -234,7 +306,11 @@
         }
     }
 
-    private async Task PublishSpec()
+    private bool showPublishModal = false;
+    private bool showDeleteModal = false;
+    private bool isDeleting = false;
+
+    private async Task ExecutePublishSpec()
     {
         if (!SpecId.HasValue) return;
         isPublishing = true;
@@ -242,6 +318,7 @@
         {
             await SaveDraft();
             await ApiClient.PublishSpecAsync(SpecId.Value);
+            showPublishModal = false;
             await LoadSpec();
         }
         finally
@@ -250,15 +327,19 @@
         }
     }
 
-    private async Task ConfirmDeleteSpec()
+    private async Task ExecuteDeleteSpec()
     {
-        if (!SpecId.HasValue) return;
-        var specTitle = spec?.Title ?? "this specification";
-        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete '{specTitle}'?");
-        if (confirmed)
+        if (!SpecId.HasValue || isDeleting) return;
+        isDeleting = true;
+        try
         {
             await ApiClient.DeleteSpecAsync(SpecId.Value);
+            showDeleteModal = false;
             Nav.NavigateTo("/specs");
+        }
+        finally
+        {
+            isDeleting = false;
         }
     }
 }

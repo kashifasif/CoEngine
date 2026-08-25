@@ -28,6 +28,127 @@ public class SpecsController : ControllerBase
         _logger = logger;
     }
 
+    private async Task<(int? userId, string username)> GetCurrentUserInfoAsync()
+    {
+        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+        var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
+        var token = !string.IsNullOrWhiteSpace(authHeader)
+            ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
+            : xAuthToken?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(token) && token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = token.Split('_');
+            if (parts.Length >= 3 && int.TryParse(parts[2], out var uid))
+            {
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == uid);
+                if (user != null)
+                {
+                    return (user.Id, user.Username);
+                }
+            }
+        }
+
+        var firstUser = await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
+        if (firstUser != null)
+        {
+            return (firstUser.Id, firstUser.Username);
+        }
+
+        return (null, "Default User");
+    }
+
+    private async Task RecordAiUsageAsync(string operation, string promptText, string completionText, string modelName = "openrouter/anthropic/claude-3.5-sonnet")
+    {
+        try
+        {
+            var (userId, username) = await GetCurrentUserInfoAsync();
+
+            int promptTokens = Math.Max(1, (promptText?.Length ?? 0) / 4);
+            int completionTokens = Math.Max(1, (completionText?.Length ?? 0) / 4);
+            int totalTokens = promptTokens + completionTokens;
+
+            decimal estCost = ((promptTokens * 0.000003m) + (completionTokens * 0.000015m));
+
+            var usage = new UserAiUsage
+            {
+                UserId = userId,
+                Username = username,
+                Operation = operation,
+                ModelName = modelName,
+                PromptTokens = promptTokens,
+                CompletionTokens = completionTokens,
+                TotalTokens = totalTokens,
+                EstimatedCostUsd = estCost,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.UserAiUsages.Add(usage);
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to record AI token usage.");
+        }
+    }
+
+    [HttpGet("api/users/me/ai-usage")]
+    public async Task<ActionResult<UserAiUsageSummaryDto>> GetCurrentUserAiUsage()
+    {
+        var (userId, username) = await GetCurrentUserInfoAsync();
+
+        var query = _db.UserAiUsages.AsQueryable();
+        if (userId.HasValue)
+        {
+            query = query.Where(u => u.UserId == userId.Value || u.Username == username);
+        }
+
+        var list = await query.OrderByDescending(u => u.CreatedAt).ToListAsync();
+
+        int totalTokens = list.Sum(u => u.TotalTokens);
+        int promptTokens = list.Sum(u => u.PromptTokens);
+        int completionTokens = list.Sum(u => u.CompletionTokens);
+        decimal totalCost = list.Sum(u => u.EstimatedCostUsd);
+
+        var breakdown = list
+            .GroupBy(u => u.Operation)
+            .Select(g => new AiUsageByOperationDto
+            {
+                Operation = g.Key,
+                TotalTokens = g.Sum(x => x.TotalTokens),
+                RequestsCount = g.Count(),
+                Percentage = totalTokens > 0 ? Math.Round((decimal)g.Sum(x => x.TotalTokens) / totalTokens * 100, 1) : 0
+            })
+            .OrderByDescending(b => b.TotalTokens)
+            .ToList();
+
+        var recentLogs = list
+            .Take(20)
+            .Select(u => new UserAiUsageRecordDto
+            {
+                Id = u.Id,
+                Operation = u.Operation,
+                ModelName = u.ModelName,
+                PromptTokens = u.PromptTokens,
+                CompletionTokens = u.CompletionTokens,
+                TotalTokens = u.TotalTokens,
+                EstimatedCostUsd = u.EstimatedCostUsd,
+                CreatedAt = u.CreatedAt
+            })
+            .ToList();
+
+        return Ok(new UserAiUsageSummaryDto
+        {
+            TotalTokens = totalTokens,
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalRequests = list.Count,
+            EstimatedCostUsd = totalCost,
+            BreakdownByOperation = breakdown,
+            RecentLogs = recentLogs
+        });
+    }
+
     [HttpGet("api/projects/{projectId:int}/specs")]
     public async Task<ActionResult<List<SpecDto>>> GetSpecsForProject(int projectId)
     {
@@ -481,11 +602,12 @@ public class SpecsController : ControllerBase
     }
 
     [HttpGet("api/notifications")]
-    public async Task<ActionResult<List<NotificationDto>>> GetNotifications()
+    public async Task<ActionResult<List<NotificationDto>>> GetNotifications([FromQuery] int skip = 0, [FromQuery] int take = 10)
     {
         var notifications = await _db.Notifications
             .OrderByDescending(n => n.CreatedAt)
-            .Take(20)
+            .Skip(skip)
+            .Take(take)
             .Select(n => new NotificationDto
             {
                 Id = n.Id,
@@ -494,7 +616,10 @@ public class SpecsController : ControllerBase
                 ProjectName = n.ProjectName,
                 VersionNumber = n.VersionNumber,
                 SummaryText = n.SummaryText,
-                CreatedAt = n.CreatedAt
+                CreatedAt = n.CreatedAt,
+                AuthorDisplayName = "Kashif Asif",
+                AuthorUsername = "kashifasif",
+                ActionType = "published"
             })
             .ToListAsync();
 
@@ -623,13 +748,21 @@ public class SpecsController : ControllerBase
         };
 
         var response = await _openRouter.ChatAsync(systemPrompt, args, request.Messages);
+        if (response.Success)
+        {
+            await RecordAiUsageAsync("PO Brainstorming Chat", systemPrompt + string.Join(" ", request.Messages.Select(m => m.Content)), response.Reply);
+        }
         return Ok(response);
     }
 
     // --- DB Chat Session Persistence & Vector Store Endpoints ---
 
     [HttpGet("api/projects/{projectId:int}/chat-session/{personaMode}")]
-    public async Task<ActionResult<ChatSessionDto>> GetOrCreateChatSession(int projectId, string personaMode)
+    public async Task<ActionResult<ChatSessionDto>> GetOrCreateChatSession(
+        int projectId,
+        string personaMode,
+        [FromQuery] int? skip = null,
+        [FromQuery] int? take = null)
     {
         var session = await _db.ChatSessions
             .Include(cs => cs.Messages)
@@ -648,13 +781,41 @@ public class SpecsController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
+        var allSorted = session.Messages.OrderBy(m => m.Timestamp).ToList();
+        var totalCount = allSorted.Count;
+
+        List<ChatMessageRecord> resultMessages = allSorted;
+        bool hasMore = false;
+
+        if (take.HasValue && take.Value > 0)
+        {
+            int skipCount = skip ?? 0;
+            int takeCount = take.Value;
+
+            int actualSkip = Math.Max(0, totalCount - skipCount - takeCount);
+            int actualTake = Math.Min(takeCount, Math.Max(0, totalCount - skipCount));
+
+            if (actualTake > 0 && actualSkip < totalCount)
+            {
+                resultMessages = allSorted.Skip(actualSkip).Take(actualTake).ToList();
+                hasMore = actualSkip > 0;
+            }
+            else
+            {
+                resultMessages = new List<ChatMessageRecord>();
+                hasMore = false;
+            }
+        }
+
         return Ok(new ChatSessionDto
         {
             Id = session.Id,
             ProjectId = session.ProjectId,
             PersonaMode = session.PersonaMode,
             UpdatedAt = session.UpdatedAt,
-            Messages = session.Messages.OrderBy(m => m.Timestamp).Select(m => new ChatMessageDto
+            TotalMessagesCount = totalCount,
+            HasMore = hasMore,
+            Messages = resultMessages.Select(m => new ChatMessageDto
             {
                 Role = m.Role,
                 Content = m.Content
@@ -796,11 +957,17 @@ public class SpecsController : ControllerBase
             { "specContext", specContext.ToString() }
         };
 
+        var streamAccumulator = new StringBuilder();
         await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
         {
+            streamAccumulator.Append(chunk);
             await Response.WriteAsync(chunk, cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
+
+        await RecordAiUsageAsync(request.IsClarificationPhase ? "PO Clarification Questions" : "PO Brainstorming",
+            systemPrompt + string.Join(" ", request.Messages.Select(m => m.Content)),
+            streamAccumulator.ToString());
     }
 
     [HttpPost("api/specs/query/chat/stream")]
@@ -888,11 +1055,17 @@ public class SpecsController : ControllerBase
             { "specContext", specContext.ToString() }
         };
 
+        var streamAccumulator = new StringBuilder();
         await foreach (var chunk in _openRouter.ChatStreamAsync(systemPrompt, args, request.Messages, cancellationToken))
         {
+            streamAccumulator.Append(chunk);
             await Response.WriteAsync(chunk, cancellationToken);
             await Response.Body.FlushAsync(cancellationToken);
         }
+
+        await RecordAiUsageAsync("Dev & QA Assistant",
+            systemPrompt + string.Join(" ", request.Messages.Select(m => m.Content)),
+            streamAccumulator.ToString());
     }
 
     private async Task<string> GetExistingSpecContextAsync(int projectId)
@@ -979,6 +1152,7 @@ public class SpecsController : ControllerBase
 
         // ── Phase 3: Structure into Spec ────────────────────────────────────────
         var result = await _openRouter.StructureIntoSpecAsync(systemPrompt, messagesToUse);
+        await RecordAiUsageAsync("Spec Structuring", systemPrompt + string.Join(" ", messagesToUse.Select(m => m.Content)), result.RawJson);
 
         // ── Self-Review: runs automatically before PO/BA sees the review screen ─
         var rawJsonForReview = result.RawJson;
@@ -988,6 +1162,7 @@ public class SpecsController : ControllerBase
             {
                 var selfReview = await _openRouter.RunSelfReviewAsync(rawJsonForReview);
                 result.SelfReviewResult = selfReview;
+                await RecordAiUsageAsync("Quality Self-Review", rawJsonForReview, System.Text.Json.JsonSerializer.Serialize(selfReview));
 
                 // If the LLM applied auto-fixes and produced a revised spec, use it
                 if (selfReview.RevisedSpec != null && selfReview.AutoFixes.Any())

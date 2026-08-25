@@ -26,6 +26,8 @@ public class ChatSessionDto
     public int ProjectId { get; set; }
     public string PersonaMode { get; set; } = "po_brainstorming";
     public DateTime UpdatedAt { get; set; }
+    public int TotalMessagesCount { get; set; }
+    public bool HasMore { get; set; }
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 

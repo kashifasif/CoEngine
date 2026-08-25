@@ -8,6 +8,10 @@ public class NotificationDto
     public string ProjectName { get; set; } = string.Empty;
     public int VersionNumber { get; set; }
     public string SummaryText { get; set; } = string.Empty;
+    public string? AuthorDisplayName { get; set; } = "Kashif Asif";
+    public string? AuthorUsername { get; set; } = "kashifasif";
+    public string? AuthorAvatarUrl { get; set; }
+    public string ActionType { get; set; } = "published";
     public DateTime CreatedAt { get; set; }
 }
 

@@ -120,14 +120,14 @@
                                 {
                                     if (latestVersion.IsUndone)
                                     {
-                                        <button class="badge badge-success cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => RedoLatestVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Restore this undone version">
+                                        <button class="badge badge-success cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => PromptRedoVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Restore this undone version">
                                             <span class="material-symbols-outlined text-[12px]">redo</span>
                                             <span>Redo v@(latestVersion.VersionNumber)</span>
                                         </button>
                                     }
                                     else
                                     {
-                                        <button class="badge badge-danger cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => UndoLatestVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Undo / Rollback this published version">
+                                        <button class="badge badge-danger cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => PromptUndoVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Undo / Rollback this published version">
                                             <span class="material-symbols-outlined text-[12px]">undo</span>
                                             <span>Undo Release</span>
                                         </button>
@@ -280,6 +280,114 @@
             <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-2 shrink-0">
                 <button class="btn-secondary text-xs" @onclick="() => showSpecModal = false">Cancel</button>
                 <button class="btn-primary text-xs" @onclick="SaveSpecForm" disabled="@string.IsNullOrWhiteSpace(specFormTitle)">Save Draft</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Delete Spec Modal -->
+@if (specToDelete != null)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => specToDelete = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-rose-200 dark:border-rose-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">delete_forever</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Delete Specification</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        Are you sure you want to permanently delete <strong class="text-zinc-900 dark:text-zinc-100">@specToDelete.Title</strong>? All published versions and vector index entries will be removed.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => specToDelete = null" disabled="@isDeletingSpec">Cancel</button>
+                <button class="btn-danger text-xs flex items-center gap-1.5" @onclick="ExecuteDeleteSpec" disabled="@isDeletingSpec">
+                    @if (isDeletingSpec)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Deleting...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete Specification</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Undo Version Modal -->
+@if (undoVersionTarget.HasValue)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => undoVersionTarget = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-amber-200 dark:border-amber-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">undo</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Undo Specification Release (v@(undoVersionTarget.Value))</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        This will mark Version <strong>@(undoVersionTarget.Value)</strong> as undone/archived and remove its acceptance criteria from active AI search indexing. You can redo and restore it anytime.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => undoVersionTarget = null" disabled="@isTogglingStatus">Cancel</button>
+                <button class="btn-primary text-xs bg-amber-600 hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-500 border-none flex items-center gap-1.5" @onclick="ExecuteUndoVersion" disabled="@isTogglingStatus">
+                    @if (isTogglingStatus)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Undoing...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">undo</span>
+                        <span>Confirm Undo</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Redo Version Modal -->
+@if (redoVersionTarget.HasValue)
+{
+    <div class="fixed inset-0 bg-zinc-950/50 dark:bg-zinc-950/70 backdrop-blur-xs z-50 transition-opacity animate-in fade-in duration-100" @onclick="() => redoVersionTarget = null"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+        <div class="card w-full max-w-md shadow-2xl overflow-hidden pointer-events-auto flex flex-col animate-in fade-in zoom-in-95 duration-150 border-emerald-200 dark:border-emerald-900/60 bg-white dark:bg-zinc-900">
+            <div class="p-5 flex items-start gap-4">
+                <div class="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <span class="material-symbols-outlined text-[22px]">redo</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-zinc-900 dark:text-zinc-100 m-0">Redo & Restore Release (v@(redoVersionTarget.Value))</h3>
+                    <p class="text-xs text-zinc-600 dark:text-zinc-400 mt-1 leading-relaxed">
+                        This will reactivate Version <strong>@(redoVersionTarget.Value)</strong> and restore all its criteria into the PostgreSQL vector store for developer queries.
+                    </p>
+                </div>
+            </div>
+            <div class="px-5 py-3.5 border-t border-zinc-100 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="() => redoVersionTarget = null" disabled="@isTogglingStatus">Cancel</button>
+                <button class="btn-primary text-xs bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500 border-none flex items-center gap-1.5" @onclick="ExecuteRedoVersion" disabled="@isTogglingStatus">
+                    @if (isTogglingStatus)
+                    {
+                        <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1"></div>
+                        <span>Restoring...</span>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined text-[16px]">redo</span>
+                        <span>Confirm Redo</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
@@ -439,13 +547,24 @@
         await LoadSpecs();
     }
 
-    private async Task UndoLatestVersion(int versionNumber)
+    private SpecDto? specToDelete;
+    private bool isDeletingSpec = false;
+    private int? undoVersionTarget;
+    private int? redoVersionTarget;
+
+    private void PromptUndoVersion(int versionNumber)
     {
-        if (masterSpec == null) return;
+        undoVersionTarget = versionNumber;
+    }
+
+    private async Task ExecuteUndoVersion()
+    {
+        if (masterSpec == null || !undoVersionTarget.HasValue || isTogglingStatus) return;
         isTogglingStatus = true;
         try
         {
-            await ApiClient.UndoPublishSpecAsync(masterSpec.Id, versionNumber);
+            await ApiClient.UndoPublishSpecAsync(masterSpec.Id, undoVersionTarget.Value);
+            undoVersionTarget = null;
             await LoadSpecs();
         }
         finally
@@ -454,13 +573,19 @@
         }
     }
 
-    private async Task RedoLatestVersion(int versionNumber)
+    private void PromptRedoVersion(int versionNumber)
     {
-        if (masterSpec == null) return;
+        redoVersionTarget = versionNumber;
+    }
+
+    private async Task ExecuteRedoVersion()
+    {
+        if (masterSpec == null || !redoVersionTarget.HasValue || isTogglingStatus) return;
         isTogglingStatus = true;
         try
         {
-            await ApiClient.RedoPublishSpecAsync(masterSpec.Id, versionNumber);
+            await ApiClient.RedoPublishSpecAsync(masterSpec.Id, redoVersionTarget.Value);
+            redoVersionTarget = null;
             await LoadSpecs();
         }
         finally
@@ -479,13 +604,24 @@
         return "🏷️";
     }
 
-    private async Task ConfirmDeleteSpec(SpecDto spec)
+    private void ConfirmDeleteSpec(SpecDto spec)
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Are you sure you want to delete specification '{spec.Title}'?");
-        if (confirmed)
+        specToDelete = spec;
+    }
+
+    private async Task ExecuteDeleteSpec()
+    {
+        if (specToDelete == null || isDeletingSpec) return;
+        isDeletingSpec = true;
+        try
         {
-            await ApiClient.DeleteSpecAsync(spec.Id);
+            await ApiClient.DeleteSpecAsync(specToDelete.Id);
+            specToDelete = null;
             await LoadSpecs();
+        }
+        finally
+        {
+            isDeletingSpec = false;
         }
     }
 

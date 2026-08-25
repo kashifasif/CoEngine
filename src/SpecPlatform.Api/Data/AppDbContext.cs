@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessageRecord> ChatMessages => Set<ChatMessageRecord>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserAiUsage> UserAiUsages => Set<UserAiUsage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
