@@ -251,4 +251,17 @@ public class PgVectorStoreService : IVectorStoreService
         }
         catch { }
     }
+
+    public async Task DeleteDocumentAsync(int projectId, string docType, string title)
+    {
+        try
+        {
+            await _db.Database.ExecuteSqlRawAsync(
+                @"DELETE FROM ""VectorDocuments"" WHERE ""ProjectId"" = @projectId AND ""DocType"" = @docType AND ""Title"" = @title;",
+                new NpgsqlParameter("@projectId", projectId),
+                new NpgsqlParameter("@docType", docType),
+                new NpgsqlParameter("@title", title));
+        }
+        catch { }
+    }
 }

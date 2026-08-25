@@ -4,26 +4,26 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="p-4 d-flex flex-column gap-4">
+<div class="max-w-6xl mx-auto flex flex-col gap-6">
 
-    <!-- Header & Controls Section -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end pb-3 border-bottom border-outline-variant gap-3">
+    <!-- Header & Project Selector -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
         <div>
             <!-- Breadcrumbs -->
-            <div class="d-flex align-items-center gap-2 text-on-surface-variant mb-2 font-mono fs-xs">
-                <a href="" class="text-on-surface-variant text-decoration-none hover-primary">Projects</a>
-                <span class="material-symbols-outlined" style="font-size: 14px;">chevron_right</span>
-                <span class="text-on-surface fw-semibold">@(selectedProject?.Name ?? "Select Project")</span>
+            <div class="flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500 font-mono mb-1.5">
+                <a href="dashboard" class="hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors no-underline">Projects</a>
+                <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+                <span class="text-zinc-700 dark:text-zinc-300 font-medium">@(selectedProject?.Name ?? "Select Project")</span>
             </div>
 
-            <h1 class="fw-bold text-on-surface mb-1" style="font-size: 34px; letter-spacing: -0.02em;">Project Specification</h1>
-            <p class="text-on-surface-variant mb-0 small">Single master technical specification for @(selectedProject?.Name ?? "this project").</p>
+            <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">Project Specification</h1>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Master technical specification and live contract.</p>
         </div>
 
-        <!-- Actions Bar -->
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <!-- Project Dropdown Selector -->
-            <select class="form-select form-select-sm form-control-adaptive font-mono me-1" style="min-width: 220px;" value="@selectedProjectId" @onchange="OnProjectSelected">
+        <!-- Action Controls -->
+        <div class="flex flex-wrap items-center gap-2.5">
+            <!-- Project Dropdown -->
+            <select class="form-input text-xs w-auto min-w-[200px]" value="@selectedProjectId" @onchange="OnProjectSelected">
                 @if (!projects.Any())
                 {
                     <option value="0">Loading projects...</option>
@@ -32,26 +32,26 @@
                 {
                     @foreach (var proj in projects)
                     {
-                        <option value="@proj.Id">📁 @proj.Name</option>
+                        <option value="@proj.Id">@proj.Name</option>
                     }
                 }
             </select>
 
-            <button class="btn btn-secondary-spec font-mono d-flex align-items-center gap-1.5" @onclick="OpenAiWorkspace" title="Brainstorm and refine requirements in AI Workspace">
-                <span class="material-symbols-outlined" style="font-size: 18px;">psychology</span>
-                <span>AI Brainstorming Workspace</span>
+            <button class="btn-secondary text-xs" @onclick="OpenAiWorkspace" title="Brainstorm and refine in AI Workspace">
+                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">auto_awesome</span>
+                <span>AI Workspace</span>
             </button>
 
             @if (masterSpec != null)
             {
-                <button class="btn btn-outline-primary font-mono d-flex align-items-center gap-1.5" @onclick="OpenVersionHistory" title="View Version Diff Inspector">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">history</span>
-                    <span>Version History (v@(masterSpec.CurrentVersionNumber))</span>
+                <button class="btn-secondary text-xs" @onclick="OpenVersionHistory" title="View Version Diff History & Manage Releases">
+                    <span class="material-symbols-outlined text-[16px]">history</span>
+                    <span>Version History &amp; Undo/Redo (v@(masterSpec.CurrentVersionNumber))</span>
                 </button>
 
-                <button class="btn btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="ExportPdfAsync" title="Download Complete Business Specification PDF">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">picture_as_pdf</span>
-                    <span>Export PDF Spec</span>
+                <button class="btn-primary text-xs" @onclick="ExportPdfAsync" title="Export PDF Specification">
+                    <span class="material-symbols-outlined text-[16px]">picture_as_pdf</span>
+                    <span>Export PDF</span>
                 </button>
             }
         </div>
@@ -60,81 +60,103 @@
     <!-- Notification Banner -->
     @if (!string.IsNullOrEmpty(notificationAlert))
     {
-        <div class="alert bg-surface-container-high border border-success text-on-surface d-flex align-items-center justify-content-between p-3 rounded-3 shadow-sm mb-0">
-            <div class="d-flex align-items-center gap-2">
-                <span class="material-symbols-outlined text-secondary">check_circle</span>
-                <div class="font-mono fs-xs">
-                    <strong>Publish Release:</strong> @notificationAlert
-                </div>
+        <div class="card p-3.5 border-emerald-200 dark:border-emerald-800/80 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100 flex items-center justify-between animate-in fade-in duration-150">
+            <div class="flex items-center gap-2.5">
+                <span class="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-lg">check_circle</span>
+                <span class="text-xs font-mono"><strong>Publish Release:</strong> @notificationAlert</span>
             </div>
-            <button class="btn-close btn-close-white" @onclick="() => notificationAlert = null"></button>
+            <button class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-emerald-200 p-1 cursor-pointer" @onclick="() => notificationAlert = null">
+                <span class="material-symbols-outlined text-[16px]">close</span>
+            </button>
         </div>
     }
 
-    <!-- Single Master Specification View -->
+    <!-- Content Area -->
     @if (selectedProject != null)
     {
         if (isLoadingSpecs)
         {
-            <div class="p-5 text-center text-on-surface-variant font-mono">
-                <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-                <div>Loading specification for @selectedProject.Name...</div>
+            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                <span>Loading specification for @selectedProject.Name...</span>
             </div>
         }
         else if (masterSpec == null)
         {
-            <div class="p-5 text-center border-dashed my-3 rounded-3 glass-card">
-                <span class="material-symbols-outlined text-on-surface-variant mb-2" style="font-size: 48px;">description</span>
-                <h5 class="fw-bold text-on-surface mb-2">No master specification published yet for @selectedProject.Name</h5>
-                <p class="text-on-surface-variant small font-mono mb-4 max-w-md mx-auto" style="max-width: 500px;">
-                    Use the AI Brainstorming Workspace to raw-draft features with the AI. Upon publishing, requirements automatically synthesize into this master specification.
-                </p>
-                <div class="d-flex justify-content-center gap-3">
-                    <button class="btn btn-primary-spec font-mono px-4 py-2" @onclick="OpenAiWorkspace">
-                        🧠 Start Brainstorming in AI Workspace
-                    </button>
+            <div class="card p-12 text-center border-dashed border-zinc-300 dark:border-zinc-800 flex flex-col items-center justify-center gap-4">
+                <div class="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-2xl">description</span>
                 </div>
+                <div class="max-w-md">
+                    <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 mb-1">No master specification published yet</h3>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                        Use the AI Brainstorming Workspace to draft and clarify requirements. Once published, your synthesized master specification will appear here.
+                    </p>
+                </div>
+                <button class="btn-primary text-xs" @onclick="OpenAiWorkspace">
+                    <span class="material-symbols-outlined text-[16px]">auto_awesome</span>
+                    <span>Start Brainstorming in AI Workspace</span>
+                </button>
             </div>
         }
         else
         {
-            <div class="glass-card p-4 d-flex flex-column gap-4">
-                <!-- Title & Metadata Bar -->
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-start border-bottom border-outline-variant pb-3 gap-3">
+            <div class="card p-6 flex flex-col gap-6">
+                <!-- Specification Title & Header Meta -->
+                <div class="flex flex-col md:flex-row md:items-start justify-between pb-5 border-b border-zinc-100 dark:border-zinc-800/80 gap-4">
                     <div>
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <span class="badge bg-primary bg-opacity-15 text-indigo border border-indigo border-opacity-30 font-mono fs-xs">
-                                ID: SPEC-00@(masterSpec.Id)
-                            </span>
-                            <span class="@(masterSpec.Status == "Published" ? "badge-published" : "badge-draft")">
+                        <div class="flex items-center gap-2 mb-2 flex-wrap">
+                            <span class="badge badge-default">SPEC-00@(masterSpec.Id)</span>
+                            <span class="@(masterSpec.Status == "Published" ? "badge-success" : "badge-warning")">
                                 @masterSpec.Status
                             </span>
-                            <span class="badge bg-surface-container border border-outline-variant font-mono text-on-surface fs-xs">
-                                Latest Version: v@(masterSpec.CurrentVersionNumber)
-                            </span>
+                            <span class="badge badge-primary">Version @(masterSpec.CurrentVersionNumber)</span>
+                            
+                            <!-- Direct Quick Undo / Redo Actions -->
+                            @if (masterSpec.Versions.Any())
+                            {
+                                var latestVersion = masterSpec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+                                if (latestVersion != null)
+                                {
+                                    if (latestVersion.IsUndone)
+                                    {
+                                        <button class="badge badge-success cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => RedoLatestVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Restore this undone version">
+                                            <span class="material-symbols-outlined text-[12px]">redo</span>
+                                            <span>Redo v@(latestVersion.VersionNumber)</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="badge badge-danger cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1" @onclick="() => UndoLatestVersion(latestVersion.VersionNumber)" disabled="@isTogglingStatus" title="Undo / Rollback this published version">
+                                            <span class="material-symbols-outlined text-[12px]">undo</span>
+                                            <span>Undo Release</span>
+                                        </button>
+                                    }
+                                }
+                            }
                         </div>
-                        <h2 class="fw-bold text-on-surface mb-1">@masterSpec.Title</h2>
+                        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">@masterSpec.Title</h2>
                     </div>
 
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-primary-spec font-mono d-flex align-items-center gap-1.5" @onclick="ExportPdfAsync" title="Download Complete Business Specification PDF">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">picture_as_pdf</span>
-                            <span>Download PDF</span>
+                    <div class="flex items-center gap-2">
+                        <button class="btn-secondary text-xs" @onclick="OpenVersionHistory" title="View Version History and Rollbacks">
+                            <span class="material-symbols-outlined text-[16px]">history</span>
+                            <span>Versions (@masterSpec.Versions.Count)</span>
                         </button>
-                        <button class="btn btn-sm btn-secondary-spec font-mono d-flex align-items-center gap-1" @onclick="OpenAiWorkspace">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">edit</span>
+                        <button class="btn-secondary text-xs" @onclick="OpenAiWorkspace" title="Brainstorm Update">
+                            <span class="material-symbols-outlined text-[16px]">edit</span>
                             <span>Brainstorm Update</span>
                         </button>
-                        <button class="btn btn-sm btn-outline-danger p-1.5" @onclick="() => ConfirmDeleteSpec(masterSpec)" title="Delete Specification">
-                            <span class="material-symbols-outlined text-danger" style="font-size: 16px;">delete</span>
+                        <button class="btn-secondary text-xs p-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="() => ConfirmDeleteSpec(masterSpec)" title="Delete Specification">
+                            <span class="material-symbols-outlined text-[16px]">delete</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Description Block -->
+                <!-- Master Description -->
                 <div>
-                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">MASTER SPECIFICATION DESCRIPTION</h6>
-                    <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 text-on-surface lh-base markdown-body">
+                    <h4 class="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500 mb-2">Description & Scope</h4>
+                    <div class="p-4 bg-zinc-50 dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 text-xs leading-relaxed prose dark:prose-invert max-w-none">
                         @((MarkupString)Markdig.Markdown.ToHtml(masterSpec.Description ?? ""))
                     </div>
                 </div>
@@ -143,11 +165,11 @@
                 @if (masterSpec.CurrentScopeTags.Any())
                 {
                     <div>
-                        <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">SCOPE TAGS</h6>
-                        <div class="d-flex gap-2 flex-wrap">
+                        <h4 class="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500 mb-2">Scope Tags</h4>
+                        <div class="flex gap-2 flex-wrap">
                             @foreach (var tag in masterSpec.CurrentScopeTags)
                             {
-                                <span class="scope-tag-item fs-xs">
+                                <span class="badge badge-default text-xs py-1 px-2.5">
                                     @GetTagIcon(tag) @tag
                                 </span>
                             }
@@ -155,39 +177,42 @@
                     </div>
                 }
 
-                <!-- Functional & Acceptance Criteria List -->
+                <!-- Functional & Acceptance Criteria -->
                 <div>
-                    <h6 class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-2">FUNCTIONAL & ACCEPTANCE CRITERIA (@masterSpec.CurrentAcceptanceCriteria.Count)</h6>
+                    <h4 class="text-[11px] uppercase tracking-wider font-semibold text-zinc-400 dark:text-zinc-500 mb-3">
+                        Functional & Acceptance Criteria (@masterSpec.CurrentAcceptanceCriteria.Count)
+                    </h4>
+
                     @if (!masterSpec.CurrentAcceptanceCriteria.Any())
                     {
-                        <p class="text-on-surface-variant font-mono fs-xs">No acceptance criteria defined.</p>
+                        <div class="text-xs text-zinc-400 dark:text-zinc-500 font-mono py-2">No criteria defined.</div>
                     }
                     else
                     {
-                        <div class="d-flex flex-column gap-2">
+                        <div class="flex flex-col gap-2.5">
                             @for (int i = 0; i < masterSpec.CurrentAcceptanceCriteria.Count; i++)
                             {
                                 var criterion = masterSpec.CurrentAcceptanceCriteria[i];
                                 @if (criterion.StartsWith("👤") || criterion.StartsWith("📋") || criterion.StartsWith("###"))
                                 {
-                                    <div class="p-3 bg-surface-container border border-primary-custom rounded-3 text-primary-custom fw-bold fs-sm mt-2">
+                                    <div class="p-3 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/50 rounded-lg text-indigo-900 dark:text-indigo-200 font-semibold text-xs mt-2">
                                         @criterion
                                     </div>
                                 }
                                 else if (criterion.StartsWith("❓"))
                                 {
-                                    <div class="p-3 bg-warning-subtle border border-warning rounded-3 text-warning-emphasis fs-sm d-flex align-items-start gap-2">
-                                        <span class="material-symbols-outlined fs-base mt-0.5">help</span>
-                                        <div>@criterion</div>
+                                    <div class="p-3 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/50 rounded-lg text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                                        <span class="material-symbols-outlined text-amber-600 dark:text-amber-400 text-base shrink-0 mt-0.5">help_outline</span>
+                                        <div class="leading-relaxed">@criterion</div>
                                     </div>
                                 }
                                 else
                                 {
-                                    <div class="bento-criteria-card d-flex align-items-start gap-3">
-                                        <span class="badge badge-ac fs-xs mt-0.5">
+                                    <div class="p-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg flex items-start gap-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+                                        <span class="badge badge-success text-[10px] shrink-0 mt-0.5">
                                             @(criterion.StartsWith("AC-") ? criterion.Split(':')[0] : $"AC-{(i + 1)}")
                                         </span>
-                                        <div class="text-on-surface lh-base fs-sm">
+                                        <div class="text-zinc-800 dark:text-zinc-200 text-xs leading-relaxed">
                                             @(criterion.StartsWith("AC-") && criterion.Contains(":") ? criterion.Substring(criterion.IndexOf(':') + 1).Trim() : criterion)
                                         </div>
                                     </div>
@@ -205,52 +230,56 @@
 <!-- Create / Edit Spec Modal -->
 @if (showSpecModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content modal-content-adaptive">
-                <div class="modal-header border-bottom border-outline-variant">
-                    <h5 class="modal-title fw-bold text-on-surface">Create New Specification</h5>
-                    <button type="button" class="btn-close btn-close-white" @onclick="() => showSpecModal = false"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Spec Title</label>
-                        <input type="text" class="form-control form-control-adaptive" placeholder="e.g. Submit Loan Application" @bind="specFormTitle"/>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Description</label>
-                        <textarea class="form-control form-control-adaptive" rows="4" placeholder="Detailed technical scope and user story..." @bind="specFormDesc"></textarea>
-                    </div>
+    <div class="fixed inset-0 bg-zinc-950/40 dark:bg-zinc-950/70 backdrop-blur-xs z-40" @onclick="() => showSpecModal = false"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="card w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50 shrink-0">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Create Specification Draft</h3>
+                <button class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer" @onclick="() => showSpecModal = false">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
 
-                    <!-- Acceptance Criteria -->
-                    <div class="mb-3">
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <label class="form-label text-on-surface-variant small font-mono fw-semibold mb-0">Acceptance Criteria</label>
-                            <button class="btn btn-sm btn-link text-primary-custom text-decoration-none font-mono fs-xs" @onclick="AddCriterionRow">+ Add Criterion</button>
-                        </div>
+            <div class="p-5 flex flex-col gap-4 overflow-y-auto">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Title</label>
+                    <input type="text" class="form-input text-xs" placeholder="e.g. Customer Portal & KYC Pipeline" @bind="specFormTitle" />
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Description</label>
+                    <textarea class="form-input text-xs" rows="4" placeholder="Overview of business goals and user personas..." @bind="specFormDesc"></textarea>
+                </div>
+
+                <!-- Acceptance Criteria Rows -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="text-xs font-medium text-zinc-700 dark:text-zinc-300">Acceptance Criteria</label>
+                        <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer font-medium" @onclick="AddCriterionRow">+ Add Row</button>
+                    </div>
+                    <div class="flex flex-col gap-2">
                         @for (int i = 0; i < specFormCriteria.Count; i++)
                         {
                             var idx = i;
-                            <div class="input-group mb-2">
-                                <span class="input-group-text bg-surface-container-low border-outline-variant text-on-surface-variant font-mono fs-xs">#(idx+1)</span>
-                                <input type="text" class="form-control form-control-adaptive" placeholder="Criterion rule..." @bind="specFormCriteria[idx]"/>
-                                <button class="btn btn-outline-danger" @onclick="() => specFormCriteria.RemoveAt(idx)">
-                                    <i class="bi bi-trash"></i>
+                            <div class="flex items-center gap-2">
+                                <span class="text-zinc-400 text-xs font-mono w-6 text-center">#@(idx + 1)</span>
+                                <input type="text" class="form-input text-xs" placeholder="Criteria definition..." @bind="specFormCriteria[idx]" />
+                                <button class="text-zinc-400 hover:text-rose-600 p-1 cursor-pointer" @onclick="() => specFormCriteria.RemoveAt(idx)">
+                                    <span class="material-symbols-outlined text-[16px]">delete</span>
                                 </button>
                             </div>
                         }
                     </div>
+                </div>
 
-                    <!-- Scope Tags -->
-                    <div class="mb-3">
-                        <label class="form-label text-on-surface-variant small font-mono fw-semibold">Scope Tags (Comma-separated)</label>
-                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="e.g. api, bff, mfe, db" @bind="specFormTagsRaw"/>
-                    </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Scope Tags (Comma-separated)</label>
+                    <input type="text" class="form-input text-xs font-mono" placeholder="api, auth, sec-rule, bff" @bind="specFormTagsRaw" />
                 </div>
-                <div class="modal-footer border-top border-outline-variant">
-                    <button type="button" class="btn btn-secondary-spec" @onclick="() => showSpecModal = false">Cancel</button>
-                    <button type="button" class="btn btn-primary-spec font-mono" @onclick="SaveSpecForm" disabled="@string.IsNullOrWhiteSpace(specFormTitle)">Save Spec Draft</button>
-                </div>
+            </div>
+
+            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-2 shrink-0">
+                <button class="btn-secondary text-xs" @onclick="() => showSpecModal = false">Cancel</button>
+                <button class="btn-primary text-xs" @onclick="SaveSpecForm" disabled="@string.IsNullOrWhiteSpace(specFormTitle)">Save Draft</button>
             </div>
         </div>
     </div>
@@ -266,6 +295,7 @@
 
     private bool isLoadingSpecs = false;
     private bool isPublishing = false;
+    private bool isTogglingStatus = false;
     private string? notificationAlert;
 
     private bool showSpecModal = false;
@@ -295,9 +325,7 @@
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         Nav.NavigateTo("/");
         return false;
@@ -323,9 +351,7 @@
                 await LoadSpecs();
             }
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private async Task OnProjectSelected(ChangeEventArgs e)
@@ -413,21 +439,33 @@
         await LoadSpecs();
     }
 
-    private async Task PublishSpec(int specId)
+    private async Task UndoLatestVersion(int versionNumber)
     {
-        isPublishing = true;
+        if (masterSpec == null) return;
+        isTogglingStatus = true;
         try
         {
-            var result = await ApiClient.PublishSpecAsync(specId);
-            if (result != null)
-            {
-                notificationAlert = result.NotificationSummary;
-                await LoadSpecs();
-            }
+            await ApiClient.UndoPublishSpecAsync(masterSpec.Id, versionNumber);
+            await LoadSpecs();
         }
         finally
         {
-            isPublishing = false;
+            isTogglingStatus = false;
+        }
+    }
+
+    private async Task RedoLatestVersion(int versionNumber)
+    {
+        if (masterSpec == null) return;
+        isTogglingStatus = true;
+        try
+        {
+            await ApiClient.RedoPublishSpecAsync(masterSpec.Id, versionNumber);
+            await LoadSpecs();
+        }
+        finally
+        {
+            isTogglingStatus = false;
         }
     }
 
@@ -470,5 +508,4 @@
 
         await JS.InvokeVoidAsync("exportSpecToPdf", payload);
     }
-
 }

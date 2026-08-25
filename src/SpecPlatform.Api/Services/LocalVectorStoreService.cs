@@ -10,6 +10,7 @@ public interface IVectorStoreService
     Task<List<VectorSearchResult>> SearchSimilarityAsync(int projectId, string query, int topK = 5);
     Task<VectorStoreStatsDto> GetStatsAsync(int projectId);
     Task ClearProjectVectorsAsync(int projectId);
+    Task DeleteDocumentAsync(int projectId, string docType, string title);
 }
 
 public class LocalVectorStoreService : IVectorStoreService
@@ -95,6 +96,21 @@ public class LocalVectorStoreService : IVectorStoreService
         foreach (var item in itemsToKeep)
         {
             VectorStore.Add(item);
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteDocumentAsync(int projectId, string docType, string title)
+    {
+        var itemToRemove = VectorStore.FirstOrDefault(v => v.ProjectId == projectId && v.DocType == docType && v.Title == title);
+        if (itemToRemove != null)
+        {
+            var itemsToKeep = VectorStore.Where(v => v.Id != itemToRemove.Id).ToList();
+            VectorStore.Clear();
+            foreach (var item in itemsToKeep)
+            {
+                VectorStore.Add(item);
+            }
         }
         return Task.CompletedTask;
     }

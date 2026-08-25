@@ -8,11 +8,10 @@
     <base href="/" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/tailwind.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="SpecPlatform.Client.styles.css" rel="stylesheet" />
     <script>
@@ -35,19 +34,19 @@
             document.documentElement.setAttribute('data-theme', savedTheme);
             if (savedTheme === 'dark') {
                 document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
             }
         })();
     </script>
 </head>
 
-<body class="bg-background text-on-background min-vh-100 flex-column font-body-sm overflow-x-hidden">
+<body class="bg-bg-base text-text-base min-h-screen flex flex-col font-ui overflow-x-hidden antialiased">
     <div id="app">
-        <div class="d-flex justify-content-center align-items-center vh-100 flex-column bg-dark-custom">
-            <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;" role="status">
-                <span class="visually-hidden">Loading SpecPlatform...</span>
-            </div>
-            <h5 class="fw-semibold text-adaptive-heading">Loading SpecPlatform Engine...</h5>
-            <p class="text-adaptive-muted small font-mono">Initializing Technical Precision Design System & AI Vector Store</p>
+        <div class="flex flex-col justify-center items-center min-h-screen bg-bg-base">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mb-4"></div>
+            <h5 class="text-xl font-semibold text-white mb-2">Loading SpecPlatform Engine...</h5>
+            <p class="text-slate-400 text-sm font-mono">Initializing Technical Precision Design System & AI Vector Store</p>
         </div>
     </div>
 

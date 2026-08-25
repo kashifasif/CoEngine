@@ -6,200 +6,180 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="d-flex flex-column flex-lg-row bg-background" style="height: calc(100vh - 64px); max-height: calc(100vh - 64px); overflow: hidden;">
+<div class="flex flex-col h-[calc(100vh-56px)] -m-6 sm:-m-8 bg-zinc-50 dark:bg-zinc-950">
 
-    <!-- Chat Interface (Matching theme/ai_brainstorming_chat/code.html) -->
-    <section class="d-flex flex-column border-end border-outline-variant bg-surface-dim p-0 transition-all h-100 overflow-hidden w-100">
+    <!-- Top Chat Toolbar -->
+    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4">
+        <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">auto_awesome</span>
+            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">AI Brainstorming Workspace</h2>
+        </div>
 
-        <!-- Chat Header -->
-        <div class="px-4 py-3 border-bottom border-outline-variant d-flex justify-content-between align-items-center bg-surface-container-low flex-shrink-0 flex-wrap gap-3">
-            <div class="d-flex align-items-center gap-2">
-                <span class="material-symbols-outlined text-primary-custom" style="font-size: 22px;">psychology</span>
-                <h5 class="fw-bold text-on-surface mb-0 font-ui me-2">SpecAI Assistant Studio</h5>
-            </div>
-
-            <div class="d-flex align-items-center flex-wrap gap-2">
-                <select class="form-select form-select-sm form-control-adaptive font-mono fs-xs" value="@selectedProjectId" @onchange="OnProjectSelected" style="width: auto;">
-                    @foreach (var p in projects)
-                    {
-                        <option value="@p.Id">@p.Name</option>
-                    }
-                </select>
-
-                @if (GetUnansweredQuestions().Any())
+        <div class="flex items-center gap-2.5 flex-wrap">
+            <!-- Project Dropdown -->
+            <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
+                @foreach (var p in projects)
                 {
-                    var pendingCount = GetUnansweredQuestions().Count;
-                    <span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-30 font-mono fs-xs px-2 py-1 me-1" title="Answer or skip all pending questions to unlock publishing">
-                        ⚠️ @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
-                    </span>
+                    <option value="@p.Id">@p.Name</option>
                 }
+            </select>
 
-                <!-- Import Transcript / Raw Notes CTA -->
-                <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-2.5 d-flex align-items-center gap-1.5 shadow-sm ms-2" @onclick="OpenIngestModal" title="Import MS Teams meeting transcript, raw notes, or requirements">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">upload_file</span>
-                    <span>Import</span>
-                </button>
-
-                <button class="btn btn-sm btn-secondary-spec p-1 ms-1" @onclick="ClearChat" title="Clear DB History">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
-                </button>
-
-                <span class="font-mono text-on-surface-variant fs-xs ms-2 me-1 d-none d-lg-inline">
-                    Status: <strong class="text-secondary-custom">Workbench Ready</strong>
+            @if (GetUnansweredQuestions().Any())
+            {
+                var pendingCount = GetUnansweredQuestions().Count;
+                <span class="badge badge-warning text-xs py-1 px-2.5" title="Answer or skip remaining questions to publish">
+                    @pendingCount Question@(pendingCount > 1 ? "s" : "") Left
                 </span>
+            }
 
-                <button class="btn btn-sm btn-primary-spec font-mono fs-xs py-1 px-3 d-flex align-items-center gap-1.5 shadow-sm" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
-                    @if (isStructuring)
+            <button class="btn-secondary text-xs py-1.5 px-3" @onclick="OpenIngestModal" title="Import transcript or notes">
+                <span class="material-symbols-outlined text-[16px]">upload_file</span>
+                <span>Import</span>
+            </button>
+
+            <button class="btn-secondary text-xs p-1.5" @onclick="ClearChat" title="Clear History">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+
+            <button class="btn-primary text-xs py-1.5 px-3" @onclick="StructureIntoSpec" disabled="@(isStructuring || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(!HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+                @if (isStructuring)
+                {
+                    <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
+                    <span>Structuring...</span>
+                }
+                else
+                {
+                    <span class="material-symbols-outlined text-[16px]">publish</span>
+                    <span>Publish Spec</span>
+                }
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat Messages Stream -->
+    <div id="aiWorkspaceChatStream" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 max-w-4xl w-full mx-auto">
+
+        @if (isLoadingChat)
+        {
+            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                <span>Loading conversation history...</span>
+            </div>
+        }
+        else if (!chatMessages.Any())
+        {
+            <div class="my-auto flex flex-col items-center justify-center text-center py-12">
+                <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-2xl">auto_awesome</span>
+                </div>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ready to brainstorm requirements</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
+                    Describe your user story, security boundaries, or APIs for <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong>.
+                </p>
+
+                <div class="flex flex-wrap justify-center gap-2 max-w-lg">
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Let us define user authentication and step-up MFA for loan approval.")'>
+                        MFA Authentication Rules
+                    </button>
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("What API rate limits and HTTP error status codes should be specified?")'>
+                        Rate Limiting & Errors
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var msg in chatMessages)
+            {
+                bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
+
+                <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
+                    <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
+                        @(msg.Role == "user" ? "You" : "SpecAI")
+                    </div>
+
+                    @if (msg.Role == "user")
                     {
-                        <span class="spinner-border spinner-border-sm me-1"></span>
-                        <span>Reviewing &amp; Publishing...</span>
+                        <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-4 py-3 text-xs leading-relaxed max-w-[85%] whitespace-pre-wrap shadow-xs">
+                            @msg.Content
+                        </div>
                     }
                     else
                     {
-                        <span class="material-symbols-outlined" style="font-size: 16px;">publish</span>
-                        <span class="fw-bold">Publish Spec</span>
-                    }
-                </button>
-            </div>
-        </div>
-
-        <!-- Chat Stream Window -->
-        <div id="aiWorkspaceChatStream" class="flex-grow-1 overflow-auto p-4 d-flex flex-column gap-3" style="min-height: 0;">
-
-            @if (isLoadingChat)
-            {
-                <div class="text-center py-5 font-mono text-on-surface-variant">
-                    <div class="spinner-border spinner-border-sm text-primary me-2"></div> Loading DB Chat History...
-                </div>
-            }
-            else if (!chatMessages.Any())
-            {
-                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
-                    <div class="rounded-circle p-3 mb-3 bg-primary-container bg-opacity-20 d-flex align-items-center justify-content-center">
-                        <span class="material-symbols-outlined text-primary-custom" style="font-size: 32px;">auto_awesome</span>
-                    </div>
-                    <h6 class="fw-bold text-on-surface">Hello! I'm ready to help you draft your spec.</h6>
-                    <p class="text-on-surface-variant small font-mono max-w-sm mb-3" style="max-width: 420px;">
-                        What specific requirements, user story, or API security rules would you like to brainstorm for <strong>@(selectedProject?.Name ?? "this project")</strong>?
-                    </p>
-
-                    <div class="d-flex flex-wrap justify-content-center gap-2">
-                        <button class="btn btn-sm btn-secondary-spec font-mono fs-xs" @onclick='() => UsePrompt("Let us define user authentication and step-up MFA for loan approval.")'>
-                            💡 MFA Authentication Rules
-                        </button>
-                        <button class="btn btn-sm btn-secondary-spec font-mono fs-xs" @onclick='() => UsePrompt("What API rate limits and HTTP error status codes should be specified?")'>
-                            💡 Rate Limiting & Error Codes
-                        </button>
-                    </div>
-                </div>
-            }
-            else
-            {
-                @foreach (var msg in chatMessages)
-                {
-                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
-                    <div class="d-flex gap-3 @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
-                        @if (msg.Role != "user")
-                        {
-                            <div class="rounded-circle bg-primary-container d-flex align-items-center justify-content-center shrink-0" style="width: 32px; height: 32px;">
-                                <span class="material-symbols-outlined text-on-primary-container" style="font-size: 16px;">auto_awesome</span>
-                            </div>
-                        }
-
-                        <div class="p-3 shadow-sm @(msg.Role == "user" ? "chat-bubble-user" : "chat-bubble-ai")" style="max-width: 85%;">
-                            <div class="d-flex align-items-center justify-content-between mb-1 opacity-75 fs-xs fw-semibold">
-                                <span>@(msg.Role == "user" ? "Product Owner / BA" : "SpecAI Assistant")</span>
-                            </div>
-
+                        <div class="card p-5 max-w-[90%] w-full flex flex-col gap-3 shadow-xs">
                             @if (isError)
                             {
-                                <div class="d-flex align-items-center gap-2 py-1">
-                                    <button class="btn btn-sm btn-outline-danger text-danger border-danger rounded-pill px-3 py-1.5 font-mono fs-xs d-flex align-items-center gap-2" @onclick="RetryLastQuery" disabled="@isThinking" title="Click to retry answer">
-                                        <i class="bi bi-arrow-clockwise fs-5 text-danger"></i>
-                                        <span class="fw-bold text-danger">Retry</span>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-rose-600 text-xs font-mono">Failed to receive response</span>
+                                    <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
+                                        <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                        <span>Retry</span>
                                     </button>
                                 </div>
                             }
                             else
                             {
-                                var parsedQuestions = (msg.Role == "assistant") ? ParseQuestionOptions(msg.Content) : new List<ParsedQuestion>();
+                                var parsedQuestions = ParseQuestionOptions(msg.Content);
 
                                 @if (!parsedQuestions.Any())
                                 {
-                                    <div style="white-space: pre-wrap;" class="small lh-base mb-2">@CleanAnswerTags(msg.Content)</div>
+                                    <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
+                                        @((MarkupString)Markdig.Markdown.ToHtml(CleanAnswerTags(msg.Content)))
+                                    </div>
                                 }
                                 else
                                 {
-                                    <div class="d-flex flex-column gap-3">
+                                    <div class="flex flex-col gap-4">
                                         @foreach (var q in parsedQuestions)
                                         {
                                             var qKey = $"{msg.Content.GetHashCode()}_{q.Number}";
                                             bool isEditingManual = activeManualInputQKey == qKey;
 
-                                            <div class="p-3 bg-surface-container-lowest border border-outline-variant rounded-3 shadow-xs">
-                                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                                    <div class="fw-semibold text-on-surface fs-xs">
-                                                        <span class="badge bg-primary-container text-on-primary-container font-mono me-1.5">Q@(q.Number)</span>
-                                                        @q.QuestionText
+                                            <div class="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 flex flex-col gap-3">
+                                                <div class="flex items-start justify-between gap-2">
+                                                    <div class="flex items-start gap-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                                                        <span class="badge badge-primary text-[10px] shrink-0 mt-0.5">Q@(q.Number)</span>
+                                                        <span>@q.QuestionText</span>
                                                     </div>
 
                                                     @if (!string.IsNullOrEmpty(q.SelectedAnswer))
                                                     {
-                                                        <span class="status-badge-success">
-                                                            ✔ Answered
-                                                        </span>
+                                                        <span class="badge badge-success text-[10px] shrink-0">Answered</span>
                                                     }
                                                 </div>
 
-                                                <!-- Suggested Options & Action Buttons -->
-                                                <div class="d-flex flex-column gap-2 mt-3">
+                                                <div class="flex flex-col gap-2">
                                                     @foreach (var opt in q.Options)
                                                     {
                                                         bool isSelected = q.SelectedAnswer == opt;
-                                                        <button class="btn text-start @(isSelected ? "btn-success text-white shadow-sm" : "btn-outline-secondary text-on-surface-variant") font-mono fs-xs py-2 px-3 rounded-2 d-flex align-items-center gap-2"
+                                                        <button class="text-left px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-colors flex items-center justify-between cursor-pointer @(isSelected ? "bg-indigo-50 border-indigo-300 text-indigo-900 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-200 font-semibold" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700")"
                                                                 @onclick="() => SaveInlineMCQAnswer(msg, q.Number, opt)"
-                                                                disabled="@isThinking" style="white-space: normal; transition: all 0.2s ease;">
+                                                                disabled="@isThinking">
+                                                            <span>@opt</span>
                                                             @if (isSelected)
                                                             {
-                                                                <span class="material-symbols-outlined" style="font-size: 16px;">radio_button_checked</span>
+                                                                <span class="material-symbols-outlined text-[16px] text-indigo-600 dark:text-indigo-400">check</span>
                                                             }
-                                                            else
-                                                            {
-                                                                <span class="material-symbols-outlined" style="font-size: 16px; opacity: 0.5;">radio_button_unchecked</span>
-                                                            }
-                                                            <span style="flex:1;">@opt</span>
                                                         </button>
                                                     }
-
-                                                    <div class="d-flex flex-wrap gap-2 mt-1">
-                                                        <!-- Manual Answer Option -->
-                                                        <button class="btn btn-sm @(q.SelectedAnswer.StartsWith("Manual:") ? "btn-primary text-white shadow-sm" : "btn-outline-primary") font-mono fs-xs py-1.5 px-3 rounded-2 d-flex align-items-center gap-1.5"
-                                                                @onclick="() => ToggleManualInput(qKey)"
-                                                                disabled="@isThinking"
-                                                                title="Type custom manual response">
-                                                            <span class="material-symbols-outlined" style="font-size: 14px;">edit_note</span>
-                                                            <span>Custom Manual Answer</span>
-                                                        </button>
-
-                                                        <!-- Skip Question Option -->
-                                                        <button class="btn btn-sm @(q.SelectedAnswer == "Not sure yet" ? "btn-warning text-dark shadow-sm" : "btn-outline-warning") font-mono fs-xs py-1.5 px-3 rounded-2 d-flex align-items-center gap-1.5"
-                                                                @onclick="() => SkipInlineMCQQuestion(msg, q.Number)"
-                                                                disabled="@isThinking"
-                                                                title="Mark as Not sure yet">
-                                                            <span class="material-symbols-outlined" style="font-size: 14px;">forward</span>
-                                                            <span>Skip ("Not sure yet")</span>
-                                                        </button>
-                                                    </div>
                                                 </div>
 
-                                                <!-- Inline Manual Answer Field -->
+                                                <!-- Quick Actions (Manual input / Skip) -->
+                                                <div class="flex items-center gap-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60">
+                                                    <button class="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium cursor-pointer" @onclick="() => ToggleManualInput(qKey)">
+                                                        Custom Answer
+                                                    </button>
+                                                    <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                                    <button class="text-[11px] text-amber-600 dark:text-amber-400 hover:underline cursor-pointer" @onclick="() => SkipInlineMCQQuestion(msg, q.Number)">
+                                                        Skip ("Not sure yet")
+                                                    </button>
+                                                </div>
+
                                                 @if (isEditingManual)
                                                 {
-                                                    <div class="mt-2.5 p-2 bg-surface-container-low border border-outline-variant rounded-2 d-flex align-items-center gap-2 shadow-xs">
-                                                        <input type="text" class="form-control form-control-sm form-control-adaptive font-mono fs-xs border-0 bg-transparent" placeholder="Type custom answer for Q@q.Number..." @bind="manualInputText" style="box-shadow: none;"/>
-                                                        <button class="btn btn-sm btn-primary font-mono fs-xs py-1 px-3 rounded-2 shadow-sm" @onclick="() => SaveManualInputAnswer(msg, q.Number)">
-                                                            Save
-                                                        </button>
+                                                    <div class="flex gap-2 pt-2">
+                                                        <input type="text" class="form-input text-xs" placeholder="Type custom answer for Q@q.Number..." @bind="manualInputText" />
+                                                        <button class="btn-primary text-xs shrink-0" @onclick="() => SaveManualInputAnswer(msg, q.Number)">Save</button>
                                                     </div>
                                                 }
                                             </div>
@@ -208,243 +188,159 @@
                                 }
                             }
                         </div>
-                    </div>
-                }
-
-                @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
-                {
-                    <div class="d-flex gap-2 align-items-center text-on-surface-variant small font-mono">
-                        <div class="spinner-border spinner-border-sm text-primary"></div>
-                        <span>Streaming AI requirement response...</span>
-                    </div>
-                }
+                    }
+                </div>
             }
 
-        </div>
+            @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+            {
+                <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
+                    <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                    <span>SpecAI is formulating response...</span>
+                </div>
+            }
+        }
 
-        <!-- Chat Input Bar -->
-        <div class="p-3 border-top border-outline-variant bg-surface-container-lowest">
-            <div class="input-group mb-2">
-                <textarea id="aiWorkspaceInput" class="form-control form-control-adaptive font-mono fs-sm" rows="3" placeholder="Describe your feature idea freely in Phase 1 (Listening Mode)..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn btn-primary-spec px-4 d-flex align-items-center justify-content-center" @onclick="() => SendChatMessage(false)" disabled="@isThinking" title="Send brainstorming text (Phase 1 Listening Mode)">
-                    <span class="material-symbols-outlined">send</span>
+    </div>
+
+    <!-- Input Bar -->
+    <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+        <div class="max-w-4xl mx-auto flex flex-col gap-2.5">
+            <div class="flex gap-2 items-end">
+                <textarea id="aiWorkspaceInput" class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36" placeholder="Describe requirements, acceptance criteria, or ask questions..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]" @onclick="() => SendChatMessage(false)" disabled="@isThinking" title="Send (Enter)">
+                    <span class="material-symbols-outlined text-[18px]">send</span>
                 </button>
             </div>
 
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 font-mono fs-xs text-on-surface-variant">
-                <span><span class="material-symbols-outlined" style="font-size: 14px;">keyboard</span> Enter to send (Listening Mode)</span>
-
-                <button class="btn btn-sm btn-outline-primary text-primary font-mono fs-xs py-1 px-3 d-flex align-items-center justify-content-center gap-1.5 shadow-sm" @onclick="TriggerClarificationRound" disabled="@(isThinking || !chatMessages.Any())" title="Trigger Phase 2 Clarification Round to ask up to 5 clarifying questions">
-                    <span class="material-symbols-outlined" style="font-size: 16px;">help_center</span>
-                    <strong>Start Clarification Round</strong>
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                <span>Press Enter to send</span>
+                <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="TriggerClarificationRound" disabled="@(isThinking || !chatMessages.Any())">
+                    Start Clarification Round &rarr;
                 </button>
             </div>
         </div>
-
-    </section>
-
+    </footer>
 
 </div>
 
-@* ─── Self-Review Warning Panel ─────────────────────────────────────────── *@
+<!-- Self-Review Panel Modal -->
 @if (showSelfReviewPanel && selfReviewResult != null)
 {
-    <div class="modal-backdrop fade show" style="background-color: rgba(0,0,0,0.70); z-index: 1050;"></div>
+    <div class="fixed inset-0 bg-zinc-950/40 dark:bg-zinc-950/70 backdrop-blur-xs z-40" @onclick="CancelSelfReviewAndReset"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="card w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
+                <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-lg">verified_user</span>
+                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Specification Quality Review</h3>
+                </div>
+                <button class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer" @onclick="CancelSelfReviewAndReset">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
 
-    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1055;" role="dialog" aria-modal="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-            <div class="modal-content bg-surface-container-high border border-outline-variant rounded-4 shadow-lg text-on-surface">
-
-                @* Modal Header *@
-                <div class="modal-header border-bottom border-outline-variant px-4 py-3"
-                     style="background: linear-gradient(135deg, rgba(234,179,8,0.12) 0%, rgba(239,68,68,0.08) 100%);">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="rounded-circle p-2 d-flex align-items-center justify-content-center"
-                             style="background: rgba(234,179,8,0.2); width:40px; height:40px;">
-                            <span class="material-symbols-outlined" style="font-size:22px; color:#ca8a04;">policy</span>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold mb-0 font-ui">
-                                @if (selfReviewResult.Passed)
-                                {
-                                    <span class="text-success">✅ Spec Quality Checks Passed</span>
-                                }
-                                else
-                                {
-                                    var issueCount = CountSelfReviewIssues();
-                                    <span style="color:#b45309;">⚠️ @issueCount Issue@(issueCount == 1 ? "" : "s") Found — Review Before Publishing</span>
-                                }
-                            </h5>
-                            <span class="font-mono fs-xs text-on-surface-variant">Self-Review Checklist ran automatically on the structured spec</span>
-                        </div>
+            <div class="p-5 flex flex-col gap-4 overflow-y-auto">
+                @if (selfReviewResult.AutoFixes.Any())
+                {
+                    <div class="p-3.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/50 rounded-lg text-xs text-indigo-900 dark:text-indigo-200">
+                        <strong class="block mb-1">Auto-Fixed (@selfReviewResult.AutoFixes.Count items):</strong>
+                        <ul class="list-disc pl-4 space-y-0.5 font-mono text-[11px]">
+                            @foreach (var fix in selfReviewResult.AutoFixes)
+                            {
+                                <li>@fix</li>
+                            }
+                        </ul>
                     </div>
+                }
+
+                <div class="flex flex-col gap-2.5">
+                    @RenderCheckRow("Placeholder Scan", selfReviewResult.Checks.PlaceholderScan, "scan")
+                    @RenderCheckRow("Internal Consistency", selfReviewResult.Checks.InternalConsistency, "compare_arrows")
+                    @RenderCheckRow("Scope Check", selfReviewResult.Checks.ScopeCheck, "adjust")
+                    @RenderCheckRow("Ambiguity Check", selfReviewResult.Checks.AmbiguityCheck, "help_center")
                 </div>
+            </div>
 
-                @* Modal Body *@
-                <div class="modal-body px-4 py-3 d-flex flex-column gap-3">
-
-                    @* Auto-fix disclosure *@
-                    @if (selfReviewResult.AutoFixes.Any())
+            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-between items-center">
+                <button class="btn-secondary text-xs" @onclick="CancelSelfReviewAndReset" disabled="@isPublishing">Cancel</button>
+                <button class="btn-primary text-xs" @onclick="ConfirmPublishAfterReview" disabled="@isPublishing">
+                    @if (isPublishing)
                     {
-                        <div class="p-3 rounded-3 border d-flex flex-column gap-2"
-                             style="background: rgba(59,130,246,0.08); border-color: rgba(59,130,246,0.3) !important;">
-                            <div class="d-flex align-items-center gap-2 fw-semibold font-mono fs-xs" style="color:#3b82f6;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">auto_fix_high</span>
-                                <span>Auto-Fixed (@selfReviewResult.AutoFixes.Count) — Review &amp; revert if inaccurate</span>
-                            </div>
-                            <ul class="mb-0 ps-3 font-mono fs-xs text-on-surface-variant" style="list-style: disc;">
-                                @foreach (var fix in selfReviewResult.AutoFixes)
-                                {
-                                    <li>@fix</li>
-                                }
-                            </ul>
-                        </div>
+                        <span>Publishing...</span>
                     }
-
-                    @* Four check rows *@
-                    <div class="d-flex flex-column gap-2">
-                        @RenderCheckRow("Placeholder Scan", selfReviewResult.Checks.PlaceholderScan, "scan")
-                        @RenderCheckRow("Internal Consistency", selfReviewResult.Checks.InternalConsistency, "compare_arrows")
-                        @RenderCheckRow("Scope Check", selfReviewResult.Checks.ScopeCheck, "adjust")
-                        @RenderCheckRow("Ambiguity Check", selfReviewResult.Checks.AmbiguityCheck, "help_center")
-                    </div>
-
-                    @if (!selfReviewResult.Passed)
+                    else if (selfReviewResult.Passed)
                     {
-                        <div class="p-2 rounded-2 font-mono fs-xs text-on-surface-variant border border-outline-variant"
-                             style="background: rgba(234,179,8,0.06);">
-                            <span class="material-symbols-outlined me-1" style="font-size:14px; vertical-align:middle;">info</span>
-                            Publishing is not blocked — you retain final control. Issues above are for your review only.
-                        </div>
+                        <span>Publish Spec</span>
                     }
-                </div>
-
-                @* Modal Footer *@
-                <div class="modal-footer border-top border-outline-variant px-4 py-3 d-flex justify-content-between">
-                    <button type="button" class="btn btn-sm btn-outline-secondary font-mono px-3"
-                            @onclick="CancelSelfReviewAndReset"
-                            disabled="@isPublishing">
-                        <span class="material-symbols-outlined me-1" style="font-size:15px;">close</span>
-                        Cancel
-                    </button>
-
-                    <button type="button" class="btn btn-primary-spec font-mono px-4 d-flex align-items-center gap-2"
-                            @onclick="ConfirmPublishAfterReview"
-                            disabled="@isPublishing">
-                        @if (isPublishing)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                            <span>Publishing...</span>
-                        }
-                        else if (selfReviewResult.Passed)
-                        {
-                            <span class="material-symbols-outlined" style="font-size:18px;">publish</span>
-                            <span class="fw-bold">Publish</span>
-                        }
-                        else
-                        {
-                            <span class="material-symbols-outlined" style="font-size:18px;">warning</span>
-                            <span class="fw-bold">Publish Anyway</span>
-                        }
-                    </button>
-                </div>
-
+                    else
+                    {
+                        <span>Publish Anyway</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
 }
 
+<!-- Transcript Ingestion Modal -->
 @if (showIngestModal)
 {
-    <!-- Import Raw Requirements / Transcript Modal Backdrop -->
-    <div class="modal-backdrop fade show" style="background-color: rgba(0,0,0,0.65); z-index: 1050;" @onclick="CloseIngestModal"></div>
+    <div class="fixed inset-0 bg-zinc-950/40 dark:bg-zinc-950/70 backdrop-blur-xs z-40" @onclick="CloseIngestModal"></div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="card w-full max-w-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+            <div class="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 flex justify-between items-center bg-zinc-50/50 dark:bg-zinc-900/50">
+                <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 m-0">Import Raw Notes &amp; Transcripts</h3>
+                <button class="text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer" @onclick="CloseIngestModal">
+                    <span class="material-symbols-outlined text-[18px]">close</span>
+                </button>
+            </div>
 
-    <div class="modal fade show d-block" tabindex="-1" style="z-index: 1055;" role="dialog">
-        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
-            <div class="modal-content bg-surface-container-high border border-outline-variant rounded-4 shadow-lg text-on-surface">
-
-                <!-- Modal Header -->
-                <div class="modal-header border-bottom border-outline-variant px-4 py-3 bg-surface-container">
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="rounded-circle p-2 bg-primary bg-opacity-15 text-primary-custom d-flex align-items-center justify-content-center">
-                            <span class="material-symbols-outlined" style="font-size: 22px;">description</span>
-                        </div>
-                        <div>
-                            <h5 class="modal-title fw-bold mb-0 font-ui text-on-surface">Import Raw Requirements & Meeting Transcripts</h5>
-                            <span class="text-on-surface-variant font-mono fs-xs">Feed MS Teams logs, Zoom transcripts, client emails, or Jira stories into SpecAI</span>
-                        </div>
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseIngestModal" aria-label="Close"></button>
-                </div>
-
-                <!-- Modal Body -->
-                <div class="modal-body px-4 py-3 d-flex flex-column gap-3">
-
-                    <!-- Source Tag & Info Row -->
-                    <div class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-1">SOURCE TYPE</label>
-                            <select class="form-select form-select-sm form-control-adaptive font-mono fs-xs" @bind="rawSourceTag">
-                                <option value="MS Teams Meeting Transcript">🎙️ MS Teams Meeting Transcript</option>
-                                <option value="Zoom / Call Transcript">📹 Zoom / Call Transcript</option>
-                                <option value="Sprint Grooming Notes">📋 Sprint Grooming Notes</option>
-                                <option value="Client Requirements Email / PRD">📄 Client Requirements Email / PRD</option>
-                                <option value="Jira / User Story Dump">🎫 Jira / User Story Dump</option>
-                                <option value="Raw Written Notes">✍️ Raw Written Notes</option>
-                            </select>
-                        </div>
-
-                        <div class="col-12 col-md-6">
-                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-1">OR UPLOAD FILE (.txt, .md, .vtt, .json)</label>
-                            <InputFile OnChange="HandleTranscriptFileUpload" class="form-control form-control-sm form-control-adaptive font-mono fs-xs" accept=".txt,.md,.vtt,.json"/>
-                        </div>
-                    </div>
-
-                    <!-- Raw Content Textarea -->
+            <div class="p-5 flex flex-col gap-4 overflow-y-auto">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <div class="d-flex justify-content-between align-items-center mb-1">
-                            <label class="form-label font-mono text-primary-custom fs-xs fw-bold mb-0">PASTE RAW TRANSCRIPT / NOTES CONTENT</label>
-                            @if (!string.IsNullOrWhiteSpace(rawTranscriptText))
-                            {
-                                <span class="font-mono text-secondary-custom fs-xs">@rawTranscriptText.Length characters loaded</span>
-                            }
-                        </div>
-                        <textarea class="form-control form-control-adaptive font-mono fs-xs" rows="8" placeholder="Paste your raw text here, for example:&#10;&#10;Alice: For the new loan checkout, we must enforce MFA for anything over $10k.&#10;Bob: Agreed. And if the credit bureau times out after 3 seconds, return a 504 Gateway Timeout.&#10;Charlie: Also make sure we audit log all requests in pgvector..." @bind="rawTranscriptText"></textarea>
+                        <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Source Type</label>
+                        <select class="form-input text-xs font-mono" @bind="rawSourceTag">
+                            <option value="MS Teams Meeting Transcript">MS Teams Meeting</option>
+                            <option value="Zoom / Call Transcript">Zoom / Call</option>
+                            <option value="Sprint Grooming Notes">Sprint Grooming</option>
+                            <option value="Client Requirements Email / PRD">Client PRD / Email</option>
+                            <option value="Jira / User Story Dump">Jira User Story</option>
+                            <option value="Raw Written Notes">Raw Notes</option>
+                        </select>
                     </div>
 
-                    @if (!string.IsNullOrEmpty(ingestError))
+                    <div>
+                        <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Upload File</label>
+                        <InputFile OnChange="HandleTranscriptFileUpload" class="form-input text-xs" accept=".txt,.md,.vtt,.json" />
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Transcript Content</label>
+                    <textarea class="form-input text-xs font-mono" rows="6" placeholder="Paste notes or conversation transcript here..." @bind="rawTranscriptText"></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(ingestError))
+                {
+                    <div class="p-3 bg-rose-50 text-rose-700 text-xs rounded-lg border border-rose-200">
+                        @ingestError
+                    </div>
+                }
+            </div>
+
+            <div class="px-5 py-3.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex justify-end gap-2">
+                <button class="btn-secondary text-xs" @onclick="CloseIngestModal" disabled="@isIngesting">Cancel</button>
+                <button class="btn-primary text-xs" @onclick="SubmitIngestTranscript" disabled="@(isIngesting || string.IsNullOrWhiteSpace(rawTranscriptText))">
+                    @if (isIngesting)
                     {
-                        <div class="alert alert-danger font-mono fs-xs py-2 px-3 mb-0 border-0 rounded-2">
-                            ⚠️ @ingestError
-                        </div>
+                        <span>Ingesting...</span>
                     }
-
-                    <!-- Info Alert -->
-                    <div class="p-2.5 bg-surface-container border border-outline-variant rounded-3 font-mono fs-xs text-on-surface-variant d-flex align-items-center gap-2">
-                        <span class="material-symbols-outlined text-primary-custom" style="font-size: 18px;">auto_awesome</span>
-                        <span>SpecAI will index the full transcript into <strong>PostgreSQL pgvector</strong> and pre-populate the live draft on the right.</span>
-                    </div>
-
-                </div>
-
-                <!-- Modal Footer -->
-                <div class="modal-footer border-top border-outline-variant px-4 py-3 d-flex justify-content-between">
-                    <button type="button" class="btn btn-sm btn-outline-secondary font-mono px-3" @onclick="CloseIngestModal" disabled="@isIngesting">Cancel</button>
-
-                    <button type="button" class="btn btn-primary-spec font-mono px-4 d-flex align-items-center gap-2" @onclick="SubmitIngestTranscript" disabled="@(isIngesting || string.IsNullOrWhiteSpace(rawTranscriptText))">
-                        @if (isIngesting)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1"></span>
-                            <span>Analyzing & Indexing Transcript...</span>
-                        }
-                        else
-                        {
-                            <span class="material-symbols-outlined" style="font-size: 18px;">smart_toy</span>
-                            <span class="fw-bold">Ingest & Analyze with SpecAI</span>
-                        }
-                    </button>
-                </div>
-
+                    else
+                    {
+                        <span>Analyze &amp; Ingest</span>
+                    }
+                </button>
             </div>
         </div>
     </div>
@@ -465,15 +361,11 @@
 
     private bool isStructuring = false;
 
-    // ─── Self-Review Panel State ────────────────────────────────────────────
     private bool showSelfReviewPanel = false;
     private bool isPublishing = false;
     private SelfReviewResultDto? selfReviewResult = null;
     private StructuredSpecResultDto? pendingStructuredResult = null;
 
-    // Panel state
-
-    // Transcript Ingestion State
     private bool showIngestModal = false;
     private string rawTranscriptText = "";
     private string rawSourceTag = "MS Teams Meeting Transcript";
@@ -559,8 +451,6 @@
 
                 showIngestModal = false;
                 rawTranscriptText = "";
-
-
                 await ScrollToBottom();
             }
             else
@@ -599,9 +489,7 @@
                 }
             }
         }
-        catch
-        {
-        }
+        catch { }
 
         Nav.NavigateTo("/");
         return false;
@@ -747,7 +635,6 @@
 
         if (!chatMessages.Any()) return;
 
-        // Check if the most recent assistant message already contains questions or completed clarification status
         var lastAssistantMsg = chatMessages.LastOrDefault(m => m.Role == "assistant");
         if (lastAssistantMsg != null)
         {
@@ -776,7 +663,7 @@
                 chatMessages.Add(new ChatMessageDto
                 {
                     Role = "assistant",
-                    Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Structure & Publish Spec** when ready."
+                    Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready."
                 });
                 await SaveDbChatSession();
                 StateHasChanged();
@@ -867,11 +754,8 @@
         {
             await JS.InvokeVoidAsync("eval", "const el = document.getElementById('aiWorkspaceChatStream'); if(el) { el.scrollTop = el.scrollHeight; }");
         }
-        catch
-        {
-        }
+        catch { }
     }
-
 
     private List<ParsedQuestion> GetUnansweredQuestions()
     {
@@ -899,14 +783,13 @@
             chatMessages.Add(new ChatMessageDto
             {
                 Role = "assistant",
-                Content = "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation or provide a title and description before structuring."
+                Content = "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation first."
             });
             StateHasChanged();
             await ScrollToBottom();
             return;
         }
 
-        // Block publishing if there are remaining unanswered questions in the active clarification round
         var unanswered = GetUnansweredQuestions();
         if (unanswered.Any())
         {
@@ -914,7 +797,7 @@
             chatMessages.Add(new ChatMessageDto
             {
                 Role = "assistant",
-                Content = $"⚠️ **Cannot Publish Specification:** You have unanswered clarifying question(s) remaining (**{qNumbers}**). Please select an option or click **⏭️ Skip (\"Not sure yet\")** for all pending questions before publishing."
+                Content = $"⚠️ **Cannot Publish Specification:** You have unanswered clarifying question(s) remaining (**{qNumbers}**). Please select an option or click **Skip (\"Not sure yet\")** before publishing."
             });
             await SaveDbChatSession();
             StateHasChanged();
@@ -927,7 +810,6 @@
 
         try
         {
-            // Phase 3 + Self-Review (runs server-side automatically)
             var result = await ApiClient.StructureChatAsync(selectedProjectId, chatMessages);
 
             if (result == null)
@@ -945,14 +827,11 @@
             pendingStructuredResult = result;
             selfReviewResult = result.SelfReviewResult;
 
-            // Show the self-review panel (blocking UI, non-blocking publish)
-            // If no self-review result came back (e.g. fallback path), go straight to publish
             if (selfReviewResult != null)
             {
                 isStructuring = false;
                 showSelfReviewPanel = true;
                 StateHasChanged();
-                // If all checks pass, auto-confirm (no interruption for the PO/BA)
                 if (selfReviewResult.Passed && !selfReviewResult.AutoFixes.Any())
                 {
                     await ConfirmPublishAfterReview();
@@ -960,7 +839,6 @@
                 return;
             }
 
-            // No review result — publish directly
             await DoPublish(result);
         }
         finally
@@ -970,7 +848,6 @@
         }
     }
 
-    /// <summary>User clicked "Publish" or "Publish Anyway" in the self-review panel.</summary>
     private async Task ConfirmPublishAfterReview()
     {
         if (pendingStructuredResult == null) return;
@@ -1006,12 +883,11 @@
         string finalDesc = result.Description ?? "Synthesized from AI brainstorming chat.";
         var finalCriteria = result.AcceptanceCriteria?.Where(c => !string.IsNullOrWhiteSpace(c)).ToList() ?? new List<string>();
 
-        // Serialize self-review for audit storage on the SpecVersion
         string? selfReviewJson = null;
         if (selfReviewResult != null)
         {
             try { selfReviewJson = System.Text.Json.JsonSerializer.Serialize(selfReviewResult); }
-            catch { /* non-fatal */ }
+            catch { }
         }
 
         await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
@@ -1037,26 +913,24 @@
 
     private RenderFragment RenderCheckRow(string label, SelfReviewCheckDto check, string icon) => __builder =>
     {
-        <div class="d-flex flex-column gap-1 p-3 rounded-3 border border-outline-variant bg-surface-container-lowest">
-            <div class="d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center gap-2 fw-semibold font-mono fs-xs">
-                    <span class="material-symbols-outlined" style="font-size:16px; opacity:0.7;">@icon</span>
+        <div class="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2 text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                    <span class="material-symbols-outlined text-[16px] text-zinc-400">@icon</span>
                     <span>@label</span>
                 </div>
                 @if (check.Passed)
                 {
-                    <span class="badge rounded-pill px-2 py-1 font-mono fs-xs"
-                          style="background:rgba(34,197,94,0.15); color:#16a34a; border:1px solid rgba(34,197,94,0.3);">✅ Passed</span>
+                    <span class="badge badge-success text-[10px]">Passed</span>
                 }
                 else
                 {
-                    <span class="badge rounded-pill px-2 py-1 font-mono fs-xs"
-                          style="background:rgba(239,68,68,0.12); color:#dc2626; border:1px solid rgba(239,68,68,0.25);">⚠️ Issues Found</span>
+                    <span class="badge badge-danger text-[10px]">Issues Found</span>
                 }
             </div>
             @if (!check.Passed && check.Issues?.Any() == true)
             {
-                <ul class="mb-0 mt-1 ps-3 font-mono fs-xs text-on-surface-variant" style="list-style:disc;">
+                <ul class="list-disc pl-4 space-y-0.5 text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">
                     @foreach (var issue in check.Issues)
                     {
                         <li>@issue</li>
@@ -1104,7 +978,6 @@
             {
                 var trimmed = line.Trim();
 
-                // Match options first (A), B), C), D))
                 var matchOpt = System.Text.RegularExpressions.Regex.Match(trimmed, @"^[-*\s]*([A-D])[\.\)]\s*(.+)");
                 if (matchOpt.Success && currentQuestion != null)
                 {
@@ -1114,7 +987,6 @@
                     continue;
                 }
 
-                // Match question lines like 1. ..., **1.** ..., Q1: ..., **Question 1:** ..., - 1. ...
                 var matchQ = System.Text.RegularExpressions.Regex.Match(trimmed, @"^(?:[-*\s])*?[*_]*(?:Q|Question\s*)?(\d+)[\.\):]*[*_]*\s*(.+)");
                 if (matchQ.Success)
                 {
@@ -1152,7 +1024,6 @@
                 list.Add(currentQuestion);
             }
 
-            // Guarantee clean 1, 2, 3... numbering if numbers were missing or non-positive
             for (int i = 0; i < list.Count; i++)
             {
                 if (list[i].Number <= 0)
@@ -1161,10 +1032,7 @@
                 }
             }
         }
-        catch
-        {
-            // Fail-safe to prevent any regex error from breaking WebAssembly renderer
-        }
+        catch { }
 
         return list;
     }
@@ -1209,5 +1077,4 @@
     {
         await SaveInlineMCQAnswer(msg, qNum, "Not sure yet");
     }
-
 }

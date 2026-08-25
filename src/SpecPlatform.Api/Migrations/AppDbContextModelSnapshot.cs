@@ -226,6 +226,9 @@ namespace SpecPlatform.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsUndone")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("PublishedAt")
                         .HasColumnType("timestamp with time zone");
 

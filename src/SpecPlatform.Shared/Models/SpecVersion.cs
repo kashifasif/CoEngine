@@ -20,4 +20,6 @@ public class SpecVersion
     /// published before the self-review feature was introduced.
     /// </summary>
     public string? SelfReviewJson { get; set; }
+
+    public bool IsUndone { get; set; } = false;
 }

@@ -44,6 +44,7 @@ public class SpecVersionDto
     public List<string> ScopeTags { get; set; } = new();
     /// <summary>Serialized SelfReviewResultDto for audit display.</summary>
     public string? SelfReviewJson { get; set; }
+    public bool IsUndone { get; set; }
 }
 
 public class PublishResultDto

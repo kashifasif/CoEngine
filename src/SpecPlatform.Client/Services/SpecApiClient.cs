@@ -119,6 +119,26 @@ public class SpecApiClient
         return null;
     }
 
+    public async Task<SpecDto?> UndoPublishSpecAsync(int id, int versionNumber)
+    {
+        var response = await _http.PostAsync($"api/specs/{id}/versions/{versionNumber}/undo", null);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<SpecDto>();
+        }
+        return null;
+    }
+
+    public async Task<SpecDto?> RedoPublishSpecAsync(int id, int versionNumber)
+    {
+        var response = await _http.PostAsync($"api/specs/{id}/versions/{versionNumber}/redo", null);
+        if (response.IsSuccessStatusCode)
+        {
+            return await response.Content.ReadFromJsonAsync<SpecDto>();
+        }
+        return null;
+    }
+
     public async Task<List<NotificationDto>> GetNotificationsAsync()
     {
         return await _http.GetFromJsonAsync<List<NotificationDto>>("api/notifications") ?? new();

@@ -16,4 +16,8 @@
     <ProjectReference Include="..\SpecPlatform.Shared\SpecPlatform.Shared.csproj" />
   </ItemGroup>
 
+  <Target Name="TailwindCSS" BeforeTargets="Compile">
+    <Exec Command="npx @tailwindcss/cli -i wwwroot/css/app.css -o wwwroot/css/tailwind.css" />
+  </Target>
+
 </Project>

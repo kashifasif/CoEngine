@@ -1,293 +1,71 @@
-/* "Technical Precision" Design System — SpecPlatform IDE Theme */
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-    --bg-background: #0b1326;
-    --surface: #0b1326;
-    --surface-dim: #0b1326;
-    --surface-bright: #31394d;
-    --surface-container-lowest: #060e20;
-    --surface-container-low: #131b2e;
-    --surface-container: #171f33;
-    --surface-container-high: #222a3d;
-    --surface-container-highest: #2d3449;
-    --surface-variant: #2d3449;
-    --on-surface: #dae2fd;
-    --on-surface-variant: #c7c4d7;
-    --outline: #908fa0;
-    --outline-variant: #464554;
-    --primary: #c0c1ff;
-    --primary-container: #8083ff;
-    --on-primary-container: #0d0096;
-    --inverse-primary: #494bd6;
-    --on-primary-fixed: #07006c;
-    --secondary: #4edea3;
-    --secondary-container: #00a572;
-    --tertiary: #ffb2b7;
-    --error: #ffb4ab;
-    --error-container: #93000a;
-
-    --font-ui: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
+@theme {
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-[data-theme="light"] {
-    --bg-background: #f8fafc;
-    --surface: #ffffff;
-    --surface-dim: #f1f5f9;
-    --surface-bright: #ffffff;
-    --surface-container-lowest: #ffffff;
-    --surface-container-low: #f8fafc;
-    --surface-container: #ffffff;
-    --surface-container-high: #f1f5f9;
-    --surface-container-highest: #e2e8f0;
-    --surface-variant: #e2e8f0;
-    --on-surface: #0f172a;
-    --on-surface-variant: #475569;
-    --outline: #94a3b8;
-    --outline-variant: #cbd5e1;
-    --primary: #494bd6;
-    --primary-container: #e0e7ff;
-    --on-primary-container: #3730a3;
-    --inverse-primary: #6366f1;
-    --on-primary-fixed: #ffffff;
-    --secondary: #059669;
-    --secondary-container: #d1fae5;
-    --tertiary: #e11d48;
-    --error: #dc2626;
-    --error-container: #fee2e2;
+@layer base {
+  body {
+    @apply bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-ui antialiased min-h-screen overflow-x-hidden selection:bg-indigo-500 selection:text-white transition-colors duration-150;
+  }
 }
 
-body {
-    background-color: var(--bg-background);
-    color: var(--on-surface);
-    font-family: var(--font-ui);
-    margin: 0;
-    padding: 0;
-    -webkit-font-smoothing: antialiased;
-}
+@layer components {
+  /* Minimal Button System */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer;
+  }
 
-.font-mono, .font-code-sm, .font-code-md, .font-label-caps {
-    font-family: var(--font-mono);
-}
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white shadow-xs dark:bg-indigo-600 dark:hover:bg-indigo-500;
+  }
 
-.bg-surface-custom {
-    background-color: var(--surface);
-}
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 shadow-xs;
+  }
 
-.bg-surface-container {
-    background-color: var(--surface-container);
-}
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-transparent text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-100;
+  }
 
-.bg-surface-container-low {
-    background-color: var(--surface-container-low);
-}
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-3.5 py-2 text-xs font-medium rounded-lg transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-rose-600 hover:bg-rose-700 text-white shadow-xs;
+  }
 
-.bg-surface-container-high {
-    background-color: var(--surface-container-high);
-}
+  /* Minimal Input System */
+  .form-input {
+    @apply w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-colors;
+  }
 
-.bg-surface-container-highest {
-    background-color: var(--surface-container-highest);
-}
+  /* Minimal Card System */
+  .card {
+    @apply bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs transition-colors;
+  }
 
-.bg-surface-dim {
-    background-color: var(--surface-dim);
-}
+  /* Minimal Badges */
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono;
+  }
 
-.text-on-surface {
-    color: var(--on-surface) !important;
-}
+  .badge-default {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700;
+  }
 
-.text-on-surface-variant {
-    color: var(--on-surface-variant) !important;
-}
+  .badge-primary {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60;
+  }
 
-.text-primary-custom {
-    color: var(--primary) !important;
-}
+  .badge-success {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60;
+  }
 
-.text-secondary-custom {
-    color: var(--secondary) !important;
-}
+  .badge-warning {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60;
+  }
 
-.border-outline-variant {
-    border-color: var(--outline-variant) !important;
-}
-
-/* Material Symbols Outlined Icon Styling */
-.material-symbols-outlined {
-    font-family: 'Material Symbols Outlined';
-    font-weight: normal;
-    font-style: normal;
-    font-size: 20px;
-    line-height: 1;
-    letter-spacing: normal;
-    text-transform: none;
-    display: inline-block;
-    white-space: nowrap;
-    word-wrap: normal;
-    direction: ltr;
-    -webkit-font-feature-settings: 'liga';
-    -webkit-font-smoothing: antialiased;
-    vertical-align: middle;
-}
-
-/* Glassmorphism Panel */
-.glass-panel {
-    background: rgba(30, 41, 59, 0.7);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(70, 69, 84, 0.5);
-}
-
-/* Buttons */
-.btn-primary-spec {
-    background-color: var(--inverse-primary);
-    color: #ffffff;
-    font-family: var(--font-ui);
-    font-weight: 600;
-    border: none;
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    transition: all 0.2s ease;
-}
-
-.btn-primary-spec:hover {
-    background-color: var(--primary-container);
-    color: #ffffff;
-}
-
-.btn-secondary-spec {
-    background-color: var(--surface-variant);
-    color: var(--on-surface);
-    border: 1px solid var(--outline-variant);
-    border-radius: 6px;
-    padding: 0.5rem 1rem;
-    transition: all 0.2s ease;
-}
-
-.btn-secondary-spec:hover {
-    background-color: var(--surface-container-high);
-    color: var(--primary);
-}
-
-/* Badges */
-.badge-published, .status-badge-success {
-    background-color: rgba(78, 222, 163, 0.12);
-    border: 1px solid rgba(78, 222, 163, 0.3);
-    color: var(--secondary);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-weight: 600;
-}
-
-.badge-draft {
-    background-color: rgba(255, 180, 171, 0.12);
-    border: 1px solid rgba(255, 180, 171, 0.3);
-    color: var(--error);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-weight: 600;
-}
-
-.bg-primary-container {
-    background-color: var(--primary-container) !important;
-    color: var(--on-primary-container) !important;
-}
-
-.text-on-primary-container {
-    color: var(--on-primary-container) !important;
-}
-
-.badge-ac {
-    background-color: var(--primary-container) !important;
-    color: var(--on-primary-container) !important;
-    border: 1px solid var(--outline-variant);
-    font-family: var(--font-mono);
-    font-weight: 600;
-}
-
-.scope-tag-item {
-    border: 1px solid var(--outline-variant);
-    color: var(--on-surface-variant);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    background-color: rgba(255, 255, 255, 0.03);
-}
-
-/* Table Grid Styling */
-.spec-table-container {
-    background-color: var(--surface-container-highest);
-    border: 1px solid var(--outline-variant);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-.spec-table-header {
-    background-color: var(--surface-container-low);
-    border-bottom: 1px solid var(--outline-variant);
-    color: var(--on-surface-variant);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.spec-table-row {
-    border-bottom: 1px solid var(--outline-variant);
-    transition: background-color 0.15s ease;
-}
-
-.spec-table-row:hover {
-    background-color: var(--surface-container);
-}
-
-/* Chat bubble styling */
-.chat-bubble-user {
-    background-color: var(--surface-container-highest);
-    border: 1px solid var(--outline-variant);
-    color: var(--on-surface);
-    border-radius: 12px 12px 2px 12px;
-}
-
-.chat-bubble-ai {
-    background-color: var(--surface-container-low);
-    border: 1px solid var(--outline-variant);
-    color: var(--on-surface);
-    border-radius: 12px 12px 12px 2px;
-}
-
-/* Bento Acceptance Criteria Card */
-.bento-criteria-card {
-    background-color: var(--surface-container-low);
-    border: 1px solid var(--outline-variant);
-    border-left: 3px solid var(--secondary);
-    border-radius: 0 8px 8px 0;
-    padding: 1rem;
-    color: var(--on-surface);
-}
-
-/* Modal Adaptive */
-.modal-content-adaptive {
-    background-color: var(--surface-container-highest);
-    border: 1px solid var(--outline-variant);
-    color: var(--on-surface);
-}
-
-.form-control-adaptive {
-    background-color: var(--surface-container-low) !important;
-    border: 1px solid var(--outline-variant) !important;
-    color: var(--on-surface) !important;
-}
-
-.form-control-adaptive:focus {
-    border-color: var(--primary) !important;
-    box-shadow: 0 0 0 0.2rem rgba(192, 193, 255, 0.15) !important;
+  .badge-danger {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium font-mono bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60;
+  }
 }

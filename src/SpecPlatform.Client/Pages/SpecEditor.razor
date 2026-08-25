@@ -4,144 +4,130 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="d-flex h-100 bg-background overflow-hidden" style="min-height: calc(100vh - 64px);">
+<div class="max-w-6xl mx-auto flex flex-col lg:flex-row gap-8">
 
-    <!-- Left Editor Canvas Column (Matching theme/spec_editor_versioning/code.html) -->
-    <main class="flex-grow-1 p-4 overflow-auto d-flex flex-column align-items-center" style="max-width: calc(100% - 320px);">
-        <div class="w-100" style="max-width: 880px;">
+    <!-- Main Editor Column -->
+    <div class="flex-1 flex flex-col gap-6">
 
-            @if (isLoadingSpec)
-            {
-                <div class="text-center py-5 font-mono text-on-surface-variant">
-                    <div class="spinner-border spinner-border-sm text-primary me-2"></div> Loading specification editor...
-                </div>
-            }
-            else if (spec != null)
-            {
-                <!-- Header Actions Bar -->
-                <div class="d-flex justify-content-between align-items-center pb-3 border-bottom border-outline-variant mb-4">
-                    <div class="d-flex align-items-center gap-2 font-mono fs-xs">
-                        <span class="status-badge-success">v@(spec.CurrentVersionNumber).(spec.Status == "Published" ? "0" : "draft")</span>
-                        <span class="text-on-surface-variant">&bull; ID: LA-REQ-00@spec.Id</span>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-danger font-mono py-1.5 px-3 d-flex align-items-center gap-1" @onclick="ConfirmDeleteSpec" title="Delete Specification">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">delete</span> Delete
-                        </button>
-                        <button class="btn btn-secondary-spec font-mono py-1.5 px-3" @onclick="SaveDraft" disabled="@isSaving">
-                            Save Draft
-                        </button>
-                        <button class="btn btn-primary-spec font-mono py-1.5 px-3 d-flex align-items-center gap-1" @onclick="PublishSpec" disabled="@isPublishing">
-                            <span class="material-symbols-outlined" style="font-size: 16px;">publish</span> Publish
-                        </button>
-                    </div>
+        @if (isLoadingSpec)
+        {
+            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                <span>Loading specification editor...</span>
+            </div>
+        }
+        else if (spec != null)
+        {
+            <!-- Header Actions Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="badge @(spec.Status == "Published" ? "badge-success" : "badge-warning")">
+                        v@(spec.CurrentVersionNumber).@(spec.Status == "Published" ? "0" : "draft")
+                    </span>
+                    <span class="text-zinc-400 dark:text-zinc-500 font-mono">SPEC-00@(spec.Id)</span>
                 </div>
 
-                <!-- Editor Canvas -->
-                <div class="d-flex flex-column gap-4">
-                    
-                    <!-- Spec Title -->
-                    <div>
-                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">SPECIFICATION TITLE</label>
-                        <input type="text" class="form-control form-control-adaptive fw-bold fs-4 text-on-surface" placeholder="Specification Title" @bind="title" />
-                    </div>
-
-                    <!-- Description -->
-                    <div>
-                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">DESCRIPTION</label>
-                        <textarea class="form-control form-control-adaptive" rows="4" placeholder="Detailed description of specification intent..." @bind="description"></textarea>
-                    </div>
-
-                    <!-- Acceptance Criteria Section -->
-                    <div>
-                        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-outline-variant">
-                            <h5 class="fw-bold text-on-surface mb-0 d-flex align-items-center gap-2">
-                                <span class="material-symbols-outlined text-primary-custom">fact_check</span> Acceptance Criteria
-                            </h5>
-                            <button class="btn btn-sm btn-link text-primary-custom font-mono text-decoration-none p-0 fs-xs" @onclick="AddCriterion">+ Add Criterion</button>
-                        </div>
-
-                        <div class="d-flex flex-column gap-3">
-                            @for (int i = 0; i < criteria.Count; i++)
-                            {
-                                var idx = i;
-                                <div class="bg-surface-container-low border border-outline-variant rounded p-3 d-flex gap-3 align-items-start position-relative">
-                                    <span class="font-mono text-outline-variant fs-xs mt-1">0@(idx+1)</span>
-                                    
-                                    <div class="flex-grow-1">
-                                        <div class="d-flex gap-1.5 mb-2">
-                                            <span class="scope-tag-item fs-xs">⚙️ api</span>
-                                            <span class="scope-tag-item fs-xs">🔒 security</span>
-                                        </div>
-                                        <input type="text" class="form-control form-control-adaptive font-mono fs-xs" @bind="criteria[idx]" />
-                                    </div>
-
-                                    <button class="btn p-0 text-on-surface-variant hover-danger" @onclick="() => criteria.RemoveAt(idx)">
-                                        <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
-                                    </button>
-                                </div>
-                            }
-                        </div>
-                    </div>
-
-                    <!-- Scope Tags Section -->
-                    <div>
-                        <label class="font-mono text-primary-custom fs-xs fw-bold tracking-wider mb-1 block">SCOPE TAGS (Comma-separated)</label>
-                        <input type="text" class="form-control form-control-adaptive font-mono" placeholder="api, bff, security" @bind="tagsRaw" />
-                    </div>
-
+                <div class="flex items-center gap-2">
+                    <button class="btn-secondary text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30" @onclick="ConfirmDeleteSpec" title="Delete Specification">
+                        <span class="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Delete</span>
+                    </button>
+                    <button class="btn-secondary text-xs" @onclick="SaveDraft" disabled="@isSaving">
+                        <span>Save Draft</span>
+                    </button>
+                    <button class="btn-primary text-xs" @onclick="PublishSpec" disabled="@isPublishing">
+                        <span class="material-symbols-outlined text-[16px]">publish</span>
+                        <span>Publish Version</span>
+                    </button>
                 </div>
-            }
-            else
-            {
-                <div class="p-5 text-center text-on-surface-variant font-mono">
-                    Select a specification to view and edit version history.
+            </div>
+
+            <!-- Editor Form Card -->
+            <div class="card p-6 flex flex-col gap-5">
+                <!-- Title Field -->
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Specification Title</label>
+                    <input type="text" class="form-input text-base font-semibold" placeholder="e.g. Loan Application & Decision Engine" @bind="title" />
                 </div>
-            }
 
-        </div>
-    </main>
+                <!-- Description Field -->
+                <div>
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Master Specification Description</label>
+                    <textarea class="form-input text-xs leading-relaxed" rows="6" placeholder="Describe the business problem, target personas, and scope..." @bind="description"></textarea>
+                </div>
 
-    <!-- Right Inspector Panel: Version History Timeline (Matching theme/spec_editor_versioning/code.html - 320px) -->
-    <aside class="w-100 bg-surface-container-lowest border-start border-outline-variant d-flex flex-column h-100" style="width: 320px; min-width: 320px;">
-        <div class="p-3 border-bottom border-outline-variant d-flex align-items-center gap-2">
-            <span class="material-symbols-outlined text-primary-custom">history</span>
-            <h6 class="fw-bold text-on-surface mb-0 font-ui">Version History Log</h6>
-        </div>
+                <!-- Acceptance Criteria Section -->
+                <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-xs font-medium text-zinc-700 dark:text-zinc-300">Acceptance Criteria (@criteria.Count)</label>
+                        <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer" @onclick="AddCriterion">+ Add Criterion</button>
+                    </div>
 
-        <div class="flex-grow-1 overflow-auto p-3 position-relative">
-            <!-- Timeline Line -->
-            <div class="position-absolute bg-outline-variant" style="left: 27px; top: 16px; bottom: 16px; width: 1px;"></div>
+                    <div class="flex flex-col gap-2.5">
+                        @for (int i = 0; i < criteria.Count; i++)
+                        {
+                            var idx = i;
+                            <div class="flex items-center gap-2 group">
+                                <span class="text-xs font-mono text-zinc-400 w-6 text-center shrink-0">#@(idx + 1)</span>
+                                <input type="text" class="form-input text-xs" placeholder="Criteria rule or verification step..." @bind="criteria[idx]" />
+                                <button class="text-zinc-400 hover:text-rose-600 p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors shrink-0 cursor-pointer" @onclick="() => criteria.RemoveAt(idx)" title="Remove">
+                                    <span class="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Scope Tags -->
+                <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
+                    <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Scope Tags (Comma-separated)</label>
+                    <input type="text" class="form-input text-xs font-mono" placeholder="api, bff, security, kyc" @bind="tagsRaw" />
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="card p-12 text-center border-dashed border-zinc-300 dark:border-zinc-800 text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                Select a specification to edit.
+            </div>
+        }
+
+    </div>
+
+    <!-- Right Sidebar: Version Timeline -->
+    <div class="w-full lg:w-80 flex flex-col gap-4 shrink-0">
+        <div class="card p-4">
+            <h3 class="text-xs font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[18px]">history</span>
+                <span>Published Versions</span>
+            </h3>
 
             @if (spec?.Versions != null && spec.Versions.Any())
             {
-                @foreach (var ver in spec.Versions.OrderByDescending(v => v.VersionNumber))
-                {
-                    <div class="position-relative ps-4 mb-4">
-                        <!-- Glowing Timeline Node Dot -->
-                        <div class="position-absolute rounded-circle bg-primary-custom border border-dark" style="left: -4px; top: 4px; width: 10px; height: 10px;"></div>
-
-                        <div class="d-flex align-items-center justify-content-between mb-1">
-                            <span class="font-mono text-primary-custom fw-bold fs-xs">v@(ver.VersionNumber)</span>
-                            <span class="font-mono text-on-surface-variant fs-xs opacity-75">@ver.PublishedAt.ToLocalTime().ToString("g")</span>
+                <div class="flex flex-col gap-3 relative pl-4 before:absolute before:left-1 before:top-2 before:bottom-2 before:w-px before:bg-zinc-200 dark:before:bg-zinc-800">
+                    @foreach (var ver in spec.Versions.OrderByDescending(v => v.VersionNumber))
+                    {
+                        <div class="relative pl-3">
+                            <span class="absolute -left-[15px] top-1.5 w-2 h-2 rounded-full bg-indigo-600 ring-4 ring-white dark:ring-zinc-900"></span>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="text-xs font-mono font-semibold text-zinc-900 dark:text-zinc-100">v@(ver.VersionNumber)</span>
+                                <span class="text-[11px] font-mono text-zinc-400">@ver.PublishedAt.ToLocalTime().ToString("g")</span>
+                            </div>
+                            <div class="text-[11px] text-zinc-500 dark:text-zinc-400">
+                                @ver.AcceptanceCriteria.Count criteria &bull; @ver.ScopeTags.Count tags
+                            </div>
                         </div>
-
-                        <div class="glass-panel p-2 rounded text-on-surface font-mono fs-xs">
-                            <div class="fw-semibold mb-1">Snapshot Published</div>
-                            <div class="text-on-surface-variant fs-xs">Criteria Count: @ver.AcceptanceCriteria.Count &bull; Scope Tags: @ver.ScopeTags.Count</div>
-                        </div>
-                    </div>
-                }
+                    }
+                </div>
             }
             else
             {
-                <div class="text-on-surface-variant font-mono fs-xs p-3">
-                    No version history entries available yet.
+                <div class="text-xs text-zinc-400 dark:text-zinc-500 font-mono py-4 text-center">
+                    No published versions yet.
                 </div>
             }
         </div>
-    </aside>
+    </div>
 
 </div>
 

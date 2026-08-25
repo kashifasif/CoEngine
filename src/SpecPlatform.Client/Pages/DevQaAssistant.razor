@@ -6,174 +6,147 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<div class="d-flex flex-column p-4 overflow-hidden" style="height: calc(100vh - 64px); max-height: calc(100vh - 64px); gap: 1rem;">
+<div class="flex flex-col h-[calc(100vh-56px)] -m-6 sm:-m-8 bg-zinc-50 dark:bg-zinc-950">
 
-    <!-- Page Header & Project Controls Toolbar -->
-    <div class="glass-card p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 flex-shrink-0">
-        <div>
-            <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-patch-question-fill text-cyan fs-3" style="color: #06b6d4;"></i>
-                <h3 class="fw-bold text-adaptive-heading mb-0">Specifications Q/A Studio</h3>
-                <span class="badge bg-cyan bg-opacity-15 text-cyan border border-cyan border-opacity-30 fs-xs" style="color: #06b6d4;">
-                    Q/A Mode (Dev, QA & Team)
-                </span>
-            </div>
-            <p class="text-adaptive-muted small mb-0 mt-1">
-                Ask questions grounded in project specifications for Developers, QA Engineers, Product Managers, and Team Members.
-            </p>
+    <!-- Header Toolbar -->
+    <header class="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md px-6 flex items-center justify-between shrink-0 gap-4">
+        <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-xl">chat</span>
+            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight m-0">Published Specs Q&amp;A</h2>
         </div>
 
-        <div class="d-flex flex-wrap align-items-center gap-3">
-            <!-- Project Selector -->
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-adaptive-muted small font-mono">Project:</span>
-                <select class="form-select form-select-sm form-control-adaptive font-mono" style="min-width: 200px;" value="@selectedProjectId" @onchange="OnProjectSelected">
-                    @if (!projects.Any())
+        <div class="flex items-center gap-2.5">
+            <!-- Project Dropdown -->
+            <select class="form-input text-xs py-1.5 w-auto" value="@selectedProjectId" @onchange="OnProjectSelected">
+                @if (!projects.Any())
+                {
+                    <option value="0">Loading projects...</option>
+                }
+                else
+                {
+                    @foreach (var proj in projects)
                     {
-                        <option value="0">Loading projects...</option>
+                        <option value="@proj.Id">@proj.Name</option>
+                    }
+                }
+            </select>
+
+            <span class="badge badge-primary text-xs py-1 px-2.5 hidden sm:inline-flex">
+                @(vectorStats?.TotalVectorCount ?? 0) Vectors
+            </span>
+
+            <button class="btn-secondary text-xs p-1.5" @onclick="ClearChat" title="Clear Chat History">
+                <span class="material-symbols-outlined text-[16px]">delete</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat Stream Window -->
+    <div id="devQaChatStream" class="flex-1 overflow-y-auto p-6 flex flex-col gap-6 max-w-4xl w-full mx-auto">
+
+        @if (isLoadingChat)
+        {
+            <div class="py-20 flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 font-mono text-xs">
+                <div class="animate-spin w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full mb-3"></div>
+                <span>Querying vector store knowledge base...</span>
+            </div>
+        }
+        else if (!chatMessages.Any())
+        {
+            <div class="my-auto flex flex-col items-center justify-center text-center py-12">
+                <div class="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4">
+                    <span class="material-symbols-outlined text-2xl">search</span>
+                </div>
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Ask questions about published specifications</h3>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400 max-w-md mb-6 leading-relaxed">
+                    Grounded in the indexed requirements of <strong class="text-zinc-800 dark:text-zinc-200">@(selectedProject?.Name ?? "this project")</strong>.
+                </p>
+
+                <!-- Prompt Suggestions -->
+                <div class="flex flex-wrap justify-center gap-2 max-w-xl">
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("What API endpoint contracts and payload formats are specified for this project?")'>
+                        What API contracts are specified?
+                    </button>
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("List error handling scenarios, HTTP status codes, and exception boundaries.")'>
+                        List HTTP error codes &amp; status mapping
+                    </button>
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Generate Given-When-Then Gherkin syntax feature files for all published acceptance criteria.")'>
+                        Generate Gherkin test scenarios
+                    </button>
+                    <button class="btn-secondary text-xs py-1.5 px-3" @onclick='() => UsePrompt("Summarize all key acceptance criteria and business rules for this project.")'>
+                        Summarize key business rules
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var msg in chatMessages)
+            {
+                bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
+
+                <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
+                    <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
+                        @(msg.Role == "user" ? "You" : "Q&A Assistant")
+                    </div>
+
+                    @if (msg.Role == "user")
+                    {
+                        <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-4 py-3 text-xs leading-relaxed max-w-[85%] whitespace-pre-wrap shadow-xs">
+                            @msg.Content
+                        </div>
                     }
                     else
                     {
-                        @foreach (var proj in projects)
-                        {
-                            <option value="@proj.Id">@proj.Name</option>
-                        }
-                    }
-                </select>
-            </div>
-
-            <button class="btn btn-sm btn-secondary-dark px-3 py-1.5 rounded-3" @onclick="ClearChat" title="Clear DB Chat Session">
-                <i class="bi bi-trash me-1"></i> Clear DB Memory
-            </button>
-        </div>
-    </div>
-
-    <!-- Main Chat Workspace -->
-    <div class="glass-card flex-grow-1 p-4 d-flex flex-column justify-content-between overflow-hidden position-relative" style="min-height: 0;">
-
-        <!-- Top Action Bar -->
-        <div class="d-flex align-items-center justify-content-between pb-3 border-bottom mb-3 flex-shrink-0">
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge bg-secondary bg-opacity-25 text-adaptive-muted font-mono fs-xs">
-                    Published Context: @(selectedProject?.Name ?? "Selected Project Specs")
-                </span>
-                <span class="badge bg-primary bg-opacity-15 text-indigo border border-indigo border-opacity-30 font-mono fs-xs">
-                    <i class="bi bi-cpu me-1"></i> PostgreSQL pgvector Active (@(vectorStats?.TotalVectorCount ?? 0) Vectors Indexed)
-                </span>
-            </div>
-
-            <div class="d-flex align-items-center gap-2">
-                <span class="text-adaptive-muted fs-xs font-mono">Active Mode: <strong>Q/A Mode (Unified Specification Q&A)</strong></span>
-            </div>
-        </div>
-
-        <!-- Chat Stream Window -->
-        <div id="devQaChatStream" class="flex-grow-1 overflow-auto pe-2 d-flex flex-column gap-3 mb-3" style="min-height: 0;">
-
-            @if (isLoadingChat)
-            {
-                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
-                    <div class="spinner-border text-cyan mb-2" role="status"></div>
-                    <span class="text-adaptive-muted small font-mono">Loading Vector DB Knowledge Base...</span>
-                </div>
-            }
-            else if (!chatMessages.Any())
-            {
-                <div class="d-flex flex-column align-items-center justify-content-center h-100 text-center py-5">
-                    <div class="rounded-circle p-3 mb-3 bg-gradient-primary d-flex align-items-center justify-content-center" style="width: 64px; height: 64px; background: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);">
-                        <i class="bi bi-patch-question fs-2 text-white"></i>
-                    </div>
-                    <h5 class="fw-bold text-adaptive-heading">
-                        Specifications Q/A Mode Studio
-                    </h5>
-                    <p class="text-adaptive-muted small max-w-md" style="max-width: 550px;">
-                        Ask questions about specifications & requirements for <strong>@(selectedProject?.Name ?? "this project")</strong>. Unified for Developers, QA Engineers, Product Managers, and Team Members.
-                    </p>
-
-                    <!-- Prompt Suggestion Pills -->
-                    <div class="d-flex flex-wrap justify-content-center gap-2 mt-3" style="max-width: 750px;">
-                        <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("What API endpoint contracts and payload formats are specified for this project?")'>
-                            💡 "What API contracts & payloads are specified?"
-                        </button>
-                        <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("List error handling scenarios, HTTP status codes, and exception boundaries.")'>
-                            💡 "List error codes & HTTP status mapping"
-                        </button>
-                        <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("Generate Given-When-Then Gherkin syntax feature files for all published acceptance criteria.")'>
-                            🧪 "Generate Given-When-Then Gherkin test scenarios"
-                        </button>
-                        <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("What are the negative test cases and boundary value limits to test?")'>
-                            🧪 "List boundary value & negative test cases"
-                        </button>
-                        <button class="btn btn-sm btn-secondary-dark rounded-pill px-3 py-1.5 font-mono fs-xs text-start" @onclick='() => UsePrompt("Summarize all key acceptance criteria and business rules for this project.")'>
-                            📋 "Summarize acceptance criteria & rules"
-                        </button>
-                    </div>
-                </div>
-            }
-            else
-            {
-                @foreach (var msg in chatMessages)
-                {
-                    bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
-                    <div class="d-flex @(msg.Role == "user" ? "justify-content-end" : "justify-content-start")">
-                        <div class="p-3 shadow-sm @(msg.Role == "user" ? "chat-bubble-user" : "chat-bubble-ai")" style="max-width: 85%;">
-                            <div class="d-flex align-items-center justify-content-between mb-1 opacity-75 fs-xs fw-semibold">
-                                <span>
-                                    <i class="bi @(msg.Role == "user" ? "bi-person-fill" : "bi-patch-question-fill text-cyan") me-1"></i>
-                                    @(msg.Role == "user" ? "Team Member" : "Q/A Mode AI Assistant")
-                                </span>
-                            </div>
-
+                        <div class="card p-5 max-w-[90%] w-full flex flex-col gap-3 shadow-xs">
                             @if (isError)
                             {
-                                <div class="d-flex align-items-center gap-2 py-1">
-                                    <button class="btn btn-sm btn-outline-danger text-danger border-danger rounded-pill px-3 py-1.5 font-mono fs-xs d-flex align-items-center gap-2" @onclick="RetryLastQuery" disabled="@isThinking" title="Click to retry answer">
-                                        <i class="bi bi-arrow-clockwise fs-5 text-danger"></i>
-                                        <span class="fw-bold text-danger">Retry</span>
+                                <div class="flex items-center gap-3">
+                                    <span class="text-rose-600 text-xs font-mono">Failed to receive answer</span>
+                                    <button class="btn-secondary text-xs py-1 px-2.5" @onclick="RetryLastQuery" disabled="@isThinking">
+                                        <span class="material-symbols-outlined text-[14px]">refresh</span>
+                                        <span>Retry</span>
                                     </button>
                                 </div>
                             }
                             else
                             {
-                                <div style="white-space: pre-wrap; font-family: var(--font-sans);" class="small lh-base">@msg.Content</div>
+                                <div class="text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed prose dark:prose-invert max-w-none">
+                                    @((MarkupString)Markdig.Markdown.ToHtml(msg.Content))
+                                </div>
                             }
                         </div>
-                    </div>
-                }
-
-                @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
-                {
-                    <div class="d-flex justify-content-start">
-                        <div class="p-3 chat-bubble-ai text-adaptive-muted small d-flex align-items-center gap-2">
-                            <span class="spinner-border spinner-border-sm text-cyan"></span>
-                            <span>Searching specifications & streaming answer...</span>
-                        </div>
-                    </div>
-                }
+                    }
+                </div>
             }
 
-        </div>
-
-        <!-- Chat Input & Controls Bar -->
-        <div class="pt-2 border-top">
-            <div class="input-group input-group-lg">
-                <textarea id="devQaAssistantInput" class="form-control form-control-adaptive rounded-start-3 fs-6" rows="2" placeholder="@(roleMode == "dev" ? "Ask a question about API specs, payloads, or error codes..." : "Ask a question about test scenarios, edge cases, or acceptance criteria...")" @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
-                <button class="btn btn-primary-gradient px-4 d-flex align-items-center justify-content-center gap-2" @onclick="SendDevQaQuery" disabled="@isThinking">
-                    @if (isThinking)
-                    {
-                        <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                        <span>Streaming...</span>
-                    }
-                    else
-                    {
-                        <i class="bi bi-send-fill fs-5"></i>
-                        <span class="fw-bold d-none d-sm-inline">Ask</span>
-                    }
-                </button>
-            </div>
-        </div>
+            @if (isThinking && string.IsNullOrEmpty(currentStreamingResponse))
+            {
+                <div class="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-mono py-2">
+                    <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full"></div>
+                    <span>Searching specification vector embeddings...</span>
+                </div>
+            }
+        }
 
     </div>
+
+    <!-- Input Bar -->
+    <footer class="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shrink-0">
+        <div class="max-w-4xl mx-auto flex flex-col gap-2">
+            <div class="flex gap-2 items-end">
+                <textarea id="devQaAssistantInput" class="form-input text-xs leading-relaxed resize-none min-h-[56px] max-h-36" placeholder="Ask about endpoints, validations, business logic, or edge cases..." @bind="userPromptInput" @onkeydown="HandleKeyDown" disabled="@isThinking"></textarea>
+                <button class="btn-primary p-3 rounded-lg shrink-0 h-[42px] w-[42px]" @onclick="SendDevQaQuery" disabled="@isThinking" title="Send (Enter)">
+                    <span class="material-symbols-outlined text-[18px]">send</span>
+                </button>
+            </div>
+
+            <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                <span>Press Enter to ask</span>
+                <span>Grounded with PgVector Embeddings</span>
+            </div>
+        </div>
+    </footer>
 
 </div>
 

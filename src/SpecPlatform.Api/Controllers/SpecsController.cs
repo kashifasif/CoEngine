@@ -402,6 +402,84 @@ public class SpecsController : ControllerBase
         });
     }
 
+    [HttpPost("api/specs/{id:int}/versions/{versionNumber:int}/undo")]
+    public async Task<ActionResult<SpecDto>> UndoPublishSpec(int id, int versionNumber)
+    {
+        var spec = await _db.Specs
+            .Include(s => s.Project)
+            .Include(s => s.Versions)
+                .ThenInclude(v => v.AcceptanceCriteria)
+            .Include(s => s.Versions)
+                .ThenInclude(v => v.ScopeTags)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (spec == null) return NotFound("Spec not found.");
+
+        var targetVersion = spec.Versions.FirstOrDefault(v => v.VersionNumber == versionNumber);
+        if (targetVersion == null || targetVersion.VersionNumber == 0) return BadRequest("Invalid version number.");
+        if (targetVersion.IsUndone) return BadRequest("Version is already undone.");
+
+        targetVersion.IsUndone = true;
+        
+        var summaryText = $"Undone publication of Specification: {spec.Title} (v{versionNumber})";
+        var notification = new Notification
+        {
+            SpecId = spec.Id,
+            SpecTitle = spec.Title,
+            ProjectName = spec.Project?.Name ?? "General",
+            VersionNumber = versionNumber,
+            SummaryText = summaryText,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.Notifications.Add(notification);
+
+        await _db.SaveChangesAsync();
+        await _vectorStore.DeleteDocumentAsync(spec.ProjectId, $"published_spec", $"{spec.Title} (v{versionNumber})");
+
+        return Ok(MapToSpecDto(spec));
+    }
+
+    [HttpPost("api/specs/{id:int}/versions/{versionNumber:int}/redo")]
+    public async Task<ActionResult<SpecDto>> RedoPublishSpec(int id, int versionNumber)
+    {
+        var spec = await _db.Specs
+            .Include(s => s.Project)
+            .Include(s => s.Versions)
+                .ThenInclude(v => v.AcceptanceCriteria)
+            .Include(s => s.Versions)
+                .ThenInclude(v => v.ScopeTags)
+            .FirstOrDefaultAsync(s => s.Id == id);
+
+        if (spec == null) return NotFound("Spec not found.");
+
+        var targetVersion = spec.Versions.FirstOrDefault(v => v.VersionNumber == versionNumber);
+        if (targetVersion == null || targetVersion.VersionNumber == 0) return BadRequest("Invalid version number.");
+        if (!targetVersion.IsUndone) return BadRequest("Version is not undone.");
+
+        targetVersion.IsUndone = false;
+        
+        var summaryText = $"Redone publication of Specification: {spec.Title} (v{versionNumber})";
+        var notification = new Notification
+        {
+            SpecId = spec.Id,
+            SpecTitle = spec.Title,
+            ProjectName = spec.Project?.Name ?? "General",
+            VersionNumber = versionNumber,
+            SummaryText = summaryText,
+            CreatedAt = DateTime.UtcNow
+        };
+        _db.Notifications.Add(notification);
+
+        await _db.SaveChangesAsync();
+        
+        var pubCriteria = string.Join(". ", targetVersion.AcceptanceCriteria.Select(a => a.Text));
+        var pubTags = string.Join(", ", targetVersion.ScopeTags.Select(t => t.TagName));
+        await _vectorStore.IndexDocumentAsync(spec.ProjectId, "published_spec", $"{spec.Title} (v{versionNumber})",
+            $"{spec.Description}. Acceptance criteria: {pubCriteria}. Scope tags: {pubTags}");
+
+        return Ok(MapToSpecDto(spec));
+    }
+
     [HttpGet("api/notifications")]
     public async Task<ActionResult<List<NotificationDto>>> GetNotifications()
     {
@@ -1050,10 +1128,12 @@ Extract the key features, workflows, and specifications into an initial draft.";
     {
         var publishedVersions = spec.Versions.Where(v => v.VersionNumber > 0).OrderByDescending(v => v.VersionNumber)
             .ToList();
-        var currentVersion = publishedVersions.FirstOrDefault() ??
+        
+        var activePublishedVersions = publishedVersions.Where(v => !v.IsUndone).ToList();
+        var currentVersion = activePublishedVersions.FirstOrDefault() ??
                              spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
-        int currentVersionNumber = publishedVersions.Any() ? publishedVersions.First().VersionNumber : 1;
+        int currentVersionNumber = activePublishedVersions.Any() ? activePublishedVersions.First().VersionNumber : (publishedVersions.Any() ? publishedVersions.First().VersionNumber : 1);
 
         return new SpecDto
         {
@@ -1078,7 +1158,8 @@ Extract the key features, workflows, and specifications into an initial draft.";
                     PublishedAt = v.PublishedAt,
                     AcceptanceCriteria = v.AcceptanceCriteria.Select(ac => ac.Text).ToList(),
                     ScopeTags = v.ScopeTags.Select(st => st.TagName).ToList(),
-                    SelfReviewJson = v.SelfReviewJson
+                    SelfReviewJson = v.SelfReviewJson,
+                    IsUndone = v.IsUndone
                 })
                 .ToList()
         };
