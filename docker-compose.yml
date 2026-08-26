@@ -76,3 +76,16 @@ services:
       start_period: 10s
     networks:
       - specplatform_net
+
+volumes:
+  postgres_data:
+    driver: local
+  certbot_etc:
+    driver: local
+  certbot_var:
+    driver: local
+
+networks:
+  specplatform_net:
+    driver: bridge
+
