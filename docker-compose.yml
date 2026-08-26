@@ -1,20 +1,28 @@
 services:
-  # ─────────────────────────────────────────────────────────────────────────
-  # 1. SpecPlatform App (ASP.NET Core API + Blazor WASM Frontend)
-  # ─────────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: specplatform_nginx
+    restart: always
+    ports:
+      - "127.0.0.1:8080:80" # Listens on 8080 for host Nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+    networks:
+      - specplatform_net
+
   app:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: specplatform_app
     restart: always
-    ports:
-      # Bound to localhost so host VM's Nginx can reverse proxy traffic directly
-      - "127.0.0.1:5005:8080"
+    expose:
+      - "8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      # Connects directly to internal postgres container on the private network
       ConnectionStrings__PostgresConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-specplatform_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres_secure_pass}"
       GitHub__ClientId: ${GITHUB_CLIENT_ID}
       GitHub__ClientSecret: ${GITHUB_CLIENT_SECRET}
@@ -29,9 +37,6 @@ services:
     networks:
       - specplatform_net
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # 2. PostgreSQL Database Service with pgvector - Isolated
-  # ─────────────────────────────────────────────────────────────────────────
   postgres:
     image: pgvector/pgvector:pg16
     container_name: specplatform_postgres
@@ -40,7 +45,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-specplatform_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_pass}
-    # Isolated to internal Docker network only — NOT exposed directly to the host
     expose:
       - "5432"
     volumes:
