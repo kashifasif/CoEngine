@@ -47,3 +47,5 @@ appsettings.*.json
 .env.*
 !.env.example
 
+node_modules
+.agents
