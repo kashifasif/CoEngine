@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SpecPlatform.Shared.Models;
+using SpecPlatform.Shared.Models;
+using SpecPlatform.Api.Data.Models;
 
 namespace SpecPlatform.Api.Data;
 
@@ -19,9 +21,12 @@ public class AppDbContext : DbContext
     public DbSet<ChatMessageRecord> ChatMessages => Set<ChatMessageRecord>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserAiUsage> UserAiUsages => Set<UserAiUsage>();
+    public DbSet<VectorDocument> VectorDocuments => Set<VectorDocument>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasPostgresExtension("vector");
+
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.Entity<Project>()
@@ -89,5 +94,8 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(u => u.UserId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<VectorDocument>()
+            .HasIndex(v => v.ProjectId);
     }
 }

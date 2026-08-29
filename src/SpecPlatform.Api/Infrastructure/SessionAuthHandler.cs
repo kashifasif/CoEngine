@@ -44,7 +44,7 @@ public class SessionAuthHandler : AuthenticationHandler<AuthenticationSchemeOpti
         };
 
         var parts = token.Split('_');
-        if (parts.Length >= 3 && int.TryParse(parts[2], out var userId))
+        if (parts.Length >= 3 && Guid.TryParse(parts[2], out var userId))
         {
             claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.ToString()));
         }

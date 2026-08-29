@@ -42,6 +42,8 @@ builder.Services.AddKernel()
 
 builder.Services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
 builder.Services.AddScoped<IVectorStoreService, PgVectorStoreService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // Add CORS Policy for Blazor WASM
 builder.Services.AddCors(options =>
@@ -63,90 +65,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 
-    // Ensure PostgreSQL pgvector extension and tables exist
-    try
-    {
-            db.Database.ExecuteSqlRaw(@"
-                CREATE EXTENSION IF NOT EXISTS vector;
-
-                CREATE TABLE IF NOT EXISTS ""Users"" (
-                    ""Id"" SERIAL PRIMARY KEY,
-                    ""GitHubId"" TEXT NOT NULL DEFAULT '',
-                    ""Username"" TEXT NOT NULL DEFAULT '',
-                    ""DisplayName"" TEXT NOT NULL DEFAULT '',
-                    ""Email"" TEXT NOT NULL DEFAULT '',
-                    ""AvatarUrl"" TEXT NOT NULL DEFAULT '',
-                    ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    ""LastLoginAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-
-                DROP TABLE IF EXISTS ""VectorDocuments"";
-                CREATE TABLE ""VectorDocuments"" (
-                    ""Id"" TEXT PRIMARY KEY,
-                    ""ProjectId"" INTEGER NOT NULL,
-                    ""DocType"" TEXT NOT NULL,
-                    ""Title"" TEXT NOT NULL,
-                    ""Content"" TEXT NOT NULL,
-                    ""Embedding"" vector,
-                    ""IndexedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
-                );
-
-                CREATE INDEX ""IX_VectorDocuments_ProjectId"" ON ""VectorDocuments"" (""ProjectId"");
-            ");
-
-        // Backfill any existing notifications created before author tracking with real user info
-        var defaultUser = await db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
-        if (defaultUser != null)
-        {
-            var unassignedNotifs = await db.Notifications
-                .Where(n => n.AuthorUserId == null)
-                .ToListAsync();
-
-            if (unassignedNotifs.Any())
-            {
-                foreach (var notif in unassignedNotifs)
-                {
-                    notif.AuthorUserId = defaultUser.Id;
-                }
-                await db.SaveChangesAsync();
-            }
-
-            var unassignedVersions = await db.SpecVersions
-                .Where(v => v.AuthorUserId == null)
-                .ToListAsync();
-
-            if (unassignedVersions.Any())
-            {
-                foreach (var version in unassignedVersions)
-                {
-                    version.AuthorUserId = defaultUser.Id;
-                }
-                await db.SaveChangesAsync();
-            }
-
-            var unassignedProjects = await db.Projects.Where(p => p.CreatedByUserId == null).ToListAsync();
-            if (unassignedProjects.Any())
-            {
-                foreach (var p in unassignedProjects) p.CreatedByUserId = defaultUser.Id;
-                await db.SaveChangesAsync();
-            }
-
-            var unassignedSpecs = await db.Specs.Where(s => s.CreatedByUserId == null).ToListAsync();
-            if (unassignedSpecs.Any())
-            {
-                foreach (var s in unassignedSpecs) s.CreatedByUserId = defaultUser.Id;
-                await db.SaveChangesAsync();
-            }
-
-            var unassignedChatSessions = await db.ChatSessions.Where(cs => cs.UserId == null).ToListAsync();
-            if (unassignedChatSessions.Any())
-            {
-                foreach (var cs in unassignedChatSessions) cs.UserId = defaultUser.Id;
-                await db.SaveChangesAsync();
-            }
-        }
-    }
-    catch { }
+    // Removed hacky raw SQL and backfill loops. Schema creation is now handled natively by EF Core Migrations.
 }
 
 

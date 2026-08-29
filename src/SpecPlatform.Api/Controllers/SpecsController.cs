@@ -19,37 +19,16 @@ public class SpecsController : ControllerBase
     private readonly IVectorStoreService _vectorStore;
     private readonly ILogger<SpecsController> _logger;
 
+    private readonly ICurrentUserService _currentUser;
+
     public SpecsController(AppDbContext db, IOpenRouterService openRouter, IVectorStoreService vectorStore,
-        ILogger<SpecsController> logger)
+        ILogger<SpecsController> logger, ICurrentUserService currentUser)
     {
         _db = db;
         _openRouter = openRouter;
         _vectorStore = vectorStore;
         _logger = logger;
-    }
-
-    private async Task<User?> GetCurrentAuthenticatedUserAsync()
-    {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
-        var token = !string.IsNullOrWhiteSpace(authHeader)
-            ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
-            : xAuthToken?.Trim();
-
-        if (!string.IsNullOrWhiteSpace(token) && token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase))
-        {
-            var parts = token.Split('_');
-            if (parts.Length >= 3 && Guid.TryParse(parts[2], out var uid))
-            {
-                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == uid);
-                if (user != null)
-                {
-                    return user;
-                }
-            }
-        }
-
-        return await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
+        _currentUser = currentUser;
     }
 
     private async Task RecordAiUsageAsync(string operation, string promptText, string completionText,
@@ -57,7 +36,7 @@ public class SpecsController : ControllerBase
     {
         try
         {
-            var user = await GetCurrentAuthenticatedUserAsync();
+            var user = await _currentUser.GetUserAsync();
             var userId = user?.Id;
             var username = user?.Username ?? "anonymous";
 
@@ -92,7 +71,7 @@ public class SpecsController : ControllerBase
     [HttpGet("api/users/me/ai-usage")]
     public async Task<ActionResult<UserAiUsageSummaryDto>> GetCurrentUserAiUsage()
     {
-        var user = await GetCurrentAuthenticatedUserAsync();
+        var user = await _currentUser.GetUserAsync();
         var userId = user?.Id;
         var username = user?.Username;
 
@@ -151,7 +130,7 @@ public class SpecsController : ControllerBase
     [HttpGet("api/projects/{projectId:guid}/specs")]
     public async Task<ActionResult<List<SpecDto>>> GetSpecsForProject(Guid projectId)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -179,7 +158,7 @@ public class SpecsController : ControllerBase
     [HttpDelete("api/projects/{id:guid}")]
     public async Task<IActionResult> DeleteProject(Guid id)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == currentUser.Id);
@@ -196,7 +175,7 @@ public class SpecsController : ControllerBase
     [HttpDelete("api/specs/{id:guid}")]
     public async Task<IActionResult> DeleteSpec(Guid id)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs.Include(s => s.Project).FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
@@ -211,7 +190,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/projects/{projectId:guid}/specs")]
     public async Task<ActionResult<SpecDto>> CreateSpec(Guid projectId, [FromBody] CreateSpecDto dto)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -271,7 +250,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/projects/{projectId:guid}/publish-master-spec")]
     public async Task<ActionResult<SpecDto>> PublishMasterSpecForProject(Guid projectId, [FromBody] CreateSpecDto dto)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -397,7 +376,7 @@ public class SpecsController : ControllerBase
     [HttpGet("api/specs/{id:guid}")]
     public async Task<ActionResult<SpecDto>> GetSpec(Guid id)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs
@@ -422,7 +401,7 @@ public class SpecsController : ControllerBase
     [HttpPut("api/specs/{id:guid}")]
     public async Task<ActionResult<SpecDto>> UpdateDraftSpec(Guid id, [FromBody] UpdateSpecDto dto)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs
@@ -488,7 +467,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/{id:guid}/publish")]
     public async Task<ActionResult<PublishResultDto>> PublishSpec(Guid id)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs
@@ -567,7 +546,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/{id:guid}/versions/{versionNumber:int}/undo")]
     public async Task<ActionResult<SpecDto>> UndoPublishSpec(Guid id, int versionNumber)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs
@@ -609,7 +588,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/{id:guid}/versions/{versionNumber:int}/redo")]
     public async Task<ActionResult<SpecDto>> RedoPublishSpec(Guid id, int versionNumber)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var spec = await _db.Specs
@@ -727,7 +706,7 @@ public class SpecsController : ControllerBase
     [HttpGet("api/projects/{projectId:guid}/vector-store")]
     public async Task<ActionResult<VectorStoreStatsDto>> GetVectorStoreStats(Guid projectId)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -740,7 +719,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/draft/chat")]
     public async Task<ActionResult<ChatResponseDto>> BrainstormChat([FromBody] ChatRequestDto request)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);
@@ -831,7 +810,7 @@ public class SpecsController : ControllerBase
         [FromQuery] int? skip = null,
         [FromQuery] int? take = null)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -902,7 +881,7 @@ public class SpecsController : ControllerBase
     public async Task<IActionResult> SaveChatMessages(Guid projectId, string personaMode,
         [FromBody] List<ChatMessageDto> newMessages)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -953,7 +932,7 @@ public class SpecsController : ControllerBase
     [HttpDelete("api/projects/{projectId:guid}/chat-session/{personaMode}")]
     public async Task<IActionResult> ClearChatSession(Guid projectId, string personaMode)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
@@ -979,7 +958,7 @@ public class SpecsController : ControllerBase
     {
         Response.ContentType = "text/plain; charset=utf-8";
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null)
         {
             Response.StatusCode = 401;
@@ -1080,7 +1059,7 @@ public class SpecsController : ControllerBase
     {
         Response.ContentType = "text/plain; charset=utf-8";
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null)
         {
             Response.StatusCode = 401;
@@ -1240,7 +1219,7 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/draft/structure")]
     public async Task<ActionResult<StructuredSpecResultDto>> StructureChat([FromBody] ChatRequestDto request)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);
@@ -1337,7 +1316,7 @@ public class SpecsController : ControllerBase
             return BadRequest("Raw transcript content cannot be empty.");
         }
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);

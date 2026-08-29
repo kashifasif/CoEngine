@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SpecPlatform.Api.Data;
 using SpecPlatform.Shared.DTOs;
 using SpecPlatform.Shared.Models;
+using SpecPlatform.Api.Services;
 
 namespace SpecPlatform.Api.Controllers;
 
@@ -13,35 +14,18 @@ namespace SpecPlatform.Api.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ICurrentUserService _currentUser;
 
-    public ProjectsController(AppDbContext db)
+    public ProjectsController(AppDbContext db, ICurrentUserService currentUser)
     {
         _db = db;
-    }
-
-    private async Task<User?> GetCurrentAuthenticatedUserAsync()
-    {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(authHeader) && authHeader.StartsWith("Bearer "))
-        {
-            var token = authHeader.Substring("Bearer ".Length).Trim();
-            if (token.StartsWith("gh_session_"))
-            {
-                var parts = token.Split('_');
-                if (parts.Length >= 3 && Guid.TryParse(parts[2], out var userId))
-                {
-                    return await _db.Users.FindAsync(userId);
-                }
-            }
-        }
-
-        return await _db.Users.OrderBy(u => u.Id).FirstOrDefaultAsync();
+        _currentUser = currentUser;
     }
 
     [HttpGet]
     public async Task<ActionResult<List<ProjectDto>>> GetProjects()
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var projects = await _db.Projects
@@ -68,7 +52,7 @@ public class ProjectsController : ControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ProjectDto>> GetProject(Guid id)
     {
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
         var project = await _db.Projects
@@ -103,7 +87,7 @@ public class ProjectsController : ControllerBase
             return BadRequest(new { message = "Project Name is required." });
         }
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        var currentUser = await _currentUser.GetUserAsync();
         if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
         var project = new Project
         {
