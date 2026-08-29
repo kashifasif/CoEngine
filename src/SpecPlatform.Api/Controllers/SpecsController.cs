@@ -1171,7 +1171,7 @@ public class SpecsController : ControllerBase
         var systemPrompt =
             $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{{{{$projectName}}}}' ({{{{$projectDesc}}}}).\n" +
             "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
-            $"{roleInstructions}\n\nProject Overview: {{{{$projectDesc}}}}\n\n{{$specContext}}\n\n" +
+            $"{roleInstructions}\n\nProject Overview: {{{{$projectDesc}}}}\n\n{{{{$specContext}}}}\n\n" +
             "STRICT QA RULES:\n" +
             "1. Answers MUST be short and to the point. Directly quote or closely paraphrase the relevant part of the published spec. No elaboration, no added opinions, no information not explicitly present in the spec.\n" +
             "2. If the answer isn't found in the published spec, say so plainly: \"Not specified in the published spec\" rather than inferring or guessing an answer.\n" +
@@ -1285,6 +1285,11 @@ public class SpecsController : ControllerBase
                     messagesToUse.Add(reqMsg);
                 }
             }
+        }
+
+        if (!messagesToUse.Any())
+        {
+            return BadRequest(new { message = "You have not provided any brainstorming data or draft information. Please start a conversation first." });
         }
 
         var systemPrompt = $"CONTEXT: Project: {projectName} — {projectDesc}\n\n{existingSpecContext}";
