@@ -230,6 +230,11 @@
                                 else
                                 {
                                     <div class="flex flex-col gap-4">
+                                        @{
+                                            int msgIndex = chatMessages.IndexOf(msg);
+                                            bool isMsgLocked = msgIndex <= chatMessages.FindLastIndex(m => m.Content.Contains("✅ **Specification Published:**"));
+                                        }
+
                                         @foreach (var q in parsedQuestions)
                                         {
                                             var qKey = $"{msg.GetHashCode()}_{q.Number}";
@@ -262,7 +267,7 @@
                                                         bool isSelected = q.SelectedAnswer == opt;
                                                         <button type="button" class="text-left px-3.5 py-2.5 rounded-lg border text-xs font-medium transition-colors flex items-center justify-between cursor-pointer @(isSelected ? "bg-indigo-50 border-indigo-300 text-indigo-900 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-200 font-semibold" : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-zinc-300 dark:hover:border-zinc-700")"
                                                                 @onclick="() => SaveInlineMCQAnswer(msg, q.Number, opt)"
-                                                                disabled="@isThinking">
+                                                                disabled="@(isThinking || isMsgLocked)">
                                                             <span>@opt</span>
                                                             @if (isSelected)
                                                             {
@@ -282,9 +287,12 @@
                                                                 <strong>Custom Answer:</strong> @customText
                                                             </span>
                                                         </div>
-                                                        <button type="button" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
-                                                            Edit
-                                                        </button>
+                                                        @if (!isMsgLocked)
+                                                        {
+                                                            <button type="button" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
+                                                                Edit
+                                                            </button>
+                                                        }
                                                     </div>
                                                 }
 
@@ -296,31 +304,37 @@
                                                             <span class="material-symbols-outlined text-[16px] text-amber-600 dark:text-amber-400 shrink-0">help_outline</span>
                                                             <span><strong>Skipped:</strong> Requirement marked as <em>"Not sure yet"</em></span>
                                                         </div>
-                                                        <button type="button" class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, string.Empty)">
-                                                            Provide Answer
-                                                        </button>
+                                                        @if (!isMsgLocked)
+                                                        {
+                                                            <button type="button" class="text-[11px] text-amber-700 dark:text-amber-400 hover:underline font-semibold shrink-0 cursor-pointer" @onclick="() => ToggleManualInput(qKey, string.Empty)">
+                                                                Provide Answer
+                                                            </button>
+                                                        }
                                                     </div>
                                                 }
 
                                                 <!-- Quick Actions (Manual input / Skip / Clear) -->
-                                                <div class="flex items-center justify-between pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
-                                                    <div class="flex items-center gap-2">
-                                                        <button type="button" class="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
-                                                            @(isCustom ? "Edit Custom Answer" : "+ Custom Answer")
-                                                        </button>
-                                                        <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                                        <button type="button" class="text-[11px] @(isSkipped ? "font-semibold text-amber-700 dark:text-amber-300" : "text-amber-600 dark:text-amber-400 hover:underline") cursor-pointer" @onclick="() => SkipInlineMCQQuestion(msg, q.Number)">
-                                                            @(isSkipped ? "✓ Skipped (\"Not sure yet\")" : "Skip (\"Not sure yet\")")
-                                                        </button>
-                                                    </div>
+                                                @if (!isMsgLocked)
+                                                {
+                                                    <div class="flex items-center justify-between pt-2 border-t border-zinc-200/60 dark:border-zinc-800/60 flex-wrap gap-2">
+                                                        <div class="flex items-center gap-2">
+                                                            <button type="button" class="text-[11px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium cursor-pointer" @onclick="() => ToggleManualInput(qKey, customText)">
+                                                                @(isCustom ? "Edit Custom Answer" : "+ Custom Answer")
+                                                            </button>
+                                                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                                            <button type="button" class="text-[11px] @(isSkipped ? "font-semibold text-amber-700 dark:text-amber-300" : "text-amber-600 dark:text-amber-400 hover:underline") cursor-pointer" @onclick="() => SkipInlineMCQQuestion(msg, q.Number)">
+                                                                @(isSkipped ? "✓ Skipped (\"Not sure yet\")" : "Skip (\"Not sure yet\")")
+                                                            </button>
+                                                        </div>
 
-                                                    @if (!string.IsNullOrEmpty(q.SelectedAnswer))
-                                                    {
-                                                        <button type="button" class="text-[11px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer" @onclick="() => ClearInlineMCQAnswer(msg, q.Number)" title="Clear answer">
-                                                            Reset / Clear
-                                                        </button>
-                                                    }
-                                                </div>
+                                                        @if (!isMsgLocked && !string.IsNullOrEmpty(q.SelectedAnswer))
+                                                        {
+                                                            <button type="button" class="text-[11px] text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 cursor-pointer" @onclick="() => ClearInlineMCQAnswer(msg, q.Number)" title="Clear answer">
+                                                                Reset / Clear
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
 
                                                 @if (isEditingManual)
                                                 {
@@ -1361,7 +1375,7 @@
             }
         }
 
-        await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
+        var publishedSpec = await ApiClient.PublishMasterSpecAsync(selectedProjectId, new CreateSpecDto
         {
             Title = finalTitle,
             Description = finalDesc,
@@ -1369,6 +1383,18 @@
             ScopeTags = result.ScopeTags?.Any() == true ? result.ScopeTags : new List<string> { "bff", "api", "mfe" },
             SelfReviewJson = selfReviewJson
         });
+
+        if (publishedSpec != null)
+        {
+            var pubMsg = new ChatMessageDto
+            {
+                Role = "assistant",
+                Content = $"✅ **Specification Published:** Version **v{publishedSpec.CurrentVersionNumber}** of '{publishedSpec.Title}' has been generated and saved."
+            };
+            allMessages.Add(pubMsg);
+            chatMessages.Add(pubMsg);
+            await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, allMessages);
+        }
 
         Nav.NavigateTo($"/specs/{selectedProjectId}");
     }
