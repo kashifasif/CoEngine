@@ -318,25 +318,16 @@
     {
         try
         {
-            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
-            if (!string.IsNullOrWhiteSpace(sessionJson))
+            var user = await ApiClient.GetCurrentUserAsync();
+            if (user == null || !user.IsAuthenticated)
             {
-                currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
+                Nav.NavigateTo("/login");
+                return;
             }
+            currentUser = user;
         }
         catch
         {
-        }
-
-        if (currentUser == null)
-        {
-            try
-            {
-                currentUser = await ApiClient.GetCurrentUserAsync();
-            }
-            catch
-            {
-            }
         }
     }
 

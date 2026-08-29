@@ -57,18 +57,25 @@ public class AuthController : ControllerBase
 
         var redirectUri = GetCallbackRedirectUri();
         var userDto = await _authService.ProcessCallbackAsync(request.Code, redirectUri, cancellationToken);
+        if (userDto != null && !string.IsNullOrWhiteSpace(userDto.Token))
+        {
+            Response.Cookies.Append("spec_user_session", userDto.Token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Lax,
+                Expires = DateTimeOffset.UtcNow.AddDays(7)
+            });
+            // We can erase the token from the DTO payload for extra security since it's in the cookie
+            userDto.Token = string.Empty;
+        }
         return Ok(userDto);
     }
 
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> GetCurrentUser(CancellationToken cancellationToken = default)
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
-
-        var token = !string.IsNullOrWhiteSpace(authHeader)
-            ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
-            : xAuthToken?.Trim();
+        var token = Request.Cookies["spec_user_session"];
 
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -90,7 +97,6 @@ public class AuthController : ControllerBase
                 var user = await _authService.GetUserByIdAsync(userId, cancellationToken);
                 if (user != null)
                 {
-                    user.Token = token;
                     user.IsAuthenticated = true;
                     return Ok(user);
                 }
@@ -109,6 +115,7 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
+        Response.Cookies.Delete("spec_user_session");
         return Ok(new { success = true, message = "Logged out successfully." });
     }
 }

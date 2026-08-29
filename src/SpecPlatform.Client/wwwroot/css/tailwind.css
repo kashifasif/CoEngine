@@ -2182,9 +2182,6 @@
     .hover\:bg-zinc-100:hover {
       background-color: var(--color-zinc-100);
     }
-    .hover\:bg-zinc-200:hover {
-      background-color: var(--color-zinc-200);
-    }
     .hover\:bg-zinc-200\/50:hover {
       background-color: color-mix(in srgb, oklch(92% 0.004 286.32) 50%, transparent);
     }
@@ -2823,9 +2820,6 @@
     }
     .dark\:hover\:bg-zinc-100:where(.dark, .dark *):hover {
       background-color: var(--color-zinc-100);
-    }
-    .dark\:hover\:bg-zinc-700:where(.dark, .dark *):hover {
-      background-color: var(--color-zinc-700);
     }
     .dark\:hover\:bg-zinc-700\/80:where(.dark, .dark *):hover {
       background-color: color-mix(in srgb, oklch(37% 0.013 285.805) 80%, transparent);

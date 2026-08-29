@@ -8,21 +8,9 @@ namespace SpecPlatform.Client.Services;
 public class SpecApiClient
 {
     private readonly HttpClient _http;
-    public string? AuthToken { get; private set; }
-
     public SpecApiClient(HttpClient http)
     {
         _http = http;
-    }
-
-    public void SetAuthToken(string? token)
-    {
-        AuthToken = token;
-        _http.DefaultRequestHeaders.Remove("X-Auth-Token");
-        if (!string.IsNullOrWhiteSpace(token))
-        {
-            _http.DefaultRequestHeaders.Add("X-Auth-Token", token);
-        }
     }
 
     public async Task<HealthCheckResponse?> GetHealthAsync()
@@ -366,11 +354,19 @@ public class SpecApiClient
         }
     }
 
+    private UserDto? _cachedUser;
+
     public async Task<UserDto?> GetCurrentUserAsync()
     {
+        if (_cachedUser != null) return _cachedUser;
         try
         {
-            return await _http.GetFromJsonAsync<UserDto>("api/auth/me");
+            var user = await _http.GetFromJsonAsync<UserDto>("api/auth/me");
+            if (user != null && user.IsAuthenticated)
+            {
+                _cachedUser = user;
+            }
+            return user;
         }
         catch
         {
@@ -380,6 +376,7 @@ public class SpecApiClient
 
     public async Task LogoutAsync()
     {
+        _cachedUser = null;
         try
         {
             await _http.PostAsync("api/auth/logout", null);

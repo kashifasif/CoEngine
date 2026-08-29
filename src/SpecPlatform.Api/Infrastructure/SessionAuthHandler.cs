@@ -17,12 +17,7 @@ public class SessionAuthHandler : AuthenticationHandler<AuthenticationSchemeOpti
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var authHeader = Request.Headers["Authorization"].FirstOrDefault();
-        var xAuthToken = Request.Headers["X-Auth-Token"].FirstOrDefault();
-
-        var token = !string.IsNullOrWhiteSpace(authHeader)
-            ? authHeader.Replace("Bearer ", "", StringComparison.OrdinalIgnoreCase).Trim()
-            : xAuthToken?.Trim();
+        var token = Request.Cookies["spec_user_session"];
 
         if (string.IsNullOrWhiteSpace(token))
         {

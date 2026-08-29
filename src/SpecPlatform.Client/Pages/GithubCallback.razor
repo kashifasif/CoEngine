@@ -95,12 +95,7 @@
 
             if (currentUser != null && currentUser.IsAuthenticated)
             {
-                ApiClient.SetAuthToken(currentUser.Token);
-                try
-                {
-                    await JS.InvokeVoidAsync("localStorage.setItem", "spec_user_session", System.Text.Json.JsonSerializer.Serialize(currentUser));
-                }
-                catch { }
+                // Cookie is set by backend, just redirect
 
                 isProcessing = false;
                 StateHasChanged();

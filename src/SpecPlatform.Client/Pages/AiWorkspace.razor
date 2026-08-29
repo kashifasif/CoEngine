@@ -506,15 +506,12 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">Source Type</label>
-                        <div class="flex flex-wrap gap-1.5">
+                        <select class="form-input text-xs" @bind="rawSourceTag">
                             @foreach (var tag in new[] { "MS Teams Meeting Transcript", "Zoom / Call Transcript", "Sprint Grooming Notes", "Client Requirements Email / PRD", "Jira / User Story Dump", "Raw Written Notes" })
                             {
-                                var isSel = rawSourceTag == tag;
-                                <button type="button" class="px-2.5 py-1 text-[11px] font-mono rounded-md border transition-all cursor-pointer @(isSel ? "bg-indigo-600 text-white border-indigo-600 font-semibold" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700")" @onclick="() => rawSourceTag = tag">
-                                    @tag
-                                </button>
+                                <option value="@tag">@tag</option>
                             }
-                        </div>
+                        </select>
                     </div>
 
                     <div>
@@ -742,15 +739,10 @@
     {
         try
         {
-            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
-            if (!string.IsNullOrWhiteSpace(sessionJson))
+            var user = await ApiClient.GetCurrentUserAsync();
+            if (user != null && user.IsAuthenticated)
             {
-                var user = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
-                if (user != null && user.IsAuthenticated)
-                {
-                    ApiClient.SetAuthToken(user.Token);
-                    return true;
-                }
+                return true;
             }
         }
         catch

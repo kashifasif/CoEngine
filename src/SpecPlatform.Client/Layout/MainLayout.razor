@@ -392,30 +392,10 @@
     {
         try
         {
-            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
-            if (!string.IsNullOrWhiteSpace(sessionJson))
-            {
-                currentUser = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
-            }
+            currentUser = await ApiClient.GetCurrentUserAsync();
         }
         catch
         {
-        }
-
-        if (currentUser == null)
-        {
-            try
-            {
-                currentUser = await ApiClient.GetCurrentUserAsync();
-            }
-            catch
-            {
-            }
-        }
-
-        if (currentUser != null && !string.IsNullOrWhiteSpace(currentUser.Token))
-        {
-            ApiClient.SetAuthToken(currentUser.Token);
         }
     }
 
@@ -446,14 +426,12 @@
         try
         {
             await ApiClient.LogoutAsync();
-            await JS.InvokeVoidAsync("localStorage.removeItem", "spec_user_session");
         }
         catch
         {
         }
 
         currentUser = null;
-        ApiClient.SetAuthToken(null);
         StateHasChanged();
         Nav.NavigateTo("/login");
     }

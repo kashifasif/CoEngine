@@ -62,15 +62,10 @@
     {
         try
         {
-            var sessionJson = await JS.InvokeAsync<string>("localStorage.getItem", "spec_user_session");
-            if (!string.IsNullOrWhiteSpace(sessionJson))
+            var user = await ApiClient.GetCurrentUserAsync();
+            if (user != null && user.IsAuthenticated)
             {
-                var user = System.Text.Json.JsonSerializer.Deserialize<UserDto>(sessionJson);
-                if (user != null && user.IsAuthenticated)
-                {
-                    ApiClient.SetAuthToken(user.Token);
-                    Nav.NavigateTo("/dashboard");
-                }
+                Nav.NavigateTo("/dashboard");
             }
         }
         catch { }

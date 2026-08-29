@@ -7,13 +7,13 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp =>
+builder.Services.AddTransient<CookieHandler>();
+
+builder.Services.AddHttpClient<SpecApiClient>((sp, client) =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var apiBase = config["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
-    return new HttpClient { BaseAddress = new Uri(apiBase) };
-});
-
-builder.Services.AddScoped<SpecApiClient>();
+    client.BaseAddress = new Uri(apiBase);
+}).AddHttpMessageHandler<CookieHandler>();
 
 await builder.Build().RunAsync();
