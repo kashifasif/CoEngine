@@ -1,7 +1,7 @@
 @page "/published-specs-qa"
-@page "/published-specs-qa/{ProjectId:int}"
+@page "/published-specs-qa/{ProjectId:guid}"
 @page "/dev-qa-assistant"
-@page "/dev-qa-assistant/{ProjectId:int}"
+@page "/dev-qa-assistant/{ProjectId:guid}"
 @implements IDisposable
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
@@ -219,11 +219,11 @@
 }
 
 @code {
-    [Parameter] public int? ProjectId { get; set; }
+    [Parameter] public Guid? ProjectId { get; set; }
 
     private List<ProjectDto> projects = new();
     private ProjectDto? selectedProject;
-    private int selectedProjectId = 0;
+    private Guid selectedProjectId = Guid.Empty;
     private string roleMode = "qa_mode";
 
     private List<ChatMessageDto> allMessages = new();
@@ -288,7 +288,7 @@
         }
     }
 
-    private async Task SelectProjectById(int pId)
+    private async Task SelectProjectById(Guid pId)
     {
         if (selectedProjectId == pId) return;
         selectedProjectId = pId;
@@ -299,7 +299,7 @@
 
     private async Task OnProjectSelected(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int pId))
+        if (Guid.TryParse(e.Value?.ToString(), out Guid pId))
         {
             selectedProjectId = pId;
             selectedProject = projects.FirstOrDefault(p => p.Id == pId);
@@ -312,7 +312,7 @@
 
     private async Task LoadVectorStats()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         vectorStats = await ApiClient.GetVectorStoreStatsAsync(selectedProjectId);
     }
 
@@ -327,7 +327,7 @@
 
     private async Task LoadDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         isLoadingChat = true;
         StateHasChanged();
         try
@@ -391,7 +391,7 @@
 
     private async Task SaveDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, allMessages);
         await LoadVectorStats();
     }
@@ -411,7 +411,7 @@
 
     private async Task SendDevQaQuery()
     {
-        if (selectedProjectId == 0 || isThinking) return;
+        if (selectedProjectId == Guid.Empty || isThinking) return;
 
         var domVal = await JS.InvokeAsync<string>("getChatInputValue", "devQaAssistantInput");
         var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
@@ -458,7 +458,7 @@
 
     private async Task RetryLastQuery()
     {
-        if (isThinking || selectedProjectId == 0) return;
+        if (isThinking || selectedProjectId == Guid.Empty) return;
 
         if (chatMessages.Any() && chatMessages.Last().Role == "assistant")
         {
@@ -529,7 +529,7 @@
         {
             allMessages.Clear();
             chatMessages.Clear();
-            if (selectedProjectId > 0)
+            if (selectedProjectId != Guid.Empty)
             {
                 await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
                 await LoadVectorStats();

@@ -1,5 +1,5 @@
 @page "/spec-editor"
-@page "/spec-editor/{SpecId:int}"
+@page "/spec-editor/{SpecId:guid}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -208,7 +208,7 @@
 }
 
 @code {
-    [Parameter] public int? SpecId { get; set; }
+    [Parameter] public Guid? SpecId { get; set; }
 
     private SpecDto? spec;
     private bool isLoadingSpec = false;

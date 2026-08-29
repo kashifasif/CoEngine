@@ -74,7 +74,7 @@ public class AuthController : ControllerBase
         {
             return Ok(new UserDto
             {
-                Id = 0,
+                Id = Guid.Empty,
                 Username = "Guest User",
                 DisplayName = "Guest User",
                 IsAuthenticated = false
@@ -85,7 +85,7 @@ public class AuthController : ControllerBase
         if (token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase))
         {
             var parts = token.Split('_');
-            if (parts.Length >= 3 && int.TryParse(parts[2], out var userId))
+            if (parts.Length >= 3 && Guid.TryParse(parts[2], out var userId))
             {
                 var user = await _authService.GetUserByIdAsync(userId, cancellationToken);
                 if (user != null)
@@ -99,7 +99,7 @@ public class AuthController : ControllerBase
 
         return Ok(new UserDto
         {
-            Id = 0,
+            Id = Guid.Empty,
             Username = "Guest User",
             DisplayName = "Guest User",
             IsAuthenticated = false

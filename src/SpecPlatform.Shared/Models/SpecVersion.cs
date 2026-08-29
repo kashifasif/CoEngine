@@ -4,13 +4,13 @@ namespace SpecPlatform.Shared.Models;
 
 public class SpecVersion
 {
-    public int Id { get; set; }
-    public int SpecId { get; set; }
+    public Guid Id { get; set; }
+    public Guid SpecId { get; set; }
     public int VersionNumber { get; set; }
     public string Content { get; set; } = string.Empty;
     public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 
-    public int? AuthorUserId { get; set; }
+    public Guid? AuthorUserId { get; set; }
     public User? AuthorUser { get; set; }
 
     [JsonIgnore]

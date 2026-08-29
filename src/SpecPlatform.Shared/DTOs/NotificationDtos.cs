@@ -2,8 +2,8 @@ namespace SpecPlatform.Shared.DTOs;
 
 public class NotificationDto
 {
-    public int Id { get; set; }
-    public int SpecId { get; set; }
+    public Guid Id { get; set; }
+    public Guid SpecId { get; set; }
     public string SpecTitle { get; set; } = string.Empty;
     public string ProjectName { get; set; } = string.Empty;
     public int VersionNumber { get; set; }
@@ -17,7 +17,7 @@ public class NotificationDto
 
 public class SpecDiffDto
 {
-    public int SpecId { get; set; }
+    public Guid SpecId { get; set; }
     public int FromVersion { get; set; }
     public int ToVersion { get; set; }
     public List<string> AddedCriteria { get; set; } = new();

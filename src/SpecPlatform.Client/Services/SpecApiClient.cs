@@ -42,7 +42,7 @@ public class SpecApiClient
         return await _http.GetFromJsonAsync<List<ProjectDto>>("api/projects") ?? new();
     }
 
-    public async Task<ProjectDto?> GetProjectAsync(int id)
+    public async Task<ProjectDto?> GetProjectAsync(Guid id)
     {
         return await _http.GetFromJsonAsync<ProjectDto>($"api/projects/{id}");
     }
@@ -57,29 +57,29 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<bool> DeleteProjectAsync(int projectId)
+    public async Task<bool> DeleteProjectAsync(Guid projectId)
     {
         var response = await _http.DeleteAsync($"api/projects/{projectId}");
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<bool> DeleteSpecAsync(int specId)
+    public async Task<bool> DeleteSpecAsync(Guid specId)
     {
         var response = await _http.DeleteAsync($"api/specs/{specId}");
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<List<SpecDto>> GetSpecsForProjectAsync(int projectId)
+    public async Task<List<SpecDto>> GetSpecsForProjectAsync(Guid projectId)
     {
         return await _http.GetFromJsonAsync<List<SpecDto>>($"api/projects/{projectId}/specs") ?? new();
     }
 
-    public async Task<SpecDto?> GetSpecAsync(int id)
+    public async Task<SpecDto?> GetSpecAsync(Guid id)
     {
         return await _http.GetFromJsonAsync<SpecDto>($"api/specs/{id}");
     }
 
-    public async Task<SpecDto?> CreateSpecAsync(int projectId, CreateSpecDto dto)
+    public async Task<SpecDto?> CreateSpecAsync(Guid projectId, CreateSpecDto dto)
     {
         var response = await _http.PostAsJsonAsync($"api/projects/{projectId}/specs", dto);
         if (response.IsSuccessStatusCode)
@@ -89,7 +89,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<SpecDto?> PublishMasterSpecAsync(int projectId, CreateSpecDto dto)
+    public async Task<SpecDto?> PublishMasterSpecAsync(Guid projectId, CreateSpecDto dto)
     {
         var response = await _http.PostAsJsonAsync($"api/projects/{projectId}/publish-master-spec", dto);
         if (response.IsSuccessStatusCode)
@@ -99,7 +99,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<SpecDto?> UpdateSpecAsync(int id, UpdateSpecDto dto)
+    public async Task<SpecDto?> UpdateSpecAsync(Guid id, UpdateSpecDto dto)
     {
         var response = await _http.PutAsJsonAsync($"api/specs/{id}", dto);
         if (response.IsSuccessStatusCode)
@@ -109,7 +109,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<PublishResultDto?> PublishSpecAsync(int id)
+    public async Task<PublishResultDto?> PublishSpecAsync(Guid id)
     {
         var response = await _http.PostAsync($"api/specs/{id}/publish", null);
         if (response.IsSuccessStatusCode)
@@ -119,7 +119,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<SpecDto?> UndoPublishSpecAsync(int id, int versionNumber)
+    public async Task<SpecDto?> UndoPublishSpecAsync(Guid id, int versionNumber)
     {
         var response = await _http.PostAsync($"api/specs/{id}/versions/{versionNumber}/undo", null);
         if (response.IsSuccessStatusCode)
@@ -129,7 +129,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<SpecDto?> RedoPublishSpecAsync(int id, int versionNumber)
+    public async Task<SpecDto?> RedoPublishSpecAsync(Guid id, int versionNumber)
     {
         var response = await _http.PostAsync($"api/specs/{id}/versions/{versionNumber}/redo", null);
         if (response.IsSuccessStatusCode)
@@ -163,12 +163,12 @@ public class SpecApiClient
         }
     }
 
-    public async Task<SpecDiffDto?> CompareVersionsAsync(int specId, int v1, int v2)
+    public async Task<SpecDiffDto?> CompareVersionsAsync(Guid specId, int v1, int v2)
     {
         return await _http.GetFromJsonAsync<SpecDiffDto>($"api/specs/{specId}/versions/{v1}/diff/{v2}");
     }
 
-    public async Task<VectorStoreStatsDto?> GetVectorStoreStatsAsync(int projectId)
+    public async Task<VectorStoreStatsDto?> GetVectorStoreStatsAsync(Guid projectId)
     {
         try
         {
@@ -180,7 +180,7 @@ public class SpecApiClient
         }
     }
 
-    public async Task<ChatSessionDto?> GetChatSessionAsync(int projectId, string personaMode, int? skip = null, int? take = null)
+    public async Task<ChatSessionDto?> GetChatSessionAsync(Guid projectId, string personaMode, int? skip = null, int? take = null)
     {
         try
         {
@@ -197,7 +197,7 @@ public class SpecApiClient
         }
     }
 
-    public async Task SaveChatMessagesAsync(int projectId, string personaMode, List<ChatMessageDto> messages)
+    public async Task SaveChatMessagesAsync(Guid projectId, string personaMode, List<ChatMessageDto> messages)
     {
         try
         {
@@ -206,7 +206,7 @@ public class SpecApiClient
         catch { }
     }
 
-    public async Task ClearChatSessionAsync(int projectId, string personaMode)
+    public async Task ClearChatSessionAsync(Guid projectId, string personaMode)
     {
         try
         {
@@ -215,7 +215,7 @@ public class SpecApiClient
         catch { }
     }
 
-    public async Task<ChatResponseDto> SendChatAsync(int projectId, List<ChatMessageDto> messages)
+    public async Task<ChatResponseDto> SendChatAsync(Guid projectId, List<ChatMessageDto> messages)
     {
         var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
         var response = await _http.PostAsJsonAsync("api/specs/draft/chat", request);
@@ -227,7 +227,7 @@ public class SpecApiClient
     }
 
     public async Task SendChatStreamAsync(
-        int projectId,
+        Guid projectId,
         List<ChatMessageDto> messages,
         Action<string> onChunkReceived,
         bool isClarificationPhase = false,
@@ -271,7 +271,7 @@ public class SpecApiClient
     }
 
     public async Task SendDevQaQueryStreamAsync(
-        int projectId,
+        Guid projectId,
         string roleMode,
         List<ChatMessageDto> messages,
         Action<string> onChunkReceived,
@@ -309,7 +309,7 @@ public class SpecApiClient
         }
     }
 
-    public async Task<StructuredSpecResultDto?> StructureChatAsync(int projectId, List<ChatMessageDto> messages)
+    public async Task<StructuredSpecResultDto?> StructureChatAsync(Guid projectId, List<ChatMessageDto> messages)
     {
         var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
         var response = await _http.PostAsJsonAsync("api/specs/draft/structure", request);
@@ -320,7 +320,7 @@ public class SpecApiClient
         return null;
     }
 
-    public async Task<IngestTranscriptResponseDto?> IngestRawTranscriptAsync(int projectId, string sourceTag, string rawTranscript)
+    public async Task<IngestTranscriptResponseDto?> IngestRawTranscriptAsync(Guid projectId, string sourceTag, string rawTranscript)
     {
         var request = new IngestTranscriptRequestDto
         {

@@ -20,15 +20,15 @@ public class UpdateSpecDto
 
 public class SpecDto
 {
-    public int Id { get; set; }
-    public int ProjectId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
     public string ProjectName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Status { get; set; } = "Draft";
     public DateTime CreatedAt { get; set; }
     public int CurrentVersionNumber { get; set; }
-    public int? CreatedByUserId { get; set; }
+    public Guid? CreatedByUserId { get; set; }
     public string? CreatedByDisplayName { get; set; }
     public string? CreatedByUsername { get; set; }
     public string? CreatedByAvatarUrl { get; set; }
@@ -39,12 +39,12 @@ public class SpecDto
 
 public class SpecVersionDto
 {
-    public int Id { get; set; }
-    public int SpecId { get; set; }
+    public Guid Id { get; set; }
+    public Guid SpecId { get; set; }
     public int VersionNumber { get; set; }
     public string Content { get; set; } = string.Empty;
     public DateTime PublishedAt { get; set; }
-    public int? AuthorUserId { get; set; }
+    public Guid? AuthorUserId { get; set; }
     public string? AuthorDisplayName { get; set; }
     public string? AuthorUsername { get; set; }
     public string? AuthorAvatarUrl { get; set; }

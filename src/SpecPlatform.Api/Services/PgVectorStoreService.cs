@@ -67,7 +67,7 @@ public class PgVectorStoreService : IVectorStoreService
         }
     }
 
-    public async Task IndexDocumentAsync(int projectId, string docType, string title, string content)
+    public async Task IndexDocumentAsync(Guid projectId, string docType, string title, string content)
     {
         if (string.IsNullOrWhiteSpace(content)) return;
 
@@ -111,7 +111,7 @@ public class PgVectorStoreService : IVectorStoreService
         }
     }
 
-    public async Task<List<VectorSearchResult>> SearchSimilarityAsync(int projectId, string query, int topK = 5)
+    public async Task<List<VectorSearchResult>> SearchSimilarityAsync(Guid projectId, string query, int topK = 5)
     {
         if (string.IsNullOrWhiteSpace(query))
         {
@@ -193,7 +193,7 @@ public class PgVectorStoreService : IVectorStoreService
         }
     }
 
-    public async Task<VectorStoreStatsDto> GetStatsAsync(int projectId)
+    public async Task<VectorStoreStatsDto> GetStatsAsync(Guid projectId)
     {
         try
         {
@@ -241,7 +241,7 @@ public class PgVectorStoreService : IVectorStoreService
         };
     }
 
-    public async Task ClearProjectVectorsAsync(int projectId)
+    public async Task ClearProjectVectorsAsync(Guid projectId)
     {
         try
         {
@@ -252,7 +252,7 @@ public class PgVectorStoreService : IVectorStoreService
         catch { }
     }
 
-    public async Task DeleteDocumentAsync(int projectId, string docType, string title)
+    public async Task DeleteDocumentAsync(Guid projectId, string docType, string title)
     {
         try
         {

@@ -3,7 +3,7 @@ namespace SpecPlatform.Shared.Models;
 public class VectorDocumentRecord
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
-    public int ProjectId { get; set; }
+    public Guid ProjectId { get; set; }
     public string DocType { get; set; } = "spec"; // "spec" or "chat"
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;

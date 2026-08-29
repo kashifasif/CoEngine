@@ -673,6 +673,9 @@
   .ml-1 {
     margin-left: var(--spacing);
   }
+  .ml-auto {
+    margin-left: auto;
+  }
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
@@ -1372,6 +1375,12 @@
       background-color: color-mix(in oklab, var(--color-indigo-50) 30%, transparent);
     }
   }
+  .bg-indigo-50\/50 {
+    background-color: color-mix(in srgb, oklch(96.2% 0.018 272.314) 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-indigo-50) 50%, transparent);
+    }
+  }
   .bg-indigo-50\/60 {
     background-color: color-mix(in srgb, oklch(96.2% 0.018 272.314) 60%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1861,6 +1870,9 @@
   }
   .text-emerald-900 {
     color: var(--color-emerald-900);
+  }
+  .text-indigo-400 {
+    color: var(--color-indigo-400);
   }
   .text-indigo-500\/70 {
     color: color-mix(in srgb, oklch(58.5% 0.233 277.117) 70%, transparent);
@@ -2781,6 +2793,9 @@
     }
     .dark\:hover\:bg-emerald-500:where(.dark, .dark *):hover {
       background-color: var(--color-emerald-500);
+    }
+    .dark\:hover\:bg-indigo-900:where(.dark, .dark *):hover {
+      background-color: var(--color-indigo-900);
     }
     .dark\:hover\:bg-indigo-950\/40:where(.dark, .dark *):hover {
       background-color: color-mix(in srgb, oklch(25.7% 0.09 281.288) 40%, transparent);

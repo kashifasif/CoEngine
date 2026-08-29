@@ -121,7 +121,7 @@ public class GitHubAuthService : IGitHubAuthService
         return await UpsertUserAndMapDtoAsync(ghId, username, displayName, email, avatarUrl, cancellationToken);
     }
 
-    public async Task<UserDto?> GetUserByIdAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<UserDto?> GetUserByIdAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
         if (user == null) return null;

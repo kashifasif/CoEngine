@@ -4,26 +4,28 @@ public class ChatMessageDto
 {
     public string Role { get; set; } = "user"; // user, assistant, system
     public string Content { get; set; } = string.Empty;
+    public string? AttachedFileName { get; set; }
+    public string? AttachedFileUrl { get; set; }
 }
 
 public class ChatRequestDto
 {
-    public int ProjectId { get; set; }
+    public Guid ProjectId { get; set; }
     public bool IsClarificationPhase { get; set; } = false;
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 
 public class DevQaQueryRequestDto
 {
-    public int ProjectId { get; set; }
+    public Guid ProjectId { get; set; }
     public string RoleMode { get; set; } = "qa_mode"; // qa_mode
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 
 public class ChatSessionDto
 {
-    public int Id { get; set; }
-    public int ProjectId { get; set; }
+    public Guid Id { get; set; }
+    public Guid ProjectId { get; set; }
     public string PersonaMode { get; set; } = "po_brainstorming";
     public DateTime UpdatedAt { get; set; }
     public int TotalMessagesCount { get; set; }
@@ -68,7 +70,7 @@ public class StructuredSpecResultDto
 
 public class IngestTranscriptRequestDto
 {
-    public int ProjectId { get; set; }
+    public Guid ProjectId { get; set; }
     public string SourceTag { get; set; } = "MS Teams Meeting Transcript";
     public string RawTranscript { get; set; } = string.Empty;
 }

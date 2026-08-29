@@ -21,7 +21,7 @@ public class AiUsageByOperationDto
 
 public class UserAiUsageRecordDto
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string Operation { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
     public int PromptTokens { get; set; }

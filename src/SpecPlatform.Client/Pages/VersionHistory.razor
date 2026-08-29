@@ -1,5 +1,5 @@
 @page "/versions"
-@page "/versions/{SpecId:int}"
+@page "/versions/{SpecId:guid}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -288,11 +288,11 @@
 }
 
 @code {
-    [Parameter] public int? SpecId { get; set; }
+    [Parameter] public Guid? SpecId { get; set; }
 
     private List<SpecDto> specs = new();
     private SpecDto? selectedSpec;
-    private int selectedSpecId = 0;
+    private Guid selectedSpecId = Guid.Empty;
     private int v1 = 1;
     private int v2 = 1;
 
@@ -342,7 +342,7 @@
         }
     }
 
-    private async Task SelectSpecById(int specId)
+    private async Task SelectSpecById(Guid specId)
     {
         if (selectedSpecId == specId) return;
         await SelectSpec(specId);
@@ -350,13 +350,13 @@
 
     private async Task OnSpecSelected(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int sId))
+        if (Guid.TryParse(e.Value?.ToString(), out Guid sId))
         {
             await SelectSpec(sId);
         }
     }
 
-    private async Task SelectSpec(int specId)
+    private async Task SelectSpec(Guid specId)
     {
         selectedSpecId = specId;
         selectedSpec = specs.FirstOrDefault(s => s.Id == specId);
@@ -375,7 +375,7 @@
 
     private async Task CompareVersions()
     {
-        if (selectedSpecId == 0 || v1 == 0 || v2 == 0) return;
+        if (selectedSpecId == Guid.Empty || v1 == 0 || v2 == 0) return;
         isLoadingDiff = true;
         StateHasChanged();
         try
@@ -399,7 +399,7 @@
 
     private async Task ExecuteUndoVersion()
     {
-        if (selectedSpecId == 0 || !undoVersionTarget.HasValue) return;
+        if (selectedSpecId == Guid.Empty || !undoVersionTarget.HasValue) return;
         isTogglingStatus = true;
         try
         {
@@ -426,7 +426,7 @@
 
     private async Task ExecuteRedoVersion()
     {
-        if (selectedSpecId == 0 || !redoVersionTarget.HasValue) return;
+        if (selectedSpecId == Guid.Empty || !redoVersionTarget.HasValue) return;
         isTogglingStatus = true;
         try
         {

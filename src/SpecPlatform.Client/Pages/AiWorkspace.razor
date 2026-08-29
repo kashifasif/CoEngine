@@ -1,11 +1,12 @@
 @page "/ai-workspace"
-@page "/ai-workspace/{ProjectId:int}"
+@page "/ai-workspace/{ProjectId:guid}"
 @page "/po-brainstorming"
-@page "/po-brainstorming/{ProjectId:int}"
+@page "/po-brainstorming/{ProjectId:guid}"
 @implements IDisposable
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject HttpClient Http
 
 <div class="fixed inset-0 top-14 left-0 flex flex-col bg-zinc-50 dark:bg-zinc-950 overflow-hidden z-10">
 
@@ -188,8 +189,18 @@
 
                     @if (msg.Role == "user")
                     {
-                        <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 text-xs leading-relaxed max-w-2xl sm:max-w-3xl whitespace-pre-wrap shadow-xs">
-                            @msg.Content
+                        <div class="flex flex-col items-end gap-1.5 w-full">
+                            @if (!string.IsNullOrEmpty(msg.AttachedFileUrl))
+                            {
+                                <a href="@msg.AttachedFileUrl" target="_blank" class="flex items-center gap-2 p-2 bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg max-w-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 transition-colors">
+                                    <span class="material-symbols-outlined text-indigo-600 dark:text-indigo-400 text-[18px]">draft</span>
+                                    <span class="text-[11px] font-medium text-indigo-900 dark:text-indigo-200 truncate">@msg.AttachedFileName</span>
+                                    <span class="material-symbols-outlined text-indigo-400 text-[16px] ml-auto">download</span>
+                                </a>
+                            }
+                            <div class="bg-indigo-600 text-white rounded-2xl rounded-tr-xs px-5 py-3.5 text-xs leading-relaxed max-w-2xl sm:max-w-3xl whitespace-pre-wrap shadow-xs">
+                                @msg.Content
+                            </div>
                         </div>
                     }
                     else
@@ -365,6 +376,17 @@
                       @bind="userPromptInput"
                       @onkeydown="HandleKeyDown"
                       disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"></textarea>
+            <InputFile id="aiWorkspaceFileUpload" class="hidden" OnChange="HandleFileUpload" accept=".txt,.md,.csv,.json,.pdf" />
+            <button class="btn-secondary p-2.5 rounded-xl shrink-0 h-[40px] w-[40px] flex items-center justify-center self-end mb-0.5 mr-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                    @onclick='() => JS.InvokeVoidAsync("eval", "document.getElementById(\"aiWorkspaceFileUpload\").click()")'
+                    disabled="@(isThinking || isUploadingFile || string.IsNullOrWhiteSpace(specTitle))"
+                    title="Attach text file context">
+                @if(isUploadingFile) {
+                    <div class="animate-spin w-4 h-4 border-2 border-indigo-600 border-t-transparent rounded-full shrink-0"></div>
+                } else {
+                    <span class="material-symbols-outlined text-[18px] text-zinc-500">attach_file</span>
+                }
+            </button>
             <button class="btn-primary p-2.5 rounded-xl shrink-0 h-[40px] w-[40px] flex items-center justify-center self-end mb-0.5 mr-0.5"
                     @onclick="() => SendChatMessage(false)"
                     disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle))"
@@ -568,11 +590,11 @@
 }
 
 @code {
-    [Parameter] public int? ProjectId { get; set; }
+    [Parameter] public Guid? ProjectId { get; set; }
 
     private List<ProjectDto> projects = new();
     private ProjectDto? selectedProject;
-    private int selectedProjectId = 0;
+    private Guid selectedProjectId = Guid.Empty;
 
     private List<ChatMessageDto> allMessages = new();
     private List<ChatMessageDto> chatMessages = new();
@@ -656,7 +678,7 @@
 
     private async Task SubmitIngestTranscript()
     {
-        if (string.IsNullOrWhiteSpace(rawTranscriptText) || selectedProjectId == 0) return;
+        if (string.IsNullOrWhiteSpace(rawTranscriptText) || selectedProjectId == Guid.Empty) return;
 
         isIngesting = true;
         ingestError = "";
@@ -758,7 +780,7 @@
         }
     }
 
-    private async Task SelectProjectById(int pId)
+    private async Task SelectProjectById(Guid pId)
     {
         if (selectedProjectId == pId) return;
         selectedProjectId = pId;
@@ -769,7 +791,7 @@
 
     private async Task OnProjectSelected(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int pId))
+        if (Guid.TryParse(e.Value?.ToString(), out Guid pId))
         {
             selectedProjectId = pId;
             selectedProject = projects.FirstOrDefault(p => p.Id == pId);
@@ -790,7 +812,7 @@
 
     private async Task LoadDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         isLoadingChat = true;
         StateHasChanged();
         try
@@ -843,7 +865,7 @@
 
     private async Task OnSpecTitleChanged()
     {
-        if (selectedProjectId != 0)
+        if (selectedProjectId != Guid.Empty)
         {
             await JS.InvokeVoidAsync("localStorage.setItem", $"spec_title_proj_{selectedProjectId}", specTitle ?? "");
         }
@@ -898,7 +920,7 @@
 
     private async Task SaveDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, allMessages);
     }
 
@@ -915,9 +937,86 @@
         }
     }
 
+    private bool isUploadingFile = false;
+
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        if (selectedProjectId == Guid.Empty || string.IsNullOrWhiteSpace(specTitle)) return;
+        
+        var file = e.File;
+        if (file == null) return;
+        
+        isUploadingFile = true;
+        StateHasChanged();
+        
+        try
+        {
+            using var reader = new System.IO.StreamReader(file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024));
+            var textContent = await reader.ReadToEndAsync();
+            
+            using var content = new MultipartFormDataContent();
+            using var fileStream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var streamContent = new StreamContent(fileStream);
+            content.Add(streamContent, "file", file.Name);
+            
+            var response = await Http.PostAsync("api/files/upload", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+                var fileUrl = result?["url"]?.ToString();
+                var fileName = result?["fileName"]?.ToString() ?? file.Name;
+                
+                var prompt = $"[User uploaded file: {fileName}]\n\n{textContent}";
+                
+                var userMsg = new ChatMessageDto { Role = "user", Content = prompt, AttachedFileName = fileName, AttachedFileUrl = fileUrl };
+                var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+
+                allMessages.Add(userMsg);
+                allMessages.Add(assistantMsg);
+                chatMessages.Add(userMsg);
+                chatMessages.Add(assistantMsg);
+
+                isThinking = true;
+                currentStreamingResponse = "";
+                StateHasChanged();
+                await ScrollToBottom();
+
+                try
+                {
+                    await ApiClient.SendChatStreamAsync(
+                        selectedProjectId,
+                        allMessages.Take(allMessages.Count - 1).ToList(),
+                        chunk =>
+                        {
+                            currentStreamingResponse += chunk;
+                            assistantMsg.Content = currentStreamingResponse;
+                            StateHasChanged();
+                            _ = ScrollToBottom();
+                        },
+                        isClarificationPhase: false);
+                }
+                finally
+                {
+                    isThinking = false;
+                    await SaveDbChatSession();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading file: {ex.Message}");
+        }
+        finally
+        {
+            isUploadingFile = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
     private async Task SendChatMessage(bool isClarificationPhase = false)
     {
-        if (selectedProjectId == 0 || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
+        if (selectedProjectId == Guid.Empty || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
 
         var domVal = await JS.InvokeAsync<string>("getChatInputValue", "aiWorkspaceInput");
         var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
@@ -964,7 +1063,7 @@
 
     private async Task TriggerClarificationRound()
     {
-        if (selectedProjectId == 0 || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
+        if (selectedProjectId == Guid.Empty || isThinking || string.IsNullOrWhiteSpace(specTitle)) return;
 
         if (!string.IsNullOrWhiteSpace(userPromptInput))
         {
@@ -1045,7 +1144,7 @@
 
     private async Task RetryLastQuery()
     {
-        if (isThinking || selectedProjectId == 0) return;
+        if (isThinking || selectedProjectId == Guid.Empty) return;
 
         if (chatMessages.Any() && chatMessages.Last().Role == "assistant")
         {
@@ -1118,7 +1217,7 @@
 
     private async Task StructureIntoSpec()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
 
         if (string.IsNullOrWhiteSpace(specTitle))
         {
@@ -1298,7 +1397,7 @@
         {
             chatMessages.Clear();
             allMessages.Clear();
-            if (selectedProjectId > 0)
+            if (selectedProjectId != Guid.Empty)
             {
                 await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
             }

@@ -39,7 +39,7 @@ public class SpecsController : ControllerBase
         if (!string.IsNullOrWhiteSpace(token) && token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase))
         {
             var parts = token.Split('_');
-            if (parts.Length >= 3 && int.TryParse(parts[2], out var uid))
+            if (parts.Length >= 3 && Guid.TryParse(parts[2], out var uid))
             {
                 var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == uid);
                 if (user != null)
@@ -148,10 +148,13 @@ public class SpecsController : ControllerBase
         });
     }
 
-    [HttpGet("api/projects/{projectId:int}/specs")]
-    public async Task<ActionResult<List<SpecDto>>> GetSpecsForProject(int projectId)
+    [HttpGet("api/projects/{projectId:guid}/specs")]
+    public async Task<ActionResult<List<SpecDto>>> GetSpecsForProject(Guid projectId)
     {
-        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
         if (!projectExists)
         {
             return NotFound(new { message = $"Project {projectId} not found." });
@@ -173,10 +176,13 @@ public class SpecsController : ControllerBase
         return Ok(specs.Select(MapToSpecDto).ToList());
     }
 
-    [HttpDelete("api/projects/{id:int}")]
-    public async Task<IActionResult> DeleteProject(int id)
+    [HttpDelete("api/projects/{id:guid}")]
+    public async Task<IActionResult> DeleteProject(Guid id)
     {
-        var project = await _db.Projects.FindAsync(id);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == currentUser.Id);
         if (project == null) return NotFound(new { message = $"Project {id} not found." });
 
         _db.Projects.Remove(project);
@@ -187,10 +193,13 @@ public class SpecsController : ControllerBase
         return Ok(new { success = true, message = $"Project {id} deleted successfully." });
     }
 
-    [HttpDelete("api/specs/{id:int}")]
-    public async Task<IActionResult> DeleteSpec(int id)
+    [HttpDelete("api/specs/{id:guid}")]
+    public async Task<IActionResult> DeleteSpec(Guid id)
     {
-        var spec = await _db.Specs.FindAsync(id);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var spec = await _db.Specs.Include(s => s.Project).FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
         if (spec == null) return NotFound(new { message = $"Spec {id} not found." });
 
         _db.Specs.Remove(spec);
@@ -199,10 +208,13 @@ public class SpecsController : ControllerBase
         return Ok(new { success = true, message = $"Spec {id} deleted successfully." });
     }
 
-    [HttpPost("api/projects/{projectId:int}/specs")]
-    public async Task<ActionResult<SpecDto>> CreateSpec(int projectId, [FromBody] CreateSpecDto dto)
+    [HttpPost("api/projects/{projectId:guid}/specs")]
+    public async Task<ActionResult<SpecDto>> CreateSpec(Guid projectId, [FromBody] CreateSpecDto dto)
     {
-        var project = await _db.Projects.FindAsync(projectId);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
         if (project == null)
         {
             return NotFound(new { message = $"Project {projectId} not found." });
@@ -212,8 +224,6 @@ public class SpecsController : ControllerBase
         {
             return BadRequest(new { message = "Spec Title is required." });
         }
-
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var spec = new Spec
         {
             ProjectId = projectId,
@@ -258,10 +268,13 @@ public class SpecsController : ControllerBase
         return CreatedAtAction(nameof(GetSpec), new { id = spec.Id }, MapToSpecDto(spec));
     }
 
-    [HttpPost("api/projects/{projectId:int}/publish-master-spec")]
-    public async Task<ActionResult<SpecDto>> PublishMasterSpecForProject(int projectId, [FromBody] CreateSpecDto dto)
+    [HttpPost("api/projects/{projectId:guid}/publish-master-spec")]
+    public async Task<ActionResult<SpecDto>> PublishMasterSpecForProject(Guid projectId, [FromBody] CreateSpecDto dto)
     {
-        var project = await _db.Projects.FindAsync(projectId);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
         if (project == null)
         {
             return NotFound(new { message = $"Project {projectId} not found." });
@@ -278,7 +291,6 @@ public class SpecsController : ControllerBase
 
         if (spec == null)
         {
-            var currentUser = await GetCurrentAuthenticatedUserAsync();
             spec = new Spec
             {
                 ProjectId = projectId,
@@ -337,7 +349,6 @@ public class SpecsController : ControllerBase
                 .OrderByDescending(v => v.VersionNumber).ToList();
             int nextVersionNumber = publishedVersions.Any() ? publishedVersions.First().VersionNumber + 1 : 1;
 
-            var currentUser = await GetCurrentAuthenticatedUserAsync();
             var newVersion = new SpecVersion
             {
                 SpecId = spec.Id,
@@ -383,9 +394,12 @@ public class SpecsController : ControllerBase
         }
     }
 
-    [HttpGet("api/specs/{id:int}")]
-    public async Task<ActionResult<SpecDto>> GetSpec(int id)
+    [HttpGet("api/specs/{id:guid}")]
+    public async Task<ActionResult<SpecDto>> GetSpec(Guid id)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.CreatedByUser)
@@ -395,7 +409,7 @@ public class SpecsController : ControllerBase
             .ThenInclude(v => v.ScopeTags)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AuthorUser)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
 
         if (spec == null)
         {
@@ -405,9 +419,12 @@ public class SpecsController : ControllerBase
         return Ok(MapToSpecDto(spec));
     }
 
-    [HttpPut("api/specs/{id:int}")]
-    public async Task<ActionResult<SpecDto>> UpdateDraftSpec(int id, [FromBody] UpdateSpecDto dto)
+    [HttpPut("api/specs/{id:guid}")]
+    public async Task<ActionResult<SpecDto>> UpdateDraftSpec(Guid id, [FromBody] UpdateSpecDto dto)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.CreatedByUser)
@@ -415,7 +432,7 @@ public class SpecsController : ControllerBase
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
 
         if (spec == null)
         {
@@ -468,16 +485,19 @@ public class SpecsController : ControllerBase
         return Ok(MapToSpecDto(spec));
     }
 
-    [HttpPost("api/specs/{id:int}/publish")]
-    public async Task<ActionResult<PublishResultDto>> PublishSpec(int id)
+    [HttpPost("api/specs/{id:guid}/publish")]
+    public async Task<ActionResult<PublishResultDto>> PublishSpec(Guid id)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
 
         if (spec == null)
         {
@@ -491,7 +511,6 @@ public class SpecsController : ControllerBase
         var draftVersion = spec.Versions.FirstOrDefault(v => v.VersionNumber == 0)
                            ?? spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var newPublishedVersion = new SpecVersion
         {
             SpecId = spec.Id,
@@ -545,16 +564,19 @@ public class SpecsController : ControllerBase
         });
     }
 
-    [HttpPost("api/specs/{id:int}/versions/{versionNumber:int}/undo")]
-    public async Task<ActionResult<SpecDto>> UndoPublishSpec(int id, int versionNumber)
+    [HttpPost("api/specs/{id:guid}/versions/{versionNumber:int}/undo")]
+    public async Task<ActionResult<SpecDto>> UndoPublishSpec(Guid id, int versionNumber)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
 
         if (spec == null) return NotFound("Spec not found.");
 
@@ -564,7 +586,6 @@ public class SpecsController : ControllerBase
 
         targetVersion.IsUndone = true;
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var summaryText = $"Undone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -585,16 +606,19 @@ public class SpecsController : ControllerBase
         return Ok(MapToSpecDto(spec));
     }
 
-    [HttpPost("api/specs/{id:int}/versions/{versionNumber:int}/redo")]
-    public async Task<ActionResult<SpecDto>> RedoPublishSpec(int id, int versionNumber)
+    [HttpPost("api/specs/{id:guid}/versions/{versionNumber:int}/redo")]
+    public async Task<ActionResult<SpecDto>> RedoPublishSpec(Guid id, int versionNumber)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var spec = await _db.Specs
             .Include(s => s.Project)
             .Include(s => s.Versions)
             .ThenInclude(v => v.AcceptanceCriteria)
             .Include(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
-            .FirstOrDefaultAsync(s => s.Id == id);
+            .FirstOrDefaultAsync(s => s.Id == id && s.Project.CreatedByUserId == currentUser.Id);
 
         if (spec == null) return NotFound("Spec not found.");
 
@@ -604,7 +628,6 @@ public class SpecsController : ControllerBase
 
         targetVersion.IsUndone = false;
 
-        var currentUser = await GetCurrentAuthenticatedUserAsync();
         var summaryText = $"Redone publication of Specification: {spec.Title} (v{versionNumber})";
         var notification = new Notification
         {
@@ -657,8 +680,8 @@ public class SpecsController : ControllerBase
         return Ok(notifications);
     }
 
-    [HttpGet("api/specs/{id:int}/versions/{v1:int}/diff/{v2:int}")]
-    public async Task<ActionResult<SpecDiffDto>> CompareVersions(int id, int v1, int v2)
+    [HttpGet("api/specs/{id:guid}/versions/{v1:int}/diff/{v2:int}")]
+    public async Task<ActionResult<SpecDiffDto>> CompareVersions(Guid id, int v1, int v2)
     {
         var spec = await _db.Specs
             .Include(s => s.Versions)
@@ -701,9 +724,15 @@ public class SpecsController : ControllerBase
         });
     }
 
-    [HttpGet("api/projects/{projectId:int}/vector-store")]
-    public async Task<ActionResult<VectorStoreStatsDto>> GetVectorStoreStats(int projectId)
+    [HttpGet("api/projects/{projectId:guid}/vector-store")]
+    public async Task<ActionResult<VectorStoreStatsDto>> GetVectorStoreStats(Guid projectId)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
+        if (!projectExists) return NotFound(new { message = "Project not found or access denied." });
+
         var stats = await _vectorStore.GetStatsAsync(projectId);
         return Ok(stats);
     }
@@ -711,10 +740,14 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/draft/chat")]
     public async Task<ActionResult<ChatResponseDto>> BrainstormChat([FromBody] ChatRequestDto request)
     {
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
 
-        var projectName = project?.Name ?? "General";
-        var projectDesc = project?.Description ?? "Requirements brainstorming";
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
 
@@ -763,8 +796,9 @@ public class SpecsController : ControllerBase
                 "1. Your response must ALWAYS be a numbered list of clarifying questions. For EACH question, provide 2 to 4 suggested options (A, B, C...) to make it easy for the PO/BA to answer.\n" +
                 "2. Ask a MAXIMUM of 5 questions per round. Never more.\n" +
                 "3. PRIORITIZE UNRESOLVED OPEN BUSINESS QUESTIONS: If the existing spec or previous rounds have unresolved Open Business Questions, YOU MUST TURN THOSE INTO CLARIFYING QUESTIONS.\n" +
-                "4. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
-                "5. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
+                "4. SCOPE RESTRICTION - FUNCTIONAL REQUIREMENTS ONLY: Questions must stay strictly focused on functional/business requirements (what the system should do, for whom, under what conditions). Do NOT ask technical or implementation-level questions (e.g., \"how will the API authenticate this request?\", database design, architecture choices) — the people answering are business stakeholders, not developers.\n" +
+                "5. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
+                "6. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
                 "OUTPUT FORMAT (strict):\n" +
                 "1. [Question text]\n" +
                 "   - A) [Option 1]\n" +
@@ -790,13 +824,19 @@ public class SpecsController : ControllerBase
 
     // --- DB Chat Session Persistence & Vector Store Endpoints ---
 
-    [HttpGet("api/projects/{projectId:int}/chat-session/{personaMode}")]
+    [HttpGet("api/projects/{projectId:guid}/chat-session/{personaMode}")]
     public async Task<ActionResult<ChatSessionDto>> GetOrCreateChatSession(
-        int projectId,
+        Guid projectId,
         string personaMode,
         [FromQuery] int? skip = null,
         [FromQuery] int? take = null)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
+        if (!projectExists) return NotFound(new { message = "Project not found or access denied." });
+
         var session = await _db.ChatSessions
             .Include(cs => cs.Messages)
             .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == personaMode);
@@ -851,15 +891,23 @@ public class SpecsController : ControllerBase
             Messages = resultMessages.Select(m => new ChatMessageDto
             {
                 Role = m.Role,
-                Content = m.Content
+                Content = m.Content,
+                AttachedFileName = m.AttachedFileName,
+                AttachedFileUrl = m.AttachedFileUrl
             }).ToList()
         });
     }
 
-    [HttpPost("api/projects/{projectId:int}/chat-session/{personaMode}/messages")]
-    public async Task<IActionResult> SaveChatMessages(int projectId, string personaMode,
+    [HttpPost("api/projects/{projectId:guid}/chat-session/{personaMode}/messages")]
+    public async Task<IActionResult> SaveChatMessages(Guid projectId, string personaMode,
         [FromBody] List<ChatMessageDto> newMessages)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
+        if (!projectExists) return NotFound(new { message = "Project not found or access denied." });
+
         var session = await _db.ChatSessions
             .Include(cs => cs.Messages)
             .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == personaMode);
@@ -885,6 +933,8 @@ public class SpecsController : ControllerBase
                 ChatSessionId = session.Id,
                 Role = msg.Role,
                 Content = msg.Content,
+                AttachedFileName = msg.AttachedFileName,
+                AttachedFileUrl = msg.AttachedFileUrl,
                 Timestamp = DateTime.UtcNow
             });
         }
@@ -900,9 +950,15 @@ public class SpecsController : ControllerBase
         return Ok(new { success = true });
     }
 
-    [HttpDelete("api/projects/{projectId:int}/chat-session/{personaMode}")]
-    public async Task<IActionResult> ClearChatSession(int projectId, string personaMode)
+    [HttpDelete("api/projects/{projectId:guid}/chat-session/{personaMode}")]
+    public async Task<IActionResult> ClearChatSession(Guid projectId, string personaMode)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var projectExists = await _db.Projects.AnyAsync(p => p.Id == projectId && p.CreatedByUserId == currentUser.Id);
+        if (!projectExists) return NotFound(new { message = "Project not found or access denied." });
+
         var session = await _db.ChatSessions
             .Include(cs => cs.Messages)
             .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == personaMode);
@@ -923,10 +979,22 @@ public class SpecsController : ControllerBase
     {
         Response.ContentType = "text/plain; charset=utf-8";
 
-        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId, cancellationToken);
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
 
-        var projectName = project?.Name ?? "General";
-        var projectDesc = project?.Description ?? "Requirements brainstorming";
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        if (project == null)
+        {
+            Response.StatusCode = 404;
+            return;
+        }
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
 
@@ -975,8 +1043,9 @@ public class SpecsController : ControllerBase
                 "1. Your response must ALWAYS be a numbered list of clarifying questions. For EACH question, provide 2 to 4 suggested options (A, B, C...) to make it easy for the PO/BA to answer.\n" +
                 "2. Ask a MAXIMUM of 5 questions per round. Never more.\n" +
                 "3. PRIORITIZE UNRESOLVED OPEN BUSINESS QUESTIONS: If the existing spec or previous rounds have unresolved Open Business Questions, YOU MUST TURN THOSE INTO CLARIFYING QUESTIONS.\n" +
-                "4. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
-                "5. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
+                "4. SCOPE RESTRICTION - FUNCTIONAL REQUIREMENTS ONLY: Questions must stay strictly focused on functional/business requirements (what the system should do, for whom, under what conditions). Do NOT ask technical or implementation-level questions (e.g., \"how will the API authenticate this request?\", database design, architecture choices) — the people answering are business stakeholders, not developers.\n" +
+                "5. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
+                "6. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
                 "OUTPUT FORMAT (strict):\n" +
                 "1. [Question text]\n" +
                 "   - A) [Option 1]\n" +
@@ -1011,6 +1080,13 @@ public class SpecsController : ControllerBase
     {
         Response.ContentType = "text/plain; charset=utf-8";
 
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null)
+        {
+            Response.StatusCode = 401;
+            return;
+        }
+
         var project = await _db.Projects
             .Include(p => p.Specs)
             .ThenInclude(s => s.Versions)
@@ -1018,10 +1094,16 @@ public class SpecsController : ControllerBase
             .Include(p => p.Specs)
             .ThenInclude(s => s.Versions)
             .ThenInclude(v => v.ScopeTags)
-            .FirstOrDefaultAsync(p => p.Id == request.ProjectId, cancellationToken);
+            .FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        
+        if (project == null)
+        {
+            Response.StatusCode = 404;
+            return;
+        }
 
-        var projectName = project?.Name ?? "General Project";
-        var projectDesc = project?.Description ?? "Technical system";
+        var projectName = project.Name;
+        var projectDesc = project.Description;
 
         var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
 
@@ -1080,7 +1162,12 @@ public class SpecsController : ControllerBase
         var systemPrompt =
             $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{{{{$projectName}}}}' ({{{{$projectDesc}}}}).\n" +
             "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
-            $"{roleInstructions}\n\nProject Overview: {{{{$projectDesc}}}}\n\n{{$specContext}}\n\nGoal: Answer the query accurately based on the Specifications above.";
+            $"{roleInstructions}\n\nProject Overview: {{{{$projectDesc}}}}\n\n{{$specContext}}\n\n" +
+            "STRICT QA RULES:\n" +
+            "1. Answers MUST be short and to the point. Directly quote or closely paraphrase the relevant part of the published spec. No elaboration, no added opinions, no information not explicitly present in the spec.\n" +
+            "2. If the answer isn't found in the published spec, say so plainly: \"Not specified in the published spec\" rather than inferring or guessing an answer.\n" +
+            "3. Do NOT ask follow-up questions back to the dev/QA user.\n\n" +
+            "Goal: Answer the query accurately based on the Specifications above.";
 
         var args = new KernelArguments
         {
@@ -1103,7 +1190,7 @@ public class SpecsController : ControllerBase
             streamAccumulator.ToString());
     }
 
-    private async Task<string> GetExistingSpecContextAsync(int projectId)
+    private async Task<string> GetExistingSpecContextAsync(Guid projectId)
     {
         var existingSpec = await _db.Specs
             .Include(s => s.Versions)
@@ -1153,9 +1240,14 @@ public class SpecsController : ControllerBase
     [HttpPost("api/specs/draft/structure")]
     public async Task<ActionResult<StructuredSpecResultDto>> StructureChat([FromBody] ChatRequestDto request)
     {
-        var project = await _db.Projects.FindAsync(request.ProjectId);
-        var projectName = project?.Name ?? "General";
-        var projectDesc = project?.Description ?? "Requirements brainstorming";
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
 
         var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
 
@@ -1245,9 +1337,14 @@ public class SpecsController : ControllerBase
             return BadRequest("Raw transcript content cannot be empty.");
         }
 
-        var project = await _db.Projects.FindAsync(request.ProjectId);
-        var projectName = project?.Name ?? "General Project";
-        var projectDesc = project?.Description ?? "System Requirements";
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
 
         // 1. Index raw transcript into PostgreSQL pgvector store permanently
         await _vectorStore.IndexDocumentAsync(

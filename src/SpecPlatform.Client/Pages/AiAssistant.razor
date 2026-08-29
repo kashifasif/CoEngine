@@ -1,5 +1,5 @@
 @page "/ai-assistant"
-@page "/ai-assistant/{ProjectId:int}"
+@page "/ai-assistant/{ProjectId:guid}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -174,7 +174,7 @@
 
                 <div class="pt-3 border-top d-flex justify-content-between align-items-center">
                     <span class="text-adaptive-muted fs-xs font-mono">Status: <strong>Ready to Save Draft</strong></span>
-                    <button class="btn btn-success px-4 font-mono fw-bold" @onclick="SaveStructuredDraftSpec" disabled="@(selectedProjectId == 0 || string.IsNullOrWhiteSpace(draftTitle))">
+                    <button class="btn btn-success px-4 font-mono fw-bold" @onclick="SaveStructuredDraftSpec" disabled="@(selectedProjectId == Guid.Empty || string.IsNullOrWhiteSpace(draftTitle))">
                         <i class="bi bi-check-circle me-1"></i> Save Official Spec Draft
                     </button>
                 </div>
@@ -186,11 +186,11 @@
 </div>
 
 @code {
-    [Parameter] public int? ProjectId { get; set; }
+    [Parameter] public Guid? ProjectId { get; set; }
 
     private List<ProjectDto> projects = new();
     private ProjectDto? selectedProject;
-    private int selectedProjectId = 0;
+    private Guid selectedProjectId = Guid.Empty;
 
     private List<ChatMessageDto> chatMessages = new();
     private string userPromptInput = "";
@@ -228,7 +228,7 @@
         }
     }
 
-    private async Task SelectProjectById(int pId)
+    private async Task SelectProjectById(Guid pId)
     {
         if (selectedProjectId == pId) return;
         selectedProjectId = pId;
@@ -238,7 +238,7 @@
 
     private async Task OnProjectSelected(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int pId))
+        if (Guid.TryParse(e.Value?.ToString(), out Guid pId))
         {
             selectedProjectId = pId;
             selectedProject = projects.FirstOrDefault(p => p.Id == pId);
@@ -250,7 +250,7 @@
 
     private async Task LoadDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         isLoadingChat = true;
         StateHasChanged();
         try
@@ -274,7 +274,7 @@
 
     private async Task SaveDbChatSession()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, chatMessages);
     }
 
@@ -288,7 +288,7 @@
 
     private async Task SendChatMessage()
     {
-        if (selectedProjectId == 0 || isThinking) return;
+        if (selectedProjectId == Guid.Empty || isThinking) return;
 
         var domVal = await JS.InvokeAsync<string>("getChatInputValue", "aiAssistantInput");
         var prompt = !string.IsNullOrWhiteSpace(domVal) ? domVal.Trim() : (userPromptInput ?? "").Trim();
@@ -339,7 +339,7 @@
 
     private async Task StructureIntoSpec()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         if (!HasSufficientDataToStructure()) return;
 
         isStructuring = true;
@@ -364,7 +364,7 @@
 
     private async Task SaveStructuredDraftSpec()
     {
-        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(draftTitle)) return;
+        if (selectedProjectId == Guid.Empty || string.IsNullOrWhiteSpace(draftTitle)) return;
 
         await ApiClient.CreateSpecAsync(selectedProjectId, new CreateSpecDto
         {
@@ -380,7 +380,7 @@
     private async Task ClearChat()
     {
         chatMessages.Clear();
-        if (selectedProjectId > 0)
+        if (selectedProjectId != Guid.Empty)
         {
             await ApiClient.ClearChatSessionAsync(selectedProjectId, PersonaModeKey);
         }

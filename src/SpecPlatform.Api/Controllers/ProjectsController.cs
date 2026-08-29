@@ -28,7 +28,7 @@ public class ProjectsController : ControllerBase
             if (token.StartsWith("gh_session_"))
             {
                 var parts = token.Split('_');
-                if (parts.Length >= 3 && int.TryParse(parts[2], out var userId))
+                if (parts.Length >= 3 && Guid.TryParse(parts[2], out var userId))
                 {
                     return await _db.Users.FindAsync(userId);
                 }
@@ -41,8 +41,12 @@ public class ProjectsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<List<ProjectDto>>> GetProjects()
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var projects = await _db.Projects
             .Include(p => p.CreatedByUser)
+            .Where(p => p.CreatedByUserId == currentUser.Id)
             .Select(p => new ProjectDto
             {
                 Id = p.Id,
@@ -61,13 +65,16 @@ public class ProjectsController : ControllerBase
         return Ok(projects);
     }
 
-    [HttpGet("{id:int}")]
-    public async Task<ActionResult<ProjectDto>> GetProject(int id)
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ProjectDto>> GetProject(Guid id)
     {
+        var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
         var project = await _db.Projects
             .Include(p => p.Specs)
             .Include(p => p.CreatedByUser)
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == id && p.CreatedByUserId == currentUser.Id);
 
         if (project == null)
         {
@@ -97,6 +104,7 @@ public class ProjectsController : ControllerBase
         }
 
         var currentUser = await GetCurrentAuthenticatedUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
         var project = new Project
         {
             Name = dto.Name.Trim(),

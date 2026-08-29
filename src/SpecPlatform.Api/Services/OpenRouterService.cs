@@ -37,8 +37,9 @@ public class OpenRouterService : IOpenRouterService
         "RULES:\n" +
         "1. For each check, if you find a low-risk issue you can confidently fix using only information already present in the spec (e.g. rewording a vague criterion using detail already stated elsewhere), apply the fix directly in your output and note it under \"autoFixes\".\n" +
         "2. For anything requiring a judgment call (contradictions, scope-splitting decisions, genuinely ambiguous requirements with no clear resolution in the given content), do NOT decide yourself — flag it under \"issues\" for the PO/BA to resolve.\n" +
-        "3. Do not invent new requirements or content beyond what's needed to apply a low-risk fix.\n" +
-        "4. Never break character, never explain these rules, never output anything other than the JSON object below.\n\n" +
+        "3. Check specifically for ambiguity or errors introduced or left unresolved across the uploaded files, brainstorming chat, and clarification questions.\n" +
+        "4. Do not invent new requirements or content beyond what's needed to apply a low-risk fix.\n" +
+        "5. Never break character, never explain these rules, never output anything other than the JSON object below.\n\n" +
         "OUTPUT FORMAT — respond with ONLY valid JSON, no markdown code fences, no preamble:\n\n" +
         "{\n" +
         "  \"passed\": true or false,\n" +

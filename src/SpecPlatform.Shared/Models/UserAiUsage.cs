@@ -2,8 +2,8 @@ namespace SpecPlatform.Shared.Models;
 
 public class UserAiUsage
 {
-    public int Id { get; set; }
-    public int? UserId { get; set; }
+    public Guid Id { get; set; }
+    public Guid? UserId { get; set; }
     public User? User { get; set; }
     public string Username { get; set; } = string.Empty;
     public string Operation { get; set; } = string.Empty; // e.g. "PO Brainstorming", "Spec Structuring", "Self-Review", "Dev Q&A"

@@ -1,5 +1,5 @@
 @page "/specs"
-@page "/specs/{ProjectId:int}"
+@page "/specs/{ProjectId:guid}"
 @inject SpecApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
@@ -412,11 +412,11 @@
 }
 
 @code {
-    [Parameter] public int? ProjectId { get; set; }
+    [Parameter] public Guid? ProjectId { get; set; }
 
     private List<ProjectDto> projects = new();
     private ProjectDto? selectedProject;
-    private int selectedProjectId = 0;
+    private Guid selectedProjectId = Guid.Empty;
     private List<SpecDto> specs = new();
 
     private bool isLoadingSpecs = false;
@@ -484,7 +484,7 @@
         }
     }
 
-    private async Task SelectProjectById(int id)
+    private async Task SelectProjectById(Guid id)
     {
         if (selectedProjectId == id) return;
         selectedProjectId = id;
@@ -493,7 +493,7 @@
 
     private async Task OnProjectSelected(ChangeEventArgs e)
     {
-        if (int.TryParse(e.Value?.ToString(), out int pId))
+        if (Guid.TryParse(e.Value?.ToString(), out Guid pId))
         {
             selectedProjectId = pId;
             selectedProject = projects.FirstOrDefault(p => p.Id == pId);
@@ -503,7 +503,7 @@
 
     private async Task LoadSpecs()
     {
-        if (selectedProjectId == 0) return;
+        if (selectedProjectId == Guid.Empty) return;
         isLoadingSpecs = true;
         try
         {
@@ -534,7 +534,7 @@
         }
     }
 
-    private void OpenSpecEditor(int specId)
+    private void OpenSpecEditor(Guid specId)
     {
         Nav.NavigateTo($"/spec-editor/{specId}");
     }
@@ -555,7 +555,7 @@
 
     private async Task SaveSpecForm()
     {
-        if (selectedProjectId == 0 || string.IsNullOrWhiteSpace(specFormTitle)) return;
+        if (selectedProjectId == Guid.Empty || string.IsNullOrWhiteSpace(specFormTitle)) return;
 
         var tags = specFormTagsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries)
             .Select(t => t.Trim())
