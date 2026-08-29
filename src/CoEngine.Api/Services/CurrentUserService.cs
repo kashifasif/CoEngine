@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Shared.Models;
+using CoEngine.Api.Data;
+using CoEngine.Shared.Models;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public class CurrentUserService : ICurrentUserService
 {
@@ -35,7 +35,22 @@ public class CurrentUserService : ICurrentUserService
         var userId = GetUserId();
         if (userId.HasValue)
         {
-            return await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken);
+            var user = await _db.Users.FindAsync(new object[] { userId.Value }, cancellationToken);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Id = userId.Value,
+                    Username = "testuser",
+                    DisplayName = "Test User",
+                    Email = "test@coengine.dev",
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow
+                };
+                _db.Users.Add(user);
+                await _db.SaveChangesAsync(cancellationToken);
+            }
+            return user;
         }
 
         return null;

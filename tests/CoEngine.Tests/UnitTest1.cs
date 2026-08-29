@@ -1,4 +1,4 @@
-﻿namespace SpecPlatform.Tests;
+﻿namespace CoEngine.Tests;
 
 public class UnitTest1
 {

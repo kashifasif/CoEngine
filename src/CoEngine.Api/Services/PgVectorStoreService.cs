@@ -2,13 +2,13 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Pgvector;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Shared.Models;
+using CoEngine.Api.Data;
+using CoEngine.Shared.Models;
 using Microsoft.AI.Foundry.Local;
 using OpenAI.Embeddings;
 using System.ClientModel;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public class PgVectorStoreService : IVectorStoreService
 {
@@ -37,7 +37,7 @@ public class PgVectorStoreService : IVectorStoreService
             _isInitializing = true;
             _logger.LogInformation("Initializing Microsoft.AI.Foundry.Local and downloading model if needed...");
             
-            var config = new Configuration { AppName = "specplatform_embedding", LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information };
+            var config = new Configuration { AppName = "coengine_embedding", LogLevel = Microsoft.AI.Foundry.Local.LogLevel.Information };
             await FoundryLocalManager.CreateAsync(config, null);
             var mgr = FoundryLocalManager.Instance;
             

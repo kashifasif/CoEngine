@@ -1,4 +1,4 @@
-namespace SpecPlatform.Shared.DTOs;
+namespace CoEngine.Shared.DTOs;
 
 public class HealthCheckResponse
 {

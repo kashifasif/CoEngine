@@ -1,10 +1,10 @@
 using System.Net.Http.Json;
 using System.Text;
-using SpecPlatform.Shared.DTOs;
-using SpecPlatform.Shared.Models;
-using SpecPlatform.Client.Exceptions;
+using CoEngine.Shared.DTOs;
+using CoEngine.Shared.Models;
+using CoEngine.Client.Exceptions;
 
-namespace SpecPlatform.Client.Services;
+namespace CoEngine.Client.Services;
 
 public class SpecApiClient
 {

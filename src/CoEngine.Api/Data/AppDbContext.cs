@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using SpecPlatform.Shared.Models;
-using SpecPlatform.Shared.Models;
-using SpecPlatform.Api.Data.Models;
+using CoEngine.Shared.Models;
+using CoEngine.Shared.Models;
+using CoEngine.Api.Data.Models;
 
-namespace SpecPlatform.Api.Data;
+namespace CoEngine.Api.Data;
 
 public class AppDbContext : DbContext
 {
@@ -25,7 +25,14 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasPostgresExtension("vector");
+        if (Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+        {
+            modelBuilder.HasPostgresExtension("vector");
+        }
+        else
+        {
+            modelBuilder.Ignore<VectorDocument>();
+        }
 
         base.OnModelCreating(modelBuilder);
 
@@ -95,7 +102,10 @@ public class AppDbContext : DbContext
             .HasForeignKey(u => u.UserId)
             .OnDelete(DeleteBehavior.SetNull);
 
-        modelBuilder.Entity<VectorDocument>()
-            .HasIndex(v => v.ProjectId);
+        if (Database.ProviderName == "Npgsql.EntityFrameworkCore.PostgreSQL")
+        {
+            modelBuilder.Entity<VectorDocument>()
+                .HasIndex(v => v.ProjectId);
+        }
     }
 }

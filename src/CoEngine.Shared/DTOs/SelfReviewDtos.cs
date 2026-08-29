@@ -1,4 +1,4 @@
-namespace SpecPlatform.Shared.DTOs;
+namespace CoEngine.Shared.DTOs;
 
 /// <summary>
 /// Result of a single self-review quality check.

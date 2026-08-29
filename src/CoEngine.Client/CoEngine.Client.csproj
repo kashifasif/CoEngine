@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SpecPlatform.Shared\SpecPlatform.Shared.csproj" />
+    <ProjectReference Include="..\CoEngine.Shared\CoEngine.Shared.csproj" />
   </ItemGroup>
 
   <Target Name="TailwindCSS" BeforeTargets="Compile">

@@ -314,7 +314,7 @@
             });
             await LoadSpec();
         }
-        catch (SpecPlatform.Client.Exceptions.ConcurrencyConflictException)
+        catch (CoEngine.Client.Exceptions.ConcurrencyConflictException)
         {
             hasConcurrencyConflict = true;
         }

@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace SpecPlatform.Api.Infrastructure;
+namespace CoEngine.Api.Infrastructure;
 
 public class RequireAuthorizationFilter : IAsyncActionFilter
 {

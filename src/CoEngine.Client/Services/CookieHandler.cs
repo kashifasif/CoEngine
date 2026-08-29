@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
 
-namespace SpecPlatform.Client.Services;
+namespace CoEngine.Client.Services;
 
 public class CookieHandler : DelegatingHandler
 {

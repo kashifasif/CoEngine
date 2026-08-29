@@ -2,11 +2,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Shared.DTOs;
-using SpecPlatform.Shared.Models;
+using CoEngine.Api.Data;
+using CoEngine.Shared.DTOs;
+using CoEngine.Shared.Models;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public class GitHubAuthService : IGitHubAuthService
 {
@@ -46,8 +46,8 @@ public class GitHubAuthService : IGitHubAuthService
             _logger.LogInformation("Using Dev/Test GitHub Mock Auth for code: {Code}", code);
             var mockGitHubId = "dev_gh_12345";
             var mockUsername = "github_developer";
-            var mockEmail = "developer@specplatform.io";
-            var mockAvatar = "https://github.com/identicons/specplatform.png";
+            var mockEmail = "developer@coengine.io";
+            var mockAvatar = "https://github.com/identicons/coengine.png";
 
             return await UpsertUserAndMapDtoAsync(mockGitHubId, mockUsername, "GitHub Developer", mockEmail, mockAvatar, cancellationToken);
         }
@@ -77,7 +77,7 @@ public class GitHubAuthService : IGitHubAuthService
         // Fetch User Profile from GitHub API
         var userRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user");
         userRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        userRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("SpecPlatform-App", "1.0"));
+        userRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("CoEngine-App", "1.0"));
 
         var userResponse = await _httpClient.SendAsync(userRequest, cancellationToken);
         userResponse.EnsureSuccessStatusCode();
@@ -97,7 +97,7 @@ public class GitHubAuthService : IGitHubAuthService
             {
                 var emailsRequest = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/user/emails");
                 emailsRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-                emailsRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("SpecPlatform-App", "1.0"));
+                emailsRequest.Headers.UserAgent.Add(new ProductInfoHeaderValue("CoEngine-App", "1.0"));
 
                 var emailsResponse = await _httpClient.SendAsync(emailsRequest, cancellationToken);
                 if (emailsResponse.IsSuccessStatusCode)

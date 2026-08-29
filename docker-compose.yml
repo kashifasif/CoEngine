@@ -1,7 +1,7 @@
 services:
   nginx:
     image: nginx:alpine
-    container_name: specplatform_nginx
+    container_name: coengine_nginx
     restart: always
     ports:
       - "127.0.0.1:8080:80" # Listens on 8080 for host Nginx
@@ -10,20 +10,20 @@ services:
     depends_on:
       - app
     networks:
-      - specplatform_net
+      - coengine_net
 
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: specplatform_app
+    container_name: coengine_app
     restart: always
     expose:
       - "8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__PostgresConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-specplatform_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres_secure_pass}"
+      ConnectionStrings__PostgresConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-coengine_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres_secure_pass}"
       GitHub__ClientId: ${GITHUB_CLIENT_ID}
       GitHub__ClientSecret: ${GITHUB_CLIENT_SECRET}
       GitHub__AppBaseUrl: ${APP_BASE_URL:-https://topvid.lol}
@@ -35,14 +35,14 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - specplatform_net
+      - coengine_net
 
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: specplatform_postgres
+    container_name: coengine_postgres
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-specplatform_db}
+      POSTGRES_DB: ${POSTGRES_DB:-coengine_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_pass}
     expose:
@@ -53,19 +53,19 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-specplatform_db}",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-coengine_db}",
         ]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
     networks:
-      - specplatform_net
+      - coengine_net
 
 volumes:
   postgres_data:
     driver: local
 
 networks:
-  specplatform_net:
+  coengine_net:
     driver: bridge

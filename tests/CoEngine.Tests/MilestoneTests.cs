@@ -4,11 +4,11 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Shared.DTOs;
+using CoEngine.Api.Data;
+using CoEngine.Shared.DTOs;
 using Xunit;
 
-namespace SpecPlatform.Tests;
+namespace CoEngine.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
@@ -34,10 +34,18 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(_testDbName));
 
-            var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Database.EnsureCreated();
+            try
+            {
+                var sp = services.BuildServiceProvider();
+                using var scope = sp.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                db.Database.EnsureCreated();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[TEST FACTORY INIT ERROR]: {ex}");
+                throw;
+            }
         });
     }
 }

@@ -1,4 +1,4 @@
-namespace SpecPlatform.Client.Exceptions;
+namespace CoEngine.Client.Exceptions;
 
 public class ConcurrencyConflictException : Exception
 {

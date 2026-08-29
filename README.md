@@ -1,4 +1,4 @@
-# ⚡ SpecEngine (Community Edition)
+# ⚡ CoEngine (Community Edition)
 
 [![.NET 10.0](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![Blazor WASM](https://img.shields.io/badge/Frontend-Blazor%20WebAssembly-512BD4?logo=blazor)](https://blazor.net)
@@ -7,15 +7,15 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Open Source](https://img.shields.io/badge/Edition-Community%20(Open%20Source)-blue.svg)](#-license)
 
-> **SpecEngine** is an open-source, AI-powered Technical Specification & Requirements Engineering Platform designed for **Product Owners, Business Analysts, Software Architects, and QA/Dev Teams**. It bridges the gap between messy brainstorming and production-ready technical specifications through structured AI ideation, vector-grounded RAG, immutable versioning, and developer copilots.
+> **CoEngine** is an open-source, AI-powered Technical Specification & Requirements Engineering Platform designed for **Product Owners, Business Analysts, Software Architects, and QA/Dev Teams**. It bridges the gap between messy brainstorming and production-ready technical specifications through structured AI ideation, vector-grounded RAG, immutable versioning, and developer copilots.
 
 ---
 
-## 📖 What is SpecEngine?
+## 📖 What is CoEngine?
 
 Building software requires clear, unambiguous, and traceable requirements. However, initial requirements often begin as unstructured notes, slack threads, or discovery calls. 
 
-**SpecEngine** streamlines this entire lifecycle:
+**CoEngine** streamlines this entire lifecycle:
 1. **Interactive Clarification:** Transforms raw thoughts and meeting transcripts into structured user stories, acceptance criteria, and architecture tags.
 2. **Deterministic Versioning:** Maintains immutable version histories with side-by-side visual diffs and instant undo/redo capabilities.
 3. **Developer & QA Grounding:** Features an integrated Dev & QA Copilot powered by Retrieval-Augmented Generation (RAG) that answers questions strictly from published specifications.
@@ -23,7 +23,7 @@ Building software requires clear, unambiguous, and traceable requirements. Howev
 
 ---
 
-## 🔄 How SpecEngine Works
+## 🔄 How CoEngine Works
 
 ```
 ┌─────────────────────────┐      ┌──────────────────────────┐      ┌─────────────────────────┐
@@ -92,8 +92,8 @@ Building software requires clear, unambiguous, and traceable requirements. Howev
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/kashifasif/SpecEngine.git
-cd SpecEngine
+git clone https://github.com/kashifasif/CoEngine.git
+cd CoEngine
 ```
 
 ### 2. Start PostgreSQL with pgvector
@@ -102,7 +102,7 @@ docker compose up -d db
 ```
 
 ### 3. Configure API Keys
-Set your OpenRouter API Key in `src/SpecPlatform.Api/appsettings.json` or via environment variables:
+Set your OpenRouter API Key in `src/CoEngine.Api/appsettings.json` or via environment variables:
 
 ```bash
 export OpenRouter__ApiKey="sk-or-v1-your-openrouter-key"
@@ -111,10 +111,10 @@ export OpenRouter__ApiKey="sk-or-v1-your-openrouter-key"
 ### 4. Run the Application
 ```bash
 # Run backend API and Blazor WASM host
-dotnet run --project src/SpecPlatform.Api --urls "http://localhost:5005"
+dotnet run --project src/CoEngine.Api --urls "http://localhost:5005"
 ```
 
-Open your browser at **`http://localhost:5005`** to launch the SpecEngine dashboard!
+Open your browser at **`http://localhost:5005`** to launch the CoEngine dashboard!
 
 ---
 

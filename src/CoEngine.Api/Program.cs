@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Api.Services;
+using CoEngine.Api.Data;
+using CoEngine.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,7 +11,7 @@ builder.Services.AddEndpointsApiExplorer();
 
 // Add Native Session Authentication & Authorization
 builder.Services.AddAuthentication("SessionAuth")
-    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SpecPlatform.Api.Infrastructure.SessionAuthHandler>("SessionAuth", null);
+    .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, CoEngine.Api.Infrastructure.SessionAuthHandler>("SessionAuth", null);
 
 builder.Services.AddAuthorization();
 
@@ -64,9 +64,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-
-    // Removed hacky raw SQL and backfill loops. Schema creation is now handled natively by EF Core Migrations.
+    if (db.Database.IsRelational())
+    {
+        await db.Database.MigrateAsync();
+    }
 }
 
 

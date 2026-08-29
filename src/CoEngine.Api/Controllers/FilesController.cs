@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace SpecPlatform.Api.Controllers;
+namespace CoEngine.Api.Controllers;
 
 [Authorize]
 [ApiController]

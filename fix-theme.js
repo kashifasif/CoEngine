@@ -13,7 +13,7 @@ const replacements = [
     { regex: /(?<!dark:)text-white/g, repl: 'text-slate-900 dark:text-white' }
 ];
 
-const files = glob.sync('src/SpecPlatform.Client/{Pages,Layout}/**/*.razor');
+const files = glob.sync('src/CoEngine.Client/{Pages,Layout}/**/*.razor');
 
 for (const file of files) {
     let content = fs.readFileSync(file, 'utf8');

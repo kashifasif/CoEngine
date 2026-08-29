@@ -2,9 +2,9 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using SpecPlatform.Shared.DTOs;
+using CoEngine.Shared.DTOs;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public interface IOpenRouterService
 {

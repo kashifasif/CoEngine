@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Pgvector;
 
-namespace SpecPlatform.Api.Data.Models;
+namespace CoEngine.Api.Data.Models;
 
 public class VectorDocument
 {

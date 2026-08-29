@@ -1,10 +1,10 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/SpecPlatform.Api/SpecPlatform.Api.csproj" />
-    <Project Path="src/SpecPlatform.Client/SpecPlatform.Client.csproj" />
-    <Project Path="src/SpecPlatform.Shared/SpecPlatform.Shared.csproj" />
+    <Project Path="src/CoEngine.Api/CoEngine.Api.csproj" />
+    <Project Path="src/CoEngine.Client/CoEngine.Client.csproj" />
+    <Project Path="src/CoEngine.Shared/CoEngine.Shared.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/SpecPlatform.Tests/SpecPlatform.Tests.csproj" />
+    <Project Path="tests/CoEngine.Tests/CoEngine.Tests.csproj" />
   </Folder>
 </Solution>

@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SpecPlatform.Shared.DTOs;
+using CoEngine.Shared.DTOs;
 
-namespace SpecPlatform.Api.Controllers;
+namespace CoEngine.Api.Controllers;
 
 [AllowAnonymous]
 [ApiController]

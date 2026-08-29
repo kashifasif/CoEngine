@@ -6,11 +6,11 @@ using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
-using SpecPlatform.Api.Data;
+using CoEngine.Api.Data;
 
 #nullable disable
 
-namespace SpecPlatform.Api.Migrations
+namespace CoEngine.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
     [Migration("20260829181125_AddClarificationRoundNumber")]
@@ -27,7 +27,7 @@ namespace SpecPlatform.Api.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("SpecPlatform.Api.Data.Models.VectorDocument", b =>
+            modelBuilder.Entity("CoEngine.Api.Data.Models.VectorDocument", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
@@ -60,7 +60,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("VectorDocuments");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.AcceptanceCriterion", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.AcceptanceCriterion", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -80,7 +80,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("AcceptanceCriteria");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ChatMessageRecord", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ChatMessageRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -113,7 +113,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("ChatMessages");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ChatSession", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ChatSession", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -147,7 +147,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("ChatSessions");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Notification", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -188,7 +188,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("Notifications");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Project", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Project", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -215,7 +215,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("Projects");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ScopeTag", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ScopeTag", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -235,7 +235,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("ScopeTags");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Spec", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Spec", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -271,7 +271,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("Specs");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.SpecVersion", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.SpecVersion", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -308,7 +308,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("SpecVersions");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.User", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -345,7 +345,7 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.UserAiUsage", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.UserAiUsage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -388,18 +388,18 @@ namespace SpecPlatform.Api.Migrations
                     b.ToTable("UserAiUsages");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.AcceptanceCriterion", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.AcceptanceCriterion", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.SpecVersion", null)
+                    b.HasOne("CoEngine.Shared.Models.SpecVersion", null)
                         .WithMany("AcceptanceCriteria")
                         .HasForeignKey("SpecVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ChatMessageRecord", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ChatMessageRecord", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.ChatSession", "ChatSession")
+                    b.HasOne("CoEngine.Shared.Models.ChatSession", "ChatSession")
                         .WithMany("Messages")
                         .HasForeignKey("ChatSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -408,15 +408,15 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("ChatSession");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ChatSession", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ChatSession", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.Project", "Project")
+                    b.HasOne("CoEngine.Shared.Models.Project", "Project")
                         .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SpecPlatform.Shared.Models.User", "User")
+                    b.HasOne("CoEngine.Shared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -426,9 +426,9 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Notification", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Notification", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "AuthorUser")
+                    b.HasOne("CoEngine.Shared.Models.User", "AuthorUser")
                         .WithMany()
                         .HasForeignKey("AuthorUserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -436,9 +436,9 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("AuthorUser");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Project", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Project", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "CreatedByUser")
+                    b.HasOne("CoEngine.Shared.Models.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -446,23 +446,23 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ScopeTag", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ScopeTag", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.SpecVersion", null)
+                    b.HasOne("CoEngine.Shared.Models.SpecVersion", null)
                         .WithMany("ScopeTags")
                         .HasForeignKey("SpecVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Spec", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Spec", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "CreatedByUser")
+                    b.HasOne("CoEngine.Shared.Models.User", "CreatedByUser")
                         .WithMany()
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("SpecPlatform.Shared.Models.Project", "Project")
+                    b.HasOne("CoEngine.Shared.Models.Project", "Project")
                         .WithMany("Specs")
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -473,14 +473,14 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("Project");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.SpecVersion", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.SpecVersion", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "AuthorUser")
+                    b.HasOne("CoEngine.Shared.Models.User", "AuthorUser")
                         .WithMany()
                         .HasForeignKey("AuthorUserId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("SpecPlatform.Shared.Models.Spec", "Spec")
+                    b.HasOne("CoEngine.Shared.Models.Spec", "Spec")
                         .WithMany("Versions")
                         .HasForeignKey("SpecId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -491,9 +491,9 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("Spec");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.UserAiUsage", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.UserAiUsage", b =>
                 {
-                    b.HasOne("SpecPlatform.Shared.Models.User", "User")
+                    b.HasOne("CoEngine.Shared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.SetNull);
@@ -501,22 +501,22 @@ namespace SpecPlatform.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.ChatSession", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.ChatSession", b =>
                 {
                     b.Navigation("Messages");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Project", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Project", b =>
                 {
                     b.Navigation("Specs");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.Spec", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.Spec", b =>
                 {
                     b.Navigation("Versions");
                 });
 
-            modelBuilder.Entity("SpecPlatform.Shared.Models.SpecVersion", b =>
+            modelBuilder.Entity("CoEngine.Shared.Models.SpecVersion", b =>
                 {
                     b.Navigation("AcceptanceCriteria");
 

@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
-namespace SpecPlatform.Shared.Models;
+namespace CoEngine.Shared.Models;
 
 public class Spec
 {

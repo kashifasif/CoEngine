@@ -1,6 +1,6 @@
-using SpecPlatform.Shared.DTOs;
+using CoEngine.Shared.DTOs;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public interface IGitHubAuthService
 {

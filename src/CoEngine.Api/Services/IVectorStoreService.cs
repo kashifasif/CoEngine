@@ -1,6 +1,6 @@
-using SpecPlatform.Shared.Models;
+using CoEngine.Shared.Models;
 
-namespace SpecPlatform.Api.Services;
+namespace CoEngine.Api.Services;
 
 public interface IVectorStoreService
 {

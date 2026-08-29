@@ -1,4 +1,4 @@
-namespace SpecPlatform.Shared.Models;
+namespace CoEngine.Shared.Models;
 
 public class User
 {

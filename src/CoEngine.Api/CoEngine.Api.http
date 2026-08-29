@@ -1,6 +1,6 @@
-@SpecPlatform.Api_HostAddress = http://localhost:5177
+@CoEngine.Api_HostAddress = http://localhost:5177
 
-GET {{SpecPlatform.Api_HostAddress}}/weatherforecast/
+GET {{CoEngine.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###

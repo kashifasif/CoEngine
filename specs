@@ -12,9 +12,9 @@ Stack: ASP.NET Core Web API, Blazor WebAssembly, EF Core, Postgres/SQL Server, O
 
 **Scope:**
 
-- ASP.NET Core Web API project (`SpecPlatform.Api`)
-- Blazor WebAssembly project (`SpecPlatform.Client`)
-- Shared class library for DTOs (`SpecPlatform.Shared`)
+- ASP.NET Core Web API project (`CoEngine.Api`)
+- Blazor WebAssembly project (`CoEngine.Client`)
+- Shared class library for DTOs (`CoEngine.Shared`)
 - EF Core + Postgres/SQL Server connection configured
 - One health-check endpoint (`GET /api/health`) returning `200 OK`
 - Blazor app can call the health-check endpoint and display "API is alive"

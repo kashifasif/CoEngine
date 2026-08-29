@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace SpecPlatform.Api.Migrations
+namespace CoEngine.Api.Migrations
 {
     /// <inheritdoc />
     public partial class AddSpecRowVersion : Migration

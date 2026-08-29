@@ -11,18 +11,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy project files first for optimal layer caching
-COPY src/SpecPlatform.Shared/SpecPlatform.Shared.csproj       src/SpecPlatform.Shared/
-COPY src/SpecPlatform.Client/SpecPlatform.Client.csproj       src/SpecPlatform.Client/
-COPY src/SpecPlatform.Api/SpecPlatform.Api.csproj             src/SpecPlatform.Api/
+COPY src/CoEngine.Shared/CoEngine.Shared.csproj       src/CoEngine.Shared/
+COPY src/CoEngine.Client/CoEngine.Client.csproj       src/CoEngine.Client/
+COPY src/CoEngine.Api/CoEngine.Api.csproj             src/CoEngine.Api/
 
 # Restore dependencies (cached unless .csproj files change)
-RUN dotnet restore src/SpecPlatform.Api/SpecPlatform.Api.csproj
+RUN dotnet restore src/CoEngine.Api/CoEngine.Api.csproj
 
 # Copy full source
 COPY src/ src/
 
 # Publish API (includes Blazor WASM output as static files)
-RUN dotnet publish src/SpecPlatform.Api/SpecPlatform.Api.csproj \
+RUN dotnet publish src/CoEngine.Api/CoEngine.Api.csproj \
     -c Release \
     -o /app/publish \
     --no-restore
@@ -50,4 +50,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:8080/api/health || exit 1
 
-ENTRYPOINT ["dotnet", "SpecPlatform.Api.dll"]
+ENTRYPOINT ["dotnet", "CoEngine.Api.dll"]

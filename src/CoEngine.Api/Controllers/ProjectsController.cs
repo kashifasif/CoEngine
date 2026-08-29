@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SpecPlatform.Api.Data;
-using SpecPlatform.Shared.DTOs;
-using SpecPlatform.Shared.Models;
-using SpecPlatform.Api.Services;
+using CoEngine.Api.Data;
+using CoEngine.Shared.DTOs;
+using CoEngine.Shared.Models;
+using CoEngine.Api.Services;
 
-namespace SpecPlatform.Api.Controllers;
+namespace CoEngine.Api.Controllers;
 
 [Authorize]
 [ApiController]

@@ -22,8 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SpecPlatform.Api\SpecPlatform.Api.csproj" />
-    <ProjectReference Include="..\..\src\SpecPlatform.Shared\SpecPlatform.Shared.csproj" />
+    <ProjectReference Include="..\..\src\CoEngine.Api\CoEngine.Api.csproj" />
+    <ProjectReference Include="..\..\src\CoEngine.Shared\CoEngine.Shared.csproj" />
   </ItemGroup>
 
 </Project>

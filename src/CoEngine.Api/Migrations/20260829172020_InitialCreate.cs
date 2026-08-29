@@ -4,7 +4,7 @@ using Pgvector;
 
 #nullable disable
 
-namespace SpecPlatform.Api.Migrations
+namespace CoEngine.Api.Migrations
 {
     /// <inheritdoc />
     public partial class InitialCreate : Migration
