@@ -18,6 +18,14 @@
         }
         else if (spec != null)
         {
+            @if (hasConcurrencyConflict)
+            {
+                <div class="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200/80 dark:border-rose-900/60 text-rose-800 dark:text-rose-200 text-xs font-medium flex items-center gap-3">
+                    <span class="material-symbols-outlined text-rose-600 dark:text-rose-400 text-[20px]">warning</span>
+                    <span>Someone else updated this spec since you last loaded it. Please refresh to see the latest version before continuing.</span>
+                </div>
+            }
+
             <!-- Header Actions Bar -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
                 <div class="flex items-center gap-2 text-xs">
@@ -219,6 +227,9 @@
     private string description = "";
     private List<string> criteria = new();
     private string tagsRaw = "";
+    
+    private Guid currentRowVersion;
+    private bool hasConcurrencyConflict = false;
 
     protected override async Task OnInitializedAsync()
     {
@@ -256,6 +267,8 @@
                     description = spec.Description;
                     criteria = spec.CurrentAcceptanceCriteria.ToList();
                     tagsRaw = string.Join(", ", spec.CurrentScopeTags);
+                    currentRowVersion = spec.RowVersion;
+                    hasConcurrencyConflict = false;
                 }
             }
             finally
@@ -287,6 +300,7 @@
     {
         if (!SpecId.HasValue || string.IsNullOrWhiteSpace(title)) return;
         isSaving = true;
+        hasConcurrencyConflict = false;
         try
         {
             var tags = tagsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToList();
@@ -295,9 +309,14 @@
                 Title = title.Trim(),
                 Description = description.Trim(),
                 AcceptanceCriteria = criteria.Where(c => !string.IsNullOrWhiteSpace(c)).ToList(),
-                ScopeTags = tags
+                ScopeTags = tags,
+                RowVersion = currentRowVersion
             });
             await LoadSpec();
+        }
+        catch (SpecPlatform.Client.Exceptions.ConcurrencyConflictException)
+        {
+            hasConcurrencyConflict = true;
         }
         finally
         {

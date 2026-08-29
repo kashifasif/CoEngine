@@ -45,6 +45,7 @@
     --color-rose-200: oklch(89.2% 0.058 10.001);
     --color-rose-300: oklch(81% 0.117 11.638);
     --color-rose-400: oklch(71.2% 0.194 13.428);
+    --color-rose-500: oklch(64.5% 0.246 16.439);
     --color-rose-600: oklch(58.6% 0.253 17.585);
     --color-rose-700: oklch(51.4% 0.222 16.935);
     --color-rose-800: oklch(45.5% 0.188 13.697);
@@ -1285,6 +1286,12 @@
       border-color: color-mix(in oklab, var(--color-rose-200) 60%, transparent);
     }
   }
+  .border-rose-200\/80 {
+    border-color: color-mix(in srgb, oklch(89.2% 0.058 10.001) 80%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-rose-200) 80%, transparent);
+    }
+  }
   .border-white {
     border-color: var(--color-white);
   }
@@ -1892,6 +1899,9 @@
   .text-indigo-950 {
     color: var(--color-indigo-950);
   }
+  .text-rose-500 {
+    color: var(--color-rose-500);
+  }
   .text-rose-600 {
     color: var(--color-rose-600);
   }
@@ -2454,6 +2464,12 @@
       border-color: color-mix(in oklab, var(--color-rose-900) 40%, transparent);
     }
   }
+  .dark\:border-rose-900\/50:where(.dark, .dark *) {
+    border-color: color-mix(in srgb, oklch(41% 0.159 10.272) 50%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-rose-900) 50%, transparent);
+    }
+  }
   .dark\:border-rose-900\/60:where(.dark, .dark *) {
     border-color: color-mix(in srgb, oklch(41% 0.159 10.272) 60%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -2596,6 +2612,12 @@
     background-color: color-mix(in srgb, oklch(27.1% 0.105 12.094) 30%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-rose-950) 30%, transparent);
+    }
+  }
+  .dark\:bg-rose-950\/40:where(.dark, .dark *) {
+    background-color: color-mix(in srgb, oklch(27.1% 0.105 12.094) 40%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-rose-950) 40%, transparent);
     }
   }
   .dark\:bg-rose-950\/60:where(.dark, .dark *) {

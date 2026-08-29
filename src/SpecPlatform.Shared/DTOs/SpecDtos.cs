@@ -16,6 +16,7 @@ public class UpdateSpecDto
     public string Description { get; set; } = string.Empty;
     public List<string> AcceptanceCriteria { get; set; } = new();
     public List<string> ScopeTags { get; set; } = new();
+    public Guid RowVersion { get; set; }
 }
 
 public class SpecDto
@@ -35,6 +36,7 @@ public class SpecDto
     public List<string> CurrentAcceptanceCriteria { get; set; } = new();
     public List<string> CurrentScopeTags { get; set; } = new();
     public List<SpecVersionDto> Versions { get; set; } = new();
+    public Guid RowVersion { get; set; }
 }
 
 public class SpecVersionDto

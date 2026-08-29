@@ -64,7 +64,7 @@
             </span>
         }
 
-        <button class="btn-primary text-xs py-1.5 px-3 font-semibold" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || GetUnansweredQuestions().Any() || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : GetUnansweredQuestions().Any() ? "Please answer or skip remaining questions to publish" : "Structure and publish specification")">
+        <button class="btn-primary text-xs py-1.5 px-3 font-semibold" @onclick="StructureIntoSpec" disabled="@(isStructuring || string.IsNullOrWhiteSpace(specTitle) || !HasSufficientDataToStructure())" title="@(string.IsNullOrWhiteSpace(specTitle) ? "Please give a title or name to the specification first" : !HasSufficientDataToStructure() ? "Please brainstorm or provide a draft description first" : "Structure and publish specification")">
             @if (isStructuring)
             {
                 <div class="animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></div>
@@ -402,10 +402,20 @@
 
         <div class="flex items-center justify-between text-[11px] text-zinc-400 dark:text-zinc-500 font-mono px-1">
             <span>Press <kbd class="px-1.5 py-0.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded text-[10px]">Enter</kbd> to send</span>
-            <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer flex items-center gap-1" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
-                <span>Start Clarification Round</span>
-                <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
-            </button>
+            @if (clarificationRoundNumber < maxClarificationRounds)
+            {
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-700">Round @(clarificationRoundNumber) of @maxClarificationRounds</span>
+                    <button class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer flex items-center gap-1" @onclick="TriggerClarificationRound" disabled="@(isThinking || string.IsNullOrWhiteSpace(specTitle) || !chatMessages.Any())">
+                        <span>Start Clarification Round</span>
+                        <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <span class="text-[10px] text-rose-500 bg-rose-50 dark:bg-rose-950/30 px-1.5 py-0.5 rounded border border-rose-200 dark:border-rose-900/50">Max clarification rounds reached (3 of 3)</span>
+            }
         </div>
     </div>
 </footer>
@@ -603,6 +613,8 @@
     private const int PageSize = 15;
     private bool isLoadingOlderMessages = false;
     private bool hasMoreOlderMessages => allMessages.Count > chatMessages.Count;
+    private int clarificationRoundNumber = 0;
+    private int maxClarificationRounds = 3;
     private DotNetObjectReference<AiWorkspace>? dotNetRef;
 
     private string specTitle = "";
@@ -833,6 +845,12 @@
             }
 
             var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
+            if (session != null)
+            {
+                clarificationRoundNumber = session.ClarificationRoundNumber;
+                maxClarificationRounds = session.MaxClarificationRounds;
+            }
+            
             if (session != null && session.Messages.Any())
             {
                 allMessages = session.Messages;
@@ -1141,6 +1159,11 @@
 
         try
         {
+            if (clarificationRoundNumber < maxClarificationRounds)
+            {
+                clarificationRoundNumber++;
+            }
+            
             await ApiClient.SendChatStreamAsync(
                 selectedProjectId,
                 chatMessages.Take(chatMessages.Count - 1).ToList(),
@@ -1258,21 +1281,6 @@
                 Role = "assistant",
                 Content = "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation first."
             });
-            StateHasChanged();
-            await ScrollToBottom();
-            return;
-        }
-
-        var unanswered = GetUnansweredQuestions();
-        if (unanswered.Any())
-        {
-            var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
-            chatMessages.Add(new ChatMessageDto
-            {
-                Role = "assistant",
-                Content = $"⚠️ **Cannot Publish Specification:** You have unanswered clarifying question(s) remaining (**{qNumbers}**). Please select an option or click **Skip (\"Not sure yet\")** before publishing."
-            });
-            await SaveDbChatSession();
             StateHasChanged();
             await ScrollToBottom();
             return;

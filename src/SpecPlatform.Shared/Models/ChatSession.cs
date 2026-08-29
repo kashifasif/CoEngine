@@ -10,6 +10,7 @@ public class ChatSession
     public string PersonaMode { get; set; } = "po_brainstorming"; // po_brainstorming, dev_qa_dev, dev_qa_qa
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public int ClarificationRoundNumber { get; set; } = 0;
     public List<ChatMessageRecord> Messages { get; set; } = new();
 }
 

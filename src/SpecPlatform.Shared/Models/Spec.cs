@@ -1,9 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace SpecPlatform.Shared.Models;
 
 public class Spec
 {
+    [ConcurrencyCheck]
+    public Guid RowVersion { get; set; } = Guid.NewGuid();
+    
     public Guid Id { get; set; }
     public Guid ProjectId { get; set; }
     public string Title { get; set; } = string.Empty;

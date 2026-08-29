@@ -30,6 +30,8 @@ public class ChatSessionDto
     public DateTime UpdatedAt { get; set; }
     public int TotalMessagesCount { get; set; }
     public bool HasMore { get; set; }
+    public int ClarificationRoundNumber { get; set; }
+    public int MaxClarificationRounds { get; set; } = 3;
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 

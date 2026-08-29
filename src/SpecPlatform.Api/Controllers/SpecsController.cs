@@ -418,6 +418,8 @@ public class SpecsController : ControllerBase
             return NotFound(new { message = $"Spec {id} not found." });
         }
 
+        _db.Entry(spec).Property(s => s.RowVersion).OriginalValue = dto.RowVersion;
+
         spec.Title = dto.Title.Trim();
         spec.Description = dto.Description?.Trim() ?? string.Empty;
 
@@ -453,7 +455,16 @@ public class SpecsController : ControllerBase
             draftVersion.ScopeTags.Add(new ScopeTag { TagName = tag.Trim() });
         }
 
-        await _db.SaveChangesAsync();
+        spec.RowVersion = Guid.NewGuid();
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Conflict(new { message = "This spec was updated by someone else since you last loaded it. Please refresh and reapply your changes." });
+        }
 
         // Index Spec Update into Vector Store (instantly searchable for Dev/QA & BA)
         var updatedCriteriaText = string.Join(". ", dto.AcceptanceCriteria);
@@ -867,6 +878,7 @@ public class SpecsController : ControllerBase
             UpdatedAt = session.UpdatedAt,
             TotalMessagesCount = totalCount,
             HasMore = hasMore,
+            ClarificationRoundNumber = session.ClarificationRoundNumber,
             Messages = resultMessages.Select(m => new ChatMessageDto
             {
                 Role = m.Role,
@@ -970,6 +982,23 @@ public class SpecsController : ControllerBase
         {
             Response.StatusCode = 404;
             return;
+        }
+
+        if (request.IsClarificationPhase)
+        {
+            var session = await _db.ChatSessions.FirstOrDefaultAsync(cs => cs.ProjectId == request.ProjectId && cs.PersonaMode == "po_brainstorming", cancellationToken);
+            if (session != null)
+            {
+                if (session.ClarificationRoundNumber >= 3)
+                {
+                    Response.StatusCode = 400;
+                    await Response.WriteAsync("[API Error] Maximum clarification rounds (3) reached.");
+                    return;
+                }
+                
+                session.ClarificationRoundNumber++;
+                await _db.SaveChangesAsync(cancellationToken);
+            }
         }
 
         var projectName = project.Name;
@@ -1447,6 +1476,7 @@ Extract the key features, workflows, and specifications into an initial draft.";
             Status = spec.Status,
             CreatedAt = spec.CreatedAt,
             CurrentVersionNumber = currentVersionNumber,
+            RowVersion = spec.RowVersion,
             CreatedByUserId = spec.CreatedByUserId,
             CreatedByDisplayName = spec.CreatedByUser != null ? spec.CreatedByUser.DisplayName : null,
             CreatedByUsername = spec.CreatedByUser != null ? spec.CreatedByUser.Username : null,

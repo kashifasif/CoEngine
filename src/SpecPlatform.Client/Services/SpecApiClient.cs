@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text;
 using SpecPlatform.Shared.DTOs;
 using SpecPlatform.Shared.Models;
+using SpecPlatform.Client.Exceptions;
 
 namespace SpecPlatform.Client.Services;
 
@@ -90,11 +91,21 @@ public class SpecApiClient
     public async Task<SpecDto?> UpdateSpecAsync(Guid id, UpdateSpecDto dto)
     {
         var response = await _http.PutAsJsonAsync($"api/specs/{id}", dto);
+        if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            var error = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            throw new ConcurrencyConflictException(error?.Message ?? "This spec was updated by someone else.");
+        }
         if (response.IsSuccessStatusCode)
         {
             return await response.Content.ReadFromJsonAsync<SpecDto>();
         }
         return null;
+    }
+
+    private class ErrorResponse
+    {
+        public string Message { get; set; } = string.Empty;
     }
 
     public async Task<PublishResultDto?> PublishSpecAsync(Guid id)
