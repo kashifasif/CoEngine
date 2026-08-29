@@ -73,23 +73,10 @@ public class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public async Task<ActionResult<UserDto>> GetCurrentUser(
-        [FromQuery] Guid? userId = null,
-        CancellationToken cancellationToken = default)
+    public async Task<ActionResult<UserDto>> GetCurrentUser(CancellationToken cancellationToken = default)
     {
-        if (userId.HasValue && userId.Value != Guid.Empty)
-        {
-            var user = await _authService.GetUserByIdAsync(userId.Value, cancellationToken);
-            if (user != null)
-            {
-                user.IsAuthenticated = true;
-                return Ok(user);
-            }
-        }
-
         var token = Request.Cookies["coengine_session"] 
-            ?? Request.Cookies["spec_user_session"] 
-            ?? Request.Headers["X-Auth-Token"].FirstOrDefault();
+            ?? Request.Cookies["spec_user_session"];
 
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -103,17 +90,14 @@ public class AuthController : ControllerBase
         }
 
         // Token format: gh_session_{userId}_{guid}
-        if (token.StartsWith("gh_session_", StringComparison.OrdinalIgnoreCase) || token.StartsWith("test_", StringComparison.OrdinalIgnoreCase))
+        var parts = token.Split('_');
+        if (parts.Length >= 3 && Guid.TryParse(parts[2], out var tokenUserId))
         {
-            var parts = token.Split('_');
-            if (parts.Length >= 3 && Guid.TryParse(parts[2], out var tokenUserId))
+            var user = await _authService.GetUserByIdAsync(tokenUserId, cancellationToken);
+            if (user != null)
             {
-                var user = await _authService.GetUserByIdAsync(tokenUserId, cancellationToken);
-                if (user != null)
-                {
-                    user.IsAuthenticated = true;
-                    return Ok(user);
-                }
+                user.IsAuthenticated = true;
+                return Ok(user);
             }
         }
 

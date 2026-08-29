@@ -8,11 +8,14 @@ using CoEngine.Api.Data;
 using CoEngine.Shared.DTOs;
 using Xunit;
 
+using CoEngine.Shared.Models;
+
 namespace CoEngine.Tests;
 
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     private readonly string _testDbName = $"TestDb_{Guid.NewGuid():N}";
+    public Guid SeedUserId { get; } = Guid.NewGuid();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -40,6 +43,20 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
                 using var scope = sp.CreateScope();
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 db.Database.EnsureCreated();
+
+                // Seed authentic user
+                db.Users.Add(new User
+                {
+                    Id = SeedUserId,
+                    GitHubId = "12345678",
+                    Username = "github_developer",
+                    DisplayName = "GitHub Developer",
+                    Email = "developer@coengine.io",
+                    AvatarUrl = "https://github.com/identicons/coengine.png",
+                    CreatedAt = DateTime.UtcNow,
+                    LastLoginAt = DateTime.UtcNow
+                });
+                db.SaveChanges();
             }
             catch (Exception ex)
             {
@@ -59,7 +76,7 @@ public class MilestoneTests : IClassFixture<CustomWebApplicationFactory>
     {
         _factory = factory;
         _client = factory.CreateClient();
-        _client.DefaultRequestHeaders.Add("X-Auth-Token", "test_integration_token_12345");
+        _client.DefaultRequestHeaders.Add("Cookie", $"coengine_session=gh_session_{factory.SeedUserId}_{Guid.NewGuid():N}");
     }
 
     [Fact]
@@ -274,10 +291,14 @@ public class MilestoneTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal("github_developer", user.Username);
 
         // 3. Verify /api/auth/me returns user profile
-        var meRes = await _client.GetFromJsonAsync<UserDto>($"/api/auth/me?userId={user.Id}");
-        Assert.NotNull(meRes);
-        Assert.True(meRes.IsAuthenticated);
-        Assert.Equal("github_developer", meRes.Username);
+        var meRequest = new HttpRequestMessage(HttpMethod.Get, "/api/auth/me");
+        meRequest.Headers.Add("Cookie", $"coengine_session=gh_session_{user.Id}_{Guid.NewGuid():N}");
+        var meRes = await _client.SendAsync(meRequest);
+        Assert.Equal(HttpStatusCode.OK, meRes.StatusCode);
+        var meUser = await meRes.Content.ReadFromJsonAsync<UserDto>();
+        Assert.NotNull(meUser);
+        Assert.True(meUser.IsAuthenticated);
+        Assert.Equal("github_developer", meUser.Username);
 
         // 4. Verify Logout
         var logoutRes = await _client.PostAsync("/api/auth/logout", null);

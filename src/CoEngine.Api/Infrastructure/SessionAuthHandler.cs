@@ -18,34 +18,30 @@ public class SessionAuthHandler : AuthenticationHandler<AuthenticationSchemeOpti
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var token = Request.Cookies["coengine_session"] 
-            ?? Request.Cookies["spec_user_session"] 
-            ?? Request.Headers["X-Auth-Token"].FirstOrDefault();
+            ?? Request.Cookies["spec_user_session"];
 
         if (string.IsNullOrWhiteSpace(token))
         {
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.AuthenticationMethod, "SessionToken"),
-            new Claim("Token", token)
-        };
-
         var parts = token.Split('_');
         if (parts.Length >= 3 && Guid.TryParse(parts[2], out var userId))
         {
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, userId.ToString()));
-        }
-        else
-        {
-            claims.Add(new Claim(ClaimTypes.NameIdentifier, "00000000-0000-0000-0000-000000000001"));
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.AuthenticationMethod, "SessionToken"),
+                new Claim("Token", token),
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString())
+            };
+
+            var identity = new ClaimsIdentity(claims, Scheme.Name);
+            var principal = new ClaimsPrincipal(identity);
+            var ticket = new AuthenticationTicket(principal, Scheme.Name);
+
+            return Task.FromResult(AuthenticateResult.Success(ticket));
         }
 
-        var identity = new ClaimsIdentity(claims, Scheme.Name);
-        var principal = new ClaimsPrincipal(identity);
-        var ticket = new AuthenticationTicket(principal, Scheme.Name);
-
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+        return Task.FromResult(AuthenticateResult.Fail("Invalid session token format."));
     }
 }
