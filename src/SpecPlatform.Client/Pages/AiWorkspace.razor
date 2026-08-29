@@ -1061,7 +1061,9 @@
         {
             var prompt = userPromptInput.Trim();
             userPromptInput = "";
-            chatMessages.Add(new ChatMessageDto { Role = "user", Content = prompt });
+            var userMsg = new ChatMessageDto { Role = "user", Content = prompt };
+            chatMessages.Add(userMsg);
+            allMessages.Add(userMsg);
         }
 
         if (!chatMessages.Any()) return;
@@ -1074,11 +1076,13 @@
             if (unanswered.Any())
             {
                 var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
-                chatMessages.Add(new ChatMessageDto
+                var warningMsg = new ChatMessageDto
                 {
                     Role = "assistant",
                     Content = $"ℹ️ **Pending Questions Remaining:** Please select or skip the remaining unanswered question(s) above ({qNumbers}) before requesting further clarification."
-                });
+                };
+                chatMessages.Add(warningMsg);
+                allMessages.Add(warningMsg);
                 await SaveDbChatSession();
                 StateHasChanged();
                 await ScrollToBottom();
@@ -1096,8 +1100,9 @@
                     answerSummary.AppendLine($"- Q{q.Number}: {q.SelectedAnswer}");
                 }
                 answerSummary.AppendLine("\nPlease proceed with the next clarification round based on my answers. If everything is completely clear and there are absolutely no more functional questions left to ask, simply reply: 'Fully Clarified'. Do not ask any questions you have already asked.");
-                
-                chatMessages.Add(new ChatMessageDto { Role = "user", Content = answerSummary.ToString() });
+                var injectedUserMsg = new ChatMessageDto { Role = "user", Content = answerSummary.ToString() };
+                chatMessages.Add(injectedUserMsg);
+                allMessages.Add(injectedUserMsg);
             }
         }
 
@@ -1107,11 +1112,13 @@
              lastAssistantMsg.Content.Contains("No clarifying questions needed", StringComparison.OrdinalIgnoreCase) ||
              lastAssistantMsg.Content.Contains("Fully Clarified", StringComparison.OrdinalIgnoreCase)))
         {
-            chatMessages.Add(new ChatMessageDto
+            var fullyClarifiedMsg = new ChatMessageDto
             {
                 Role = "assistant",
                 Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready."
-            });
+            };
+            chatMessages.Add(fullyClarifiedMsg);
+            allMessages.Add(fullyClarifiedMsg);
             await SaveDbChatSession();
             StateHasChanged();
             await ScrollToBottom();
@@ -1120,6 +1127,7 @@
 
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
         chatMessages.Add(assistantMsg);
+        allMessages.Add(assistantMsg);
 
         isThinking = true;
         currentStreamingResponse = "";
