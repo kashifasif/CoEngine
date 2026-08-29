@@ -1393,6 +1393,7 @@
             };
             allMessages.Add(pubMsg);
             chatMessages.Add(pubMsg);
+            clarificationRoundNumber = 0;
             await ApiClient.SaveChatMessagesAsync(selectedProjectId, PersonaModeKey, allMessages);
         }
 

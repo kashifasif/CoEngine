@@ -307,6 +307,24 @@ public class SpecsController : ControllerBase
             await _vectorStore.IndexDocumentAsync(projectId, "spec", spec.Title,
                 $"{spec.Description}. Acceptance criteria: {criteriaText}. Scope tags: {tagsText}");
 
+            var chatSession = await _db.ChatSessions
+                .Include(cs => cs.Messages)
+                .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == "po_brainstorming");
+            if (chatSession != null)
+            {
+                chatSession.ClarificationRoundNumber = 0;
+                if (!chatSession.Messages.Any(m => m.Content.Contains($"Version **v1** of '{spec.Title}'")))
+                {
+                    chatSession.Messages.Add(new ChatMessageRecord
+                    {
+                        Role = "assistant",
+                        Content = $"✅ **Specification Published:** Version **v1** of '{spec.Title}' has been generated and saved.",
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+                await _db.SaveChangesAsync();
+            }
+
             spec.Project = project;
             return Ok(MapToSpecDto(spec));
         }
@@ -366,8 +384,23 @@ public class SpecsController : ControllerBase
                 ActionType = "published",
                 CreatedAt = DateTime.UtcNow
             };
-            _db.Notifications.Add(notification);
-            await _db.SaveChangesAsync();
+            var chatSession = await _db.ChatSessions
+                .Include(cs => cs.Messages)
+                .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == "po_brainstorming");
+            if (chatSession != null)
+            {
+                chatSession.ClarificationRoundNumber = 0;
+                if (!chatSession.Messages.Any(m => m.Content.Contains($"Version **v{nextVersionNumber}** of '{spec.Title}'")))
+                {
+                    chatSession.Messages.Add(new ChatMessageRecord
+                    {
+                        Role = "assistant",
+                        Content = $"✅ **Specification Published:** Version **v{nextVersionNumber}** of '{spec.Title}' has been generated and saved.",
+                        Timestamp = DateTime.UtcNow
+                    });
+                }
+                await _db.SaveChangesAsync();
+            }
 
             return Ok(MapToSpecDto(spec));
         }
@@ -544,6 +577,24 @@ public class SpecsController : ControllerBase
         var pubTags = string.Join(", ", newPublishedVersion.ScopeTags.Select(t => t.TagName));
         await _vectorStore.IndexDocumentAsync(spec.ProjectId, "published_spec", $"{spec.Title} (v{nextVersionNumber})",
             $"{spec.Description}. Acceptance criteria: {pubCriteria}. Scope tags: {pubTags}");
+
+        var chatSession = await _db.ChatSessions
+            .Include(cs => cs.Messages)
+            .FirstOrDefaultAsync(cs => cs.ProjectId == spec.ProjectId && cs.PersonaMode == "po_brainstorming");
+        if (chatSession != null)
+        {
+            chatSession.ClarificationRoundNumber = 0;
+            if (!chatSession.Messages.Any(m => m.Content.Contains($"Version **v{nextVersionNumber}** of '{spec.Title}'")))
+            {
+                chatSession.Messages.Add(new ChatMessageRecord
+                {
+                    Role = "assistant",
+                    Content = $"✅ **Specification Published:** Version **v{nextVersionNumber}** of '{spec.Title}' has been generated and saved.",
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            await _db.SaveChangesAsync();
+        }
 
         _logger.LogInformation(summaryText);
 
