@@ -1024,7 +1024,8 @@ public class SpecsController : ControllerBase
                 "3. PRIORITIZE UNRESOLVED OPEN BUSINESS QUESTIONS: If the existing spec or previous rounds have unresolved Open Business Questions, YOU MUST TURN THOSE INTO CLARIFYING QUESTIONS.\n" +
                 "4. SCOPE RESTRICTION - FUNCTIONAL REQUIREMENTS ONLY: Questions must stay strictly focused on functional/business requirements (what the system should do, for whom, under what conditions). Do NOT ask technical or implementation-level questions (e.g., \"how will the API authenticate this request?\", database design, architecture choices) — the people answering are business stakeholders, not developers.\n" +
                 "5. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
-                "6. Do NOT ask about anything already clearly answered and established in the existing spec.\n" +
+                "6. CRITICAL: CAREFULLY REVIEW THE ENTIRE CHAT HISTORY before asking a question. You MUST NOT ask any question that has already been asked and answered in a previous round.\n" +
+                "7. Do NOT ask about anything already clearly answered and established in the existing spec or the chat history.\n" +
                 "OUTPUT FORMAT (strict):\n" +
                 "1. [Question text]\n" +
                 "   - A) [Option 1]\n" +

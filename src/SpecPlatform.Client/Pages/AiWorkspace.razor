@@ -1066,41 +1066,56 @@
 
         if (!chatMessages.Any()) return;
 
-        var lastAssistantMsg = chatMessages.LastOrDefault(m => m.Role == "assistant");
-        if (lastAssistantMsg != null)
+        var lastAssistantMsgWithQuestions = chatMessages.LastOrDefault(m => m.Role == "assistant" && ParseQuestionOptions(m.Content).Any());
+        if (lastAssistantMsgWithQuestions != null)
         {
-            var questions = ParseQuestionOptions(lastAssistantMsg.Content);
-            if (questions.Any())
+            var questions = ParseQuestionOptions(lastAssistantMsgWithQuestions.Content);
+            var unanswered = questions.Where(q => string.IsNullOrEmpty(q.SelectedAnswer)).ToList();
+            if (unanswered.Any())
             {
-                var unanswered = questions.Where(q => string.IsNullOrEmpty(q.SelectedAnswer)).ToList();
-                if (unanswered.Any())
-                {
-                    var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
-                    chatMessages.Add(new ChatMessageDto
-                    {
-                        Role = "assistant",
-                        Content = $"ℹ️ **Pending Questions Remaining:** Please select or skip the remaining unanswered question(s) above ({qNumbers}) before requesting further clarification."
-                    });
-                    await SaveDbChatSession();
-                    StateHasChanged();
-                    await ScrollToBottom();
-                    return;
-                }
-            }
-            else if (lastAssistantMsg.Content.Contains("fully clarified") ||
-                     lastAssistantMsg.Content.Contains("No clarifying questions needed") ||
-                     lastAssistantMsg.Content.Contains("Fully Clarified"))
-            {
+                var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
                 chatMessages.Add(new ChatMessageDto
                 {
                     Role = "assistant",
-                    Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready."
+                    Content = $"ℹ️ **Pending Questions Remaining:** Please select or skip the remaining unanswered question(s) above ({qNumbers}) before requesting further clarification."
                 });
                 await SaveDbChatSession();
                 StateHasChanged();
                 await ScrollToBottom();
                 return;
             }
+
+            var lastMsg = chatMessages.LastOrDefault();
+            bool alreadyInjected = lastMsg != null && lastMsg.Role == "user" && lastMsg.Content.Contains("Here are my answers to your clarifying questions:");
+            
+            if (!alreadyInjected)
+            {
+                var answerSummary = new System.Text.StringBuilder("Here are my answers to your clarifying questions:\n");
+                foreach (var q in questions)
+                {
+                    answerSummary.AppendLine($"- Q{q.Number}: {q.SelectedAnswer}");
+                }
+                answerSummary.AppendLine("\nPlease proceed with the next clarification round based on my answers. If everything is completely clear and there are absolutely no more functional questions left to ask, simply reply: 'Fully Clarified'. Do not ask any questions you have already asked.");
+                
+                chatMessages.Add(new ChatMessageDto { Role = "user", Content = answerSummary.ToString() });
+            }
+        }
+
+        var lastAssistantMsg = chatMessages.LastOrDefault(m => m.Role == "assistant");
+        if (lastAssistantMsg != null && 
+            (lastAssistantMsg.Content.Contains("fully clarified", StringComparison.OrdinalIgnoreCase) ||
+             lastAssistantMsg.Content.Contains("No clarifying questions needed", StringComparison.OrdinalIgnoreCase) ||
+             lastAssistantMsg.Content.Contains("Fully Clarified", StringComparison.OrdinalIgnoreCase)))
+        {
+            chatMessages.Add(new ChatMessageDto
+            {
+                Role = "assistant",
+                Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready."
+            });
+            await SaveDbChatSession();
+            StateHasChanged();
+            await ScrollToBottom();
+            return;
         }
 
         var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
