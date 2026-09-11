@@ -22,23 +22,24 @@ var connectionString = builder.Configuration.GetConnectionString("PostgresConnec
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, o => o.UseVector()));
 
-// Add OpenRouter AI Service, GitHub Auth Service & PostgreSQL pgvector Service
-builder.Services.AddScoped<IOpenRouterService, OpenRouterService>();
+builder.Services.AddScoped<CopilotAiService>();
+builder.Services.AddScoped<ICopilotAiService>(sp => sp.GetRequiredService<CopilotAiService>());
+builder.Services.AddScoped<IOpenRouterService>(sp => sp.GetRequiredService<CopilotAiService>());
 
-// Configure Semantic Kernel with DeepSeek API
-var deepSeekApiKey = builder.Configuration["DeepSeek:ApiKey"] ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "sk-cccd16c9552348cda60e0ed362840130";
-var deepSeekModel = builder.Configuration["DeepSeek:Model"] ?? "deepseek-v4-pro";
-var deepSeekBaseUrl = builder.Configuration["DeepSeek:BaseUrl"] ?? "https://api.deepseek.com/chat/completions";
+// Configure Semantic Kernel: Optional upstream LLM endpoint (if explicitly configured on server)
+var kernelBuilder = builder.Services.AddKernel();
+var copilotBridgeUrl = builder.Configuration["CopilotBridge:Endpoint"] 
+    ?? builder.Configuration["Copilot:Endpoint"] 
+    ?? Environment.GetEnvironmentVariable("COPILOT_BRIDGE_URL");
 
-// Extract base URL for the OpenAI connector (it typically expects the base like https://api.deepseek.com/v1/)
-var baseUri = new Uri(deepSeekBaseUrl);
-var deepSeekEndpoint = new Uri(baseUri.GetLeftPart(UriPartial.Authority) + "/v1"); // typically /v1 for OpenAI compatibility
-
-builder.Services.AddKernel()
-    .AddOpenAIChatCompletion(
-        modelId: deepSeekModel,
-        apiKey: deepSeekApiKey,
-        endpoint: deepSeekEndpoint);
+if (!string.IsNullOrWhiteSpace(copilotBridgeUrl))
+{
+    var copilotModel = builder.Configuration["CopilotBridge:ModelId"] ?? "gpt-4o";
+    kernelBuilder.AddOpenAIChatCompletion(
+        modelId: copilotModel,
+        apiKey: "copilot-bridge",
+        endpoint: new Uri(copilotBridgeUrl.TrimEnd('/') + "/"));
+}
 
 builder.Services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
 builder.Services.AddScoped<IVectorStoreService, PgVectorStoreService>();

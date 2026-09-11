@@ -3,7 +3,7 @@ import { ApiClient } from './services/apiClient';
 import { CopilotService } from './services/copilotService';
 import { SpecsViewProvider } from './providers/specsViewProvider';
 import { SpecChatParticipant } from './providers/specChatParticipant';
-import { SpecsEditorPanel } from './panels/specsEditorPanel';
+import { SpecsEditorPanel, SpecsEditorSerializer } from './panels/specsEditorPanel';
 import { CopilotBridgeServer } from './services/copilotBridge';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -59,7 +59,15 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 4. Register Status Bar item for 1-click launch from the bottom bar
+  // 4. Register Webview Panel Serializer to prevent stale cached tabs across VS Code reloads
+  context.subscriptions.push(
+    vscode.window.registerWebviewPanelSerializer(
+      'coengine.specsEditor',
+      new SpecsEditorSerializer(context.extensionUri, apiClient, copilotService)
+    )
+  );
+
+  // 5. Register Status Bar item for 1-click launch from the bottom bar
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.command = 'coengine.openEditor';
   statusBarItem.text = '$(layers) CoEngine';

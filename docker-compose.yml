@@ -27,10 +27,8 @@ services:
       GitHub__ClientId: ${GITHUB_CLIENT_ID}
       GitHub__ClientSecret: ${GITHUB_CLIENT_SECRET}
       GitHub__AppBaseUrl: ${APP_BASE_URL:-https://topvid.lol}
-      GitHub__CallbackPath: /auth/github/callback
-      DeepSeek__ApiKey: ${DEEPSEEK_API_KEY}
-      DeepSeek__Model: deepseek-chat
-      DeepSeek__BaseUrl: https://api.deepseek.com/chat/completions
+      CopilotBridge__Endpoint: ${COPILOT_BRIDGE_URL:-http://host.docker.internal:5123/v1}
+      CopilotBridge__ModelId: gpt-4o
     depends_on:
       postgres:
         condition: service_healthy

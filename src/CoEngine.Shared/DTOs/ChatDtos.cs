@@ -108,6 +108,7 @@ public class IngestTranscriptRequestDto
     public Guid ProjectId { get; set; }
     public string SourceTag { get; set; } = "MS Teams Meeting Transcript";
     public string RawTranscript { get; set; } = string.Empty;
+    public StructuredSpecResultDto? PreStructuredResult { get; set; }
 }
 
 public class IngestTranscriptResponseDto

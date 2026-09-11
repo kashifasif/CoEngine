@@ -32,7 +32,7 @@ public class SpecsController : ControllerBase
     }
 
     private async Task RecordAiUsageAsync(string operation, string promptText, string completionText,
-        string modelName = "openrouter/anthropic/claude-3.5-sonnet")
+        string modelName = "github-copilot/gpt-4o")
     {
         try
         {
@@ -1661,6 +1661,36 @@ public class SpecsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("api/specs/draft/ingest-transcript/context")]
+    public async Task<ActionResult<BrainstormContextResponseDto>> GetIngestTranscriptContext(
+        [FromBody] IngestTranscriptRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = await _currentUser.GetUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
+        var prompt = $@"You are a Principal Software Architect and Lead Business Analyst.
+Analyze the provided raw meeting notes or MS Teams transcript for Project: '{project.Name}' ({project.Description}).
+CONTEXT:
+{existingSpecContext}
+
+Extract the key features, workflows, and specifications into an initial draft.";
+
+        var basePrompt = OpenRouterService.BuildStructurePrompt(prompt);
+
+        return Ok(new BrainstormContextResponseDto
+        {
+            ProjectId = request.ProjectId,
+            ProjectName = project.Name,
+            ProjectDescription = project.Description,
+            SystemPrompt = basePrompt
+        });
+    }
+
     [HttpPost("api/specs/draft/ingest-transcript")]
     public async Task<ActionResult<IngestTranscriptResponseDto>> IngestRawTranscript(
         [FromBody] IngestTranscriptRequestDto request)
@@ -1686,27 +1716,30 @@ public class SpecsController : ControllerBase
             $"Raw Ingestion [{request.SourceTag}]",
             request.RawTranscript);
 
-        // 2. Build AI prompt to parse and synthesize the transcript
-        var analysisMessages = new List<ChatMessageDto>
+        // 2. Obtain structured draft: prefer client-side Copilot pre-structured result if provided
+        StructuredSpecResultDto structuredDraft = request.PreStructuredResult!;
+        if (structuredDraft == null)
         {
-            new ChatMessageDto
+            var analysisMessages = new List<ChatMessageDto>
             {
-                Role = "user",
-                Content =
-                    $"Here is the raw meeting transcript / requirements dump ({request.SourceTag}):\n\n```\n{request.RawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
-            }
-        };
+                new ChatMessageDto
+                {
+                    Role = "user",
+                    Content =
+                        $"Here is the raw meeting transcript / requirements dump ({request.SourceTag}):\n\n```\n{request.RawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
+                }
+            };
 
-        var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
-
-        var systemPrompt = $@"You are a Principal Software Architect and Lead Business Analyst.
+            var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
+            var systemPrompt = $@"You are a Principal Software Architect and Lead Business Analyst.
 Analyze the provided raw meeting notes or MS Teams transcript for Project: '{projectName}' ({projectDesc}).
 CONTEXT:
 {existingSpecContext}
 
 Extract the key features, workflows, and specifications into an initial draft.";
 
-        var structuredDraft = await _openRouter.StructureIntoSpecAsync(systemPrompt, analysisMessages);
+            structuredDraft = await _openRouter.StructureIntoSpecAsync(systemPrompt, analysisMessages);
+        }
 
         // 3. Formulate executive markdown summary for chat stream
         var criteriaList = string.Join("\n", structuredDraft.AcceptanceCriteria.Select(c => $" - ✅ {c}"));

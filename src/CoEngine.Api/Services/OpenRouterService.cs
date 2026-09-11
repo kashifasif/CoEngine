@@ -6,7 +6,7 @@ using CoEngine.Shared.DTOs;
 
 namespace CoEngine.Api.Services;
 
-public interface IOpenRouterService
+public interface ICopilotAiService
 {
     Task<ChatResponseDto> ChatAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history);
     IAsyncEnumerable<string> ChatStreamAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history, CancellationToken cancellationToken = default);
@@ -19,10 +19,13 @@ public interface IOpenRouterService
     Task<SelfReviewResultDto> RunSelfReviewAsync(string rawSpecJson);
 }
 
-public class OpenRouterService : IOpenRouterService
+// Backwards-compatible interface alias
+public interface IOpenRouterService : ICopilotAiService { }
+
+public class CopilotAiService : ICopilotAiService, IOpenRouterService
 {
-    private readonly IChatCompletionService _chatCompletionService;
-    private readonly ILogger<OpenRouterService> _logger;
+    private readonly IChatCompletionService? _chatCompletionService;
+    private readonly ILogger<CopilotAiService> _logger;
     private readonly Kernel _kernel;
 
     // ─── Self-review system prompt (fixed, per spec) ──────────────────────────
@@ -53,9 +56,9 @@ public class OpenRouterService : IOpenRouterService
         "  \"revisedSpec\": { /* the spec JSON, with any autoFixes applied; identical to input if no fixes were made */ }\n" +
         "}";
 
-    public OpenRouterService(Kernel kernel, ILogger<OpenRouterService> logger)
+    public CopilotAiService(Kernel kernel, ILogger<CopilotAiService> logger, IServiceProvider serviceProvider)
     {
-        _chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
+        _chatCompletionService = serviceProvider.GetService<IChatCompletionService>();
         _logger = logger;
         _kernel = kernel;
     }
@@ -108,6 +111,15 @@ public class OpenRouterService : IOpenRouterService
 
     public async Task<ChatResponseDto> ChatAsync(string systemPrompt, KernelArguments? args, List<ChatMessageDto> history)
     {
+        if (_chatCompletionService == null)
+        {
+            return new ChatResponseDto
+            {
+                Success = true,
+                Reply = "[Client Bridge] Server-side AI is unconfigured. AI operations run directly via your client's VS Code GitHub Copilot bridge."
+            };
+        }
+
         try
         {
             var chatHistory = await BuildChatHistoryAsync(systemPrompt, args, history);
@@ -136,6 +148,11 @@ public class OpenRouterService : IOpenRouterService
         List<ChatMessageDto> history,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (_chatCompletionService == null)
+        {
+            yield return "[Client Bridge] Server-side AI is not configured. AI operations run directly via your client's VS Code GitHub Copilot bridge.";
+            yield break;
+        }
         var chatHistory = await BuildChatHistoryAsync(systemPrompt, args, history);
         
         IAsyncEnumerable<StreamingChatMessageContent>? streamingResponse = null;
@@ -632,7 +649,11 @@ public class OpenRouterService : IOpenRouterService
 
         if (!extractedCriteria.Any())
         {
-            extractedCriteria = userMessages.Skip(1).Select(u => u.Length > 120 ? u.Substring(0, 120) + "..." : u).ToList();
+            extractedCriteria = userMessages.Select(u => u.Length > 120 ? u.Substring(0, 120) + "..." : u).ToList();
+            if (!extractedCriteria.Any())
+            {
+                extractedCriteria.Add("System shall fulfill feature requirements as specified in discussion.");
+            }
         }
 
         return new StructuredSpecResultDto
@@ -644,4 +665,10 @@ public class OpenRouterService : IOpenRouterService
             // RawJson is intentionally null in fallback — no raw JSON to review
         };
     }
+}
+
+// Backwards-compatible class alias
+public class OpenRouterService : CopilotAiService
+{
+    public OpenRouterService(Kernel kernel, ILogger<CopilotAiService> logger, IServiceProvider serviceProvider) : base(kernel, logger, serviceProvider) { }
 }

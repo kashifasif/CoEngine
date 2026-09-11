@@ -414,11 +414,47 @@ public class SpecApiClient
 
     public async Task<IngestTranscriptResponseDto?> IngestRawTranscriptAsync(Guid projectId, string sourceTag, string rawTranscript)
     {
+        StructuredSpecResultDto? preStructured = null;
+        if (await _copilot.IsCopilotAvailableAsync())
+        {
+            try
+            {
+                var ctxRes = await _http.PostAsJsonAsync("api/specs/draft/ingest-transcript/context", new IngestTranscriptRequestDto
+                {
+                    ProjectId = projectId,
+                    SourceTag = sourceTag,
+                    RawTranscript = rawTranscript
+                });
+
+                if (ctxRes.IsSuccessStatusCode)
+                {
+                    var ctx = await ctxRes.Content.ReadFromJsonAsync<BrainstormContextResponseDto>();
+                    if (ctx != null && !string.IsNullOrWhiteSpace(ctx.SystemPrompt))
+                    {
+                        var messages = new List<ChatMessageDto>
+                        {
+                            new()
+                            {
+                                Role = "user",
+                                Content = $"Here is the raw meeting transcript / requirements dump ({sourceTag}):\n\n```\n{rawTranscript}\n```\n\nPlease deeply analyze this text, filter out noise/banter, extract the core technical requirements, actors, acceptance criteria, and edge cases."
+                            }
+                        };
+                        preStructured = await _copilot.StructureSpecAsync(ctx.SystemPrompt, messages, "");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _js.InvokeVoidAsync("console.warn", $"[SpecApiClient] Copilot transcript ingestion error, falling back to server: {ex.Message}");
+            }
+        }
+
         var request = new IngestTranscriptRequestDto
         {
             ProjectId = projectId,
             SourceTag = sourceTag,
-            RawTranscript = rawTranscript
+            RawTranscript = rawTranscript,
+            PreStructuredResult = preStructured
         };
         var response = await _http.PostAsJsonAsync("api/specs/draft/ingest-transcript", request);
         if (response.IsSuccessStatusCode)
