@@ -1191,68 +1191,14 @@ public class SpecsController : ControllerBase
         var vectorMatches = allVectorMatches
             .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
 
-        var specContext = new StringBuilder();
-        specContext.AppendLine($"--- ALL LATEST PROJECT SPECIFICATIONS (FULL LATEST REQUIREMENTS) ---");
-
-        if (project?.Specs != null && project.Specs.Any())
-        {
-            foreach (var spec in project.Specs)
-            {
-                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
-
-                specContext.AppendLine(
-                    $"\n[Spec #{spec.Id} | Title: {spec.Title} | Status: {spec.Status} | Latest Version: v{latestVer?.VersionNumber ?? 0}]");
-                specContext.AppendLine($"Description: {spec.Description}");
-
-                if (latestVer?.AcceptanceCriteria.Any() == true)
-                {
-                    specContext.AppendLine("Acceptance Criteria:");
-                    foreach (var ac in latestVer.AcceptanceCriteria)
-                    {
-                        specContext.AppendLine($" - {ac.Text}");
-                    }
-                }
-
-                if (latestVer?.ScopeTags.Any() == true)
-                {
-                    specContext.AppendLine("Scope Tags: " +
-                                           string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName)));
-                }
-            }
-        }
-        else
-        {
-            specContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
-        }
-
-        if (vectorMatches.Any())
-        {
-            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE VECTOR MATCHES ---");
-            foreach (var match in vectorMatches)
-            {
-                specContext.AppendLine(
-                    $"[Vector Match: {match.Title} | Similarity: {match.SimilarityScore:F2}] {match.Content}");
-            }
-        }
-
-        string roleInstructions =
-            $"You are an expert AI Technical Specification Q&A Assistant for Project: '{{{{$projectName}}}}'. Help Developers, QA Engineers, Product Managers, and Team Members understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, test scenarios, edge cases, and business logic BASED ON THE LATEST PROJECT SPECIFICATIONS ABOVE.";
-
-        var systemPrompt =
-            $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{{{{$projectName}}}}' ({{{{$projectDesc}}}}).\n" +
-            "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
-            $"{roleInstructions}\n\nProject Overview: {{{{$projectDesc}}}}\n\n{{{{$specContext}}}}\n\n" +
-            "STRICT QA RULES:\n" +
-            "1. Answers MUST be short and to the point. Directly quote or closely paraphrase the relevant part of the published spec. No elaboration, no added opinions, no information not explicitly present in the spec.\n" +
-            "2. If the answer isn't found in the published spec, say so plainly: \"Not specified in the published spec\" rather than inferring or guessing an answer.\n" +
-            "3. Do NOT ask follow-up questions back to the dev/QA user.\n\n" +
-            "Goal: Answer the query accurately based on the Specifications above.";
+        var specContext = BuildDevQaSpecContext(project, vectorMatches);
+        var systemPrompt = BuildDevQaSystemPrompt(projectName, projectDesc, specContext, isKernelTemplate: true);
 
         var args = new KernelArguments
         {
             { "projectName", projectName },
             { "projectDesc", projectDesc },
-            { "specContext", specContext.ToString() }
+            { "specContext", specContext }
         };
 
         var streamAccumulator = new StringBuilder();
@@ -1304,69 +1250,15 @@ public class SpecsController : ControllerBase
         var vectorMatches = allVectorMatches
             .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
 
-        var specContext = new StringBuilder();
-        specContext.AppendLine($"--- ALL LATEST PROJECT SPECIFICATIONS (FULL LATEST REQUIREMENTS) ---");
-
-        if (project?.Specs != null && project.Specs.Any())
-        {
-            foreach (var spec in project.Specs)
-            {
-                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
-
-                specContext.AppendLine(
-                    $"\n[Spec #{spec.Id} | Title: {spec.Title} | Status: {spec.Status} | Latest Version: v{latestVer?.VersionNumber ?? 0}]");
-                specContext.AppendLine($"Description: {spec.Description}");
-
-                if (latestVer?.AcceptanceCriteria.Any() == true)
-                {
-                    specContext.AppendLine("Acceptance Criteria:");
-                    foreach (var ac in latestVer.AcceptanceCriteria)
-                    {
-                        specContext.AppendLine($" - {ac.Text}");
-                    }
-                }
-
-                if (latestVer?.ScopeTags.Any() == true)
-                {
-                    specContext.AppendLine("Scope Tags: " +
-                                           string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName)));
-                }
-            }
-        }
-        else
-        {
-            specContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
-        }
-
-        if (vectorMatches.Any())
-        {
-            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE VECTOR MATCHES ---");
-            foreach (var match in vectorMatches)
-            {
-                specContext.AppendLine(
-                    $"[Vector Match: {match.Title} | Similarity: {match.SimilarityScore:F2}] {match.Content}");
-            }
-        }
-
-        string roleInstructions =
-            $"You are an expert AI Technical Specification Q&A Assistant for Project: '{projectName}'. Help Developers, QA Engineers, Product Managers, and Team Members understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, test scenarios, edge cases, and business logic BASED ON THE LATEST PROJECT SPECIFICATIONS ABOVE.";
-
-        var systemPrompt =
-            $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}).\n" +
-            "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
-            $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\n" +
-            "STRICT QA RULES:\n" +
-            "1. Answers MUST be short and to the point. Directly quote or closely paraphrase the relevant part of the published spec. No elaboration, no added opinions, no information not explicitly present in the spec.\n" +
-            "2. If the answer isn't found in the published spec, say so plainly: \"Not specified in the published spec\" rather than inferring or guessing an answer.\n" +
-            "3. Do NOT ask follow-up questions back to the dev/QA user.\n\n" +
-            "Goal: Answer the query accurately based on the Specifications above.";
+        var specContext = BuildDevQaSpecContext(project, vectorMatches);
+        var systemPrompt = BuildDevQaSystemPrompt(projectName, projectDesc, specContext, isKernelTemplate: false);
 
         return Ok(new DevQaContextResponseDto
         {
             ProjectId = request.ProjectId,
             ProjectName = projectName,
             ProjectDescription = projectDesc,
-            GroundedContext = specContext.ToString(),
+            GroundedContext = specContext,
             SystemPrompt = systemPrompt,
             VectorMatches = vectorMatches.Select(m => new VectorMatchDto
             {
@@ -1376,6 +1268,121 @@ public class SpecsController : ControllerBase
                 DocType = m.DocType
             }).ToList()
         });
+    }
+
+    private string BuildDevQaSpecContext(Project project, List<VectorSearchResult> vectorMatches)
+    {
+        var specContext = new StringBuilder();
+        specContext.AppendLine("=== CURRENT ACTIVE PROJECT SPECIFICATIONS & REQUIREMENTS ===");
+
+        if (project?.Specs != null && project.Specs.Any())
+        {
+            foreach (var spec in project.Specs)
+            {
+                var activeVersions = spec.Versions
+                    .Where(v => v.VersionNumber > 0 && !v.IsUndone)
+                    .OrderBy(v => v.VersionNumber)
+                    .ToList();
+
+                var latestVer = activeVersions.LastOrDefault();
+
+                specContext.AppendLine($"\n============================================================");
+                specContext.AppendLine($"MASTER SPECIFICATION: '{spec.Title}' (Status: {spec.Status} | Active Version: v{latestVer?.VersionNumber ?? 0})");
+                specContext.AppendLine($"============================================================");
+
+                if (latestVer != null)
+                {
+                    specContext.AppendLine($"\n[LATEST PUBLISHED VERSION: v{latestVer.VersionNumber}] (Published: {latestVer.PublishedAt:u})");
+
+                    if (!string.IsNullOrWhiteSpace(latestVer.Content))
+                    {
+                        specContext.AppendLine($"\nFULL SPECIFICATION DOCUMENT & REQUIREMENTS (v{latestVer.VersionNumber}):");
+                        specContext.AppendLine(latestVer.Content);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(spec.Description))
+                    {
+                        specContext.AppendLine($"\nOverview:\n{spec.Description}");
+                    }
+
+                    if (latestVer.AcceptanceCriteria.Any())
+                    {
+                        specContext.AppendLine($"\nACCEPTANCE CRITERIA (v{latestVer.VersionNumber}):");
+                        foreach (var ac in latestVer.AcceptanceCriteria)
+                        {
+                            specContext.AppendLine($" - {ac.Text}");
+                        }
+                    }
+
+                    if (latestVer.ScopeTags.Any())
+                    {
+                        specContext.AppendLine($"\nSCOPE TAGS: [{string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName))}]");
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(spec.Description))
+                {
+                    specContext.AppendLine($"\nDraft Description:\n{spec.Description}");
+                }
+
+                // If multiple published versions exist, provide version evolution history
+                if (activeVersions.Count > 1)
+                {
+                    specContext.AppendLine($"\n--- VERSION EVOLUTION & HISTORY ({activeVersions.Count} Published Versions) ---");
+                    foreach (var pastVer in activeVersions)
+                    {
+                        var isLatest = pastVer.VersionNumber == latestVer?.VersionNumber;
+                        specContext.AppendLine($"\n• Version v{pastVer.VersionNumber} {(isLatest ? "[CURRENT ACTIVE]" : "[PAST VERSION]")} (Published: {pastVer.PublishedAt:u}):");
+                        if (!string.IsNullOrWhiteSpace(pastVer.Content))
+                        {
+                            var snippet = pastVer.Content.Length > 500 ? pastVer.Content.Substring(0, 500) + "..." : pastVer.Content;
+                            specContext.AppendLine($"  Summary: {snippet}");
+                        }
+                        if (pastVer.AcceptanceCriteria.Any())
+                        {
+                            specContext.AppendLine($"  Criteria count: {pastVer.AcceptanceCriteria.Count} acceptance criteria.");
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            specContext.AppendLine("\n[Notice: No specifications have been published for this project yet.]");
+        }
+
+        if (vectorMatches != null && vectorMatches.Any())
+        {
+            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE KNOWLEDGE BASE MATCHES ---");
+            foreach (var match in vectorMatches)
+            {
+                specContext.AppendLine(
+                    $"[Knowledge Match: {match.Title} | Similarity: {match.SimilarityScore:F2}]\n{match.Content}\n");
+            }
+        }
+
+        specContext.AppendLine("\n============================================================\n");
+        return specContext.ToString();
+    }
+
+    private string BuildDevQaSystemPrompt(string projectName, string projectDesc, string specContext, bool isKernelTemplate = false)
+    {
+        string pName = isKernelTemplate ? "{{$projectName}}" : projectName;
+        string pDesc = isKernelTemplate ? "{{$projectDesc}}" : projectDesc;
+        string sContext = isKernelTemplate ? "{{$specContext}}" : specContext;
+
+        return $@"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{pName}' ({pDesc}).
+MANDATE: You are the Lead Technical Specification Copilot and QA Analyst. Answer the user's question accurately, thoroughly, and technically using the project specifications and requirements provided below.
+
+Project Overview: {pDesc}
+
+{sContext}
+
+INSTRUCTIONS FOR DEV & QA ASSISTANT:
+1. ALWAYS use the Latest Published Version as the primary source of truth for current system behavior, APIs, data flows, UI interactions, and business rules.
+2. Directly answer the question with technical precision, quoting or citing specific acceptance criteria, workflow rules, data fields, or endpoints where appropriate.
+3. If the user asks about version history or what changed between versions, reference the Version Evolution & History section.
+4. If a detail is not explicitly mentioned in the published specifications, clearly state: ""This detail is not specified in the current published specification."" and describe the closest relevant requirement that is documented.
+5. Provide helpful, well-formatted markdown answers with bullet points, code blocks, or tables when appropriate. Do NOT give unhelpful one-word or overly clipped answers.
+6. Do NOT ask clarifying questions back to the developer or QA engineer — provide the best technical answer possible based on the specifications.";
     }
 
     [HttpPost("api/specs/draft/chat/context")]

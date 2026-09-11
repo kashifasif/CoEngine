@@ -77,7 +77,18 @@ public class PgVectorStoreService : IVectorStoreService
             var client = await GetEmbeddingClientAsync();
             if (client == null) 
             {
-                _logger.LogWarning("Embedding client is not ready. Skipping document indexing.");
+                var fallbackId = Guid.NewGuid().ToString();
+                var fallbackSql = @"
+                    INSERT INTO ""VectorDocuments"" (""Id"", ""ProjectId"", ""DocType"", ""Title"", ""Content"", ""IndexedAt"")
+                    VALUES (@id, @projectId, @docType, @title, @content, @indexedAt);
+                ";
+                await _db.Database.ExecuteSqlRawAsync(fallbackSql,
+                    new NpgsqlParameter("@id", fallbackId),
+                    new NpgsqlParameter("@projectId", projectId),
+                    new NpgsqlParameter("@docType", docType),
+                    new NpgsqlParameter("@title", title),
+                    new NpgsqlParameter("@content", content),
+                    new NpgsqlParameter("@indexedAt", DateTime.UtcNow));
                 return;
             }
 
@@ -123,8 +134,7 @@ public class PgVectorStoreService : IVectorStoreService
             var client = await GetEmbeddingClientAsync();
             if (client == null) 
             {
-                _logger.LogWarning("Embedding client is not ready. Returning empty search results.");
-                return new List<VectorSearchResult>();
+                return await SearchTextFallbackAsync(projectId, query, topK);
             }
 
             var response = await client.GenerateEmbeddingAsync(query);
@@ -188,9 +198,51 @@ public class PgVectorStoreService : IVectorStoreService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PostgreSQL pgvector query failed. Returning empty search results.");
-            return new List<VectorSearchResult>();
+            _logger.LogWarning(ex, "PostgreSQL pgvector query failed. Falling back to text search.");
+            return await SearchTextFallbackAsync(projectId, query, topK);
         }
+    }
+
+    private async Task<List<VectorSearchResult>> SearchTextFallbackAsync(Guid projectId, string query, int topK)
+    {
+        var terms = query.Split(new[] { ' ', '\t', '\r', '\n', ',', '.', '?', '!', ';', ':', '-', '_' }, StringSplitOptions.RemoveEmptyEntries)
+            .Where(t => t.Length > 2)
+            .Take(6)
+            .ToList();
+
+        var results = new List<VectorSearchResult>();
+        try
+        {
+            var docs = await _db.Set<CoEngine.Api.Data.Models.VectorDocument>()
+                .Where(v => v.ProjectId == projectId)
+                .OrderByDescending(v => v.IndexedAt)
+                .Take(25)
+                .ToListAsync();
+
+            foreach (var doc in docs)
+            {
+                int matchCount = terms.Count(t => 
+                    doc.Title.Contains(t, StringComparison.OrdinalIgnoreCase) || 
+                    doc.Content.Contains(t, StringComparison.OrdinalIgnoreCase));
+
+                if (matchCount > 0 || !terms.Any())
+                {
+                    results.Add(new VectorSearchResult
+                    {
+                        Title = doc.Title,
+                        Content = doc.Content,
+                        DocType = doc.DocType,
+                        SimilarityScore = terms.Any() ? Math.Round((double)matchCount / terms.Count, 2) : 1.0
+                    });
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Fallback text search failed.");
+        }
+
+        return results.OrderByDescending(r => r.SimilarityScore).Take(topK).ToList();
     }
 
     public async Task<VectorStoreStatsDto> GetStatsAsync(Guid projectId)
@@ -207,7 +259,7 @@ public class PgVectorStoreService : IVectorStoreService
             cmd.CommandText = @"
                 SELECT 
                     COUNT(*)::int AS Total,
-                    COUNT(CASE WHEN ""DocType"" = 'spec' THEN 1 END)::int AS SpecCount,
+                    COUNT(CASE WHEN ""DocType"" = 'spec' OR ""DocType"" = 'published_spec' THEN 1 END)::int AS SpecCount,
                     COUNT(CASE WHEN ""DocType"" = 'chat' THEN 1 END)::int AS ChatCount
                 FROM ""VectorDocuments""
                 WHERE ""ProjectId"" = @projectId;
@@ -226,7 +278,7 @@ public class PgVectorStoreService : IVectorStoreService
                     TotalVectorCount = reader.GetInt32(0),
                     SpecVectorCount = reader.GetInt32(1),
                     ChatVectorCount = reader.GetInt32(2),
-                    VectorDbEngine = "PostgreSQL pgvector + Foundry Local"
+                    VectorDbEngine = "PostgreSQL pgvector / Full-Text"
                 };
             }
         }
