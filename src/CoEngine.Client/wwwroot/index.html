@@ -4,16 +4,29 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>CoEngine — Specification Engine</title>
     <base href="/" />
+    <script>
+        // Purge any browser or WebView CacheStorage on launch to guarantee latest files
+        if ('caches' in window) {
+            caches.keys().then(function (names) {
+                for (var i = 0; i < names.length; i++) {
+                    caches.delete(names[i]);
+                }
+            }).catch(function () {});
+        }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="css/tailwind.css" />
+    <link rel="stylesheet" href="css/tailwind.css?v=2" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="CoEngine.Client.styles.css" rel="stylesheet" />
+    <link href="CoEngine.Client.styles.css?v=2" rel="stylesheet" />
     <script>
         window.themeManager = {
             setTheme: function (theme) {
@@ -147,8 +160,8 @@
 
         html.dark .loader-icon-box,
         html[data-theme="dark"] .loader-icon-box {
-            background: rgba(99, 102, 241, 0.12);
-            border-color: rgba(129, 140, 248, 0.3);
+            background: rgba(0, 56, 36, 0.12);
+            border-color: rgba(75, 163, 125, 0.3);
         }
 
         .loader-spinner-ring {
@@ -156,15 +169,15 @@
             inset: -6px;
             border-radius: 20px;
             border: 2px solid transparent;
-            border-top-color: #4f46e5;
-            border-right-color: #6366f1;
+            border-top-color: #003824;
+            border-right-color: #20835b;
             animation: spinRing 1s linear infinite;
         }
 
         html.dark .loader-spinner-ring,
         html[data-theme="dark"] .loader-spinner-ring {
-            border-top-color: #818cf8;
-            border-right-color: #a5b4fc;
+            border-top-color: #4ba37d;
+            border-right-color: #7cc0a1;
         }
 
         @keyframes spinRing {
@@ -214,7 +227,7 @@
             left: 0;
             bottom: 0;
             width: 40%;
-            background: linear-gradient(90deg, #4f46e5, #818cf8);
+            background: linear-gradient(90deg, #003824, #4ba37d);
             border-radius: 9999px;
             animation: progressPulse 1.4s ease-in-out infinite alternate;
         }
@@ -230,7 +243,7 @@
     <div id="app">
         <div id="app-loader">
             <div class="loader-icon-box">
-                <span class="material-symbols-outlined" style="font-size: 28px; color: #6366f1;">auto_awesome</span>
+                <span class="material-symbols-outlined" style="font-size: 28px; color: #003824;">auto_awesome</span>
                 <div class="loader-spinner-ring"></div>
             </div>
             <h5 class="loader-title">Loading CoEngine Engine</h5>
@@ -247,6 +260,6 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
-    <script src="js/specExporter.js"></script>
+    <script src="js/specExporter.js?v=2"></script>
 </body>
 </html>

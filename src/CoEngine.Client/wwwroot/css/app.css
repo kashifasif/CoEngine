@@ -4,6 +4,18 @@
 @theme {
   --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-indigo-50: #edf6f2;
+  --color-indigo-100: #d6ede2;
+  --color-indigo-200: #add9c4;
+  --color-indigo-300: #7cc0a1;
+  --color-indigo-400: #4ba37d;
+  --color-indigo-500: #20835b;
+  --color-indigo-600: #003824;
+  --color-indigo-700: #002d1d;
+  --color-indigo-800: #002316;
+  --color-indigo-900: #001910;
+  --color-indigo-950: #000f0a;
 }
 
 @layer base {

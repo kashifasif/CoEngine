@@ -146,7 +146,10 @@ export class CopilotBridgeServer {
 
         // Static file serving for bundled Blazor WASM
         if (req.method === 'GET' && this.extensionUri) {
-          const blazorRoot = path.join(this.extensionUri.fsPath, 'dist', 'blazor', 'wwwroot', 'wwwroot');
+          let blazorRoot = path.join(this.extensionUri.fsPath, 'dist', 'blazor', 'wwwroot');
+          if (fs.existsSync(path.join(blazorRoot, 'wwwroot', 'index.html'))) {
+            blazorRoot = path.join(blazorRoot, 'wwwroot');
+          }
           if (fs.existsSync(blazorRoot)) {
             this.serveStatic(req, res, blazorRoot, url);
             return;
@@ -207,7 +210,10 @@ export class CopilotBridgeServer {
     const contentType = mimeTypes[ext] || 'application/octet-stream';
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=3600'
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
     });
 
     const stream = fs.createReadStream(filePath);

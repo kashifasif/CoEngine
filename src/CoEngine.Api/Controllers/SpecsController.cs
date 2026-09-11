@@ -880,6 +880,7 @@ public class SpecsController : ControllerBase
 
         var session = await _db.ChatSessions
             .Include(cs => cs.Messages)
+                .ThenInclude(m => m.SenderUser)
             .FirstOrDefaultAsync(cs => cs.ProjectId == projectId && cs.PersonaMode == personaMode);
 
         if (session == null)
@@ -936,7 +937,9 @@ public class SpecsController : ControllerBase
                 Content = m.Content,
                 AttachedFileName = m.AttachedFileName,
                 AttachedFileUrl = m.AttachedFileUrl,
-                Timestamp = m.Timestamp
+                Timestamp = m.Timestamp,
+                SenderUserId = m.SenderUserId,
+                SenderName = m.SenderName ?? (m.Role == "user" ? (m.SenderUser?.DisplayName ?? m.SenderUser?.Username) : "SpecAI")
             }).ToList()
         });
     }
@@ -979,6 +982,11 @@ public class SpecsController : ControllerBase
             }
             lastTs = ts;
 
+            Guid? senderUserId = msg.Role == "user" ? (msg.SenderUserId ?? currentUser.Id) : null;
+            var senderName = msg.Role == "user"
+                ? (!string.IsNullOrWhiteSpace(msg.SenderName) ? msg.SenderName : (!string.IsNullOrWhiteSpace(currentUser.DisplayName) ? currentUser.DisplayName : currentUser.Username))
+                : "SpecAI";
+
             session.Messages.Add(new ChatMessageRecord
             {
                 ChatSessionId = session.Id,
@@ -986,7 +994,9 @@ public class SpecsController : ControllerBase
                 Content = msg.Content,
                 AttachedFileName = msg.AttachedFileName,
                 AttachedFileUrl = msg.AttachedFileUrl,
-                Timestamp = ts
+                Timestamp = ts,
+                SenderUserId = senderUserId,
+                SenderName = senderName
             });
         }
 
@@ -1735,6 +1745,7 @@ Extract the key features, workflows, and specifications into an initial draft.";
             await _db.SaveChangesAsync();
         }
 
+        var userName = !string.IsNullOrWhiteSpace(currentUser.DisplayName) ? currentUser.DisplayName : currentUser.Username;
         var now = DateTime.UtcNow;
         dbSession.Messages.Add(new ChatMessageRecord
         {
@@ -1742,7 +1753,9 @@ Extract the key features, workflows, and specifications into an initial draft.";
             Role = "user",
             Content =
                 $"[Uploaded Raw Transcript - {request.SourceTag}]:\n{request.RawTranscript.Substring(0, Math.Min(500, request.RawTranscript.Length))}...",
-            Timestamp = now
+            Timestamp = now,
+            SenderUserId = currentUser.Id,
+            SenderName = userName
         });
 
         dbSession.Messages.Add(new ChatMessageRecord
@@ -1750,7 +1763,8 @@ Extract the key features, workflows, and specifications into an initial draft.";
             ChatSessionId = dbSession.Id,
             Role = "assistant",
             Content = summaryMarkdown,
-            Timestamp = now.AddMilliseconds(20)
+            Timestamp = now.AddMilliseconds(20),
+            SenderName = "SpecAI"
         });
 
         dbSession.UpdatedAt = DateTime.UtcNow;

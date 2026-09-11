@@ -115,19 +115,25 @@
                         <div class="flex items-center gap-1.5 mb-1 px-1 text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
                             @if (msg.Role == "user")
                             {
-                                <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
-                                    @FormatMessageTime(msg.Timestamp)
-                                </span>
-                                <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                <span class="font-medium text-indigo-600 dark:text-indigo-400">You</span>
+                                @if (msg.Timestamp != default && msg.Timestamp != DateTime.MinValue)
+                                {
+                                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                        @FormatMessageTime(msg.Timestamp)
+                                    </span>
+                                    <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                }
+                                <span class="font-medium text-indigo-600 dark:text-indigo-400">@GetSenderDisplayName(msg)</span>
                             }
                             else
                             {
-                                <span class="font-medium text-zinc-700 dark:text-zinc-300">Q&amp;A Assistant</span>
-                                <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
-                                <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
-                                    @FormatMessageTime(msg.Timestamp)
-                                </span>
+                                <span class="font-medium text-zinc-700 dark:text-zinc-300">@GetSenderDisplayName(msg)</span>
+                                @if (msg.Timestamp != default && msg.Timestamp != DateTime.MinValue)
+                                {
+                                    <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                    <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                        @FormatMessageTime(msg.Timestamp)
+                                    </span>
+                                }
                             }
                         </div>
 
@@ -247,18 +253,46 @@
     private bool isLoadingOlderMessages = false;
     private bool hasMoreOlderMessages => allMessages.Count > chatMessages.Count;
     private DotNetObjectReference<DevQaAssistant>? dotNetRef;
+    private UserDto? currentUser;
 
-    private ChatMessageDto CreateMessage(string role, string content)
+    private ChatMessageDto CreateMessage(string role, string content, Guid? senderUserId = null, string? senderName = null)
     {
         var lastTs = allMessages.LastOrDefault()?.Timestamp ?? DateTime.UtcNow.AddMinutes(-1);
         var now = DateTime.UtcNow;
         var ts = now > lastTs ? now : lastTs.AddMilliseconds(20);
+
+        var uid = senderUserId ?? (role == "user" ? currentUser?.Id : null);
+        var sName = senderName ?? (role == "user"
+            ? (!string.IsNullOrWhiteSpace(currentUser?.DisplayName) ? currentUser.DisplayName : (!string.IsNullOrWhiteSpace(currentUser?.Username) ? currentUser.Username : "User"))
+            : (roleMode == "qa_mode" ? "QA Copilot" : "Dev Assistant"));
+
         return new ChatMessageDto
         {
             Role = role,
             Content = content,
-            Timestamp = ts
+            Timestamp = ts,
+            SenderUserId = uid,
+            SenderName = sName
         };
+    }
+
+    private string GetSenderDisplayName(ChatMessageDto msg)
+    {
+        if (!string.IsNullOrWhiteSpace(msg.SenderName))
+        {
+            return msg.SenderName;
+        }
+        if (msg.Role == "user")
+        {
+            if (currentUser != null)
+            {
+                return !string.IsNullOrWhiteSpace(currentUser.DisplayName)
+                    ? currentUser.DisplayName
+                    : (!string.IsNullOrWhiteSpace(currentUser.Username) ? currentUser.Username : "User");
+            }
+            return "User";
+        }
+        return roleMode == "qa_mode" ? "QA Copilot" : "Dev Assistant";
     }
 
     private static string FormatMessageTime(DateTime dt)
@@ -297,6 +331,7 @@
             var user = await ApiClient.GetCurrentUserAsync();
             if (user != null && user.IsAuthenticated)
             {
+                currentUser = user;
                 return true;
             }
         }

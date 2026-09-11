@@ -45,6 +45,15 @@ export function activate(context: vscode.ExtensionContext) {
       SpecsEditorPanel.render(context.extensionUri, apiClient, copilotService);
     }),
 
+    vscode.commands.registerCommand('coengine.reloadStudio', () => {
+      if (SpecsEditorPanel.currentPanel) {
+        SpecsEditorPanel.currentPanel.reload();
+      } else {
+        SpecsEditorPanel.render(context.extensionUri, apiClient, copilotService);
+      }
+      vscode.window.showInformationMessage('CoEngine Studio reloaded (cache bypassed).');
+    }),
+
     vscode.commands.registerCommand('coengine.configure', () => {
       vscode.commands.executeCommand('workbench.action.openSettings', 'coengine');
     })

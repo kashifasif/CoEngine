@@ -64,6 +64,11 @@
           "command": "coengine.openEditor",
           "group": "navigation",
           "title": "CoEngine Studio"
+        },
+        {
+          "command": "coengine.reloadStudio",
+          "group": "navigation",
+          "title": "Reload CoEngine Studio (Bypass Cache)"
         }
       ]
     },
@@ -81,6 +86,11 @@
         "command": "coengine.openEditor",
         "title": "CoEngine: Open Specifications Studio in Center Editor",
         "icon": "$(layout-sidebar-right-off)"
+      },
+      {
+        "command": "coengine.reloadStudio",
+        "title": "CoEngine: Reload Studio (Bypass Cache)",
+        "icon": "$(refresh)"
       },
       {
         "command": "coengine.configure",

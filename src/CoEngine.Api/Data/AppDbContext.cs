@@ -66,6 +66,12 @@ public class AppDbContext : DbContext
             .HasForeignKey(cm => cm.ChatSessionId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        modelBuilder.Entity<ChatMessageRecord>()
+            .HasOne(cm => cm.SenderUser)
+            .WithMany()
+            .HasForeignKey(cm => cm.SenderUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         modelBuilder.Entity<Project>()
             .HasOne(p => p.CreatedByUser)
             .WithMany()

@@ -34,6 +34,7 @@ export class SpecsEditorPanel {
   ) {
     if (SpecsEditorPanel.currentPanel) {
       SpecsEditorPanel.currentPanel._panel.reveal(vscode.ViewColumn.One);
+      SpecsEditorPanel.currentPanel.reload();
     } else {
       const panel = vscode.window.createWebviewPanel(
         'coengine.specsEditor',
@@ -52,6 +53,10 @@ export class SpecsEditorPanel {
     }
   }
 
+  public reload() {
+    this._panel.webview.html = this._getWebviewContent();
+  }
+
   public dispose() {
     SpecsEditorPanel.currentPanel = undefined;
     this._panel.dispose();
@@ -67,8 +72,9 @@ export class SpecsEditorPanel {
     const config = vscode.workspace.getConfiguration('coengine');
     const apiUrl = (config.get<string>('apiUrl') || 'http://localhost:5005').replace(/\/$/, '');
     const token = config.get<string>('sessionToken') || '01a04ed5-a013-78a6-ad60-6542fa3f3b41';
-    // Load local bundled Blazor Studio with target backend API and session token
-    const iframeSrc = `http://127.0.0.1:5123/login?apiUrl=${encodeURIComponent(apiUrl)}&token=${token}`;
+    const timestamp = Date.now();
+    // Load local bundled Blazor Studio with target backend API and session token + cache-busting timestamp
+    const iframeSrc = `http://127.0.0.1:5123/login?apiUrl=${encodeURIComponent(apiUrl)}&token=${token}&_t=${timestamp}`;
 
     return `<!DOCTYPE html>
 <html lang="en">
