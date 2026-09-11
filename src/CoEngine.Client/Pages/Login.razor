@@ -63,6 +63,8 @@
         try
         {
             var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            var isExplicitLogout = await JS.InvokeAsync<string?>("localStorage.getItem", "coengine_explicit_logout");
+
             if (!string.IsNullOrWhiteSpace(uri.Query))
             {
                 var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
@@ -73,7 +75,7 @@
                 }
 
                 var tokenVal = queryParams["token"];
-                if (!string.IsNullOrWhiteSpace(tokenVal) && Guid.TryParse(tokenVal, out var uid))
+                if (!string.IsNullOrWhiteSpace(tokenVal) && isExplicitLogout != "true" && Guid.TryParse(tokenVal, out var uid))
                 {
                     var autoUser = await ApiClient.DevLoginAsync(uid);
                     if (autoUser != null && autoUser.IsAuthenticated)
@@ -84,11 +86,14 @@
                 }
             }
 
-            var user = await ApiClient.GetCurrentUserAsync();
-            if (user != null && user.IsAuthenticated)
+            if (isExplicitLogout != "true")
             {
-                Nav.NavigateTo("/dashboard");
-                return;
+                var user = await ApiClient.GetCurrentUserAsync();
+                if (user != null && user.IsAuthenticated)
+                {
+                    Nav.NavigateTo("/dashboard");
+                    return;
+                }
             }
         }
         catch { }
@@ -99,25 +104,27 @@
         isConnecting = true;
         try
         {
-            // Perform instant login for local dev / VS Code environment
+            await JS.InvokeVoidAsync("localStorage.removeItem", "coengine_explicit_logout");
+
+            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync();
+            if (authUrlDto != null && !string.IsNullOrWhiteSpace(authUrlDto.AuthUrl))
+            {
+                Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);
+                return;
+            }
+
+            // Fallback for offline/local dev environment without GitHub OAuth app configured
             var devUser = await ApiClient.DevLoginAsync();
             if (devUser != null && devUser.IsAuthenticated)
             {
                 Nav.NavigateTo("/dashboard");
                 return;
             }
-
-            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync();
-            if (authUrlDto != null && !string.IsNullOrWhiteSpace(authUrlDto.AuthUrl))
-            {
-                Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);
-            }
-            else
-            {
-                isConnecting = false;
-            }
         }
         catch 
+        {
+        }
+        finally
         {
             isConnecting = false;
         }

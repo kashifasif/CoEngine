@@ -107,7 +107,7 @@
         },
         "coengine.sessionToken": {
           "type": "string",
-          "default": "01a04ed5-a013-78a6-ad60-6542fa3f3b41",
+          "default": "",
           "description": "Optional session token or user ID GUID for API authentication."
         },
         "coengine.copilotFamily": {

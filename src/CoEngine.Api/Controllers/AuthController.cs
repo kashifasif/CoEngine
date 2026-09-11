@@ -156,7 +156,8 @@ public class AuthController : ControllerBase
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        Response.Cookies.Delete("spec_user_session");
+        Response.Cookies.Delete("spec_user_session", new CookieOptions { Path = "/" });
+        Response.Cookies.Delete("coengine_session", new CookieOptions { Path = "/" });
         return Ok(new { success = true, message = "Logged out successfully." });
     }
 }

@@ -491,6 +491,7 @@ public class SpecApiClient
                     if (!string.IsNullOrWhiteSpace(user.Token))
                     {
                         try { await _js.InvokeVoidAsync("localStorage.setItem", "spec_user_session", user.Token); } catch { }
+                        try { await _js.InvokeVoidAsync("localStorage.removeItem", "coengine_explicit_logout"); } catch { }
                     }
                 }
                 return user;
@@ -515,6 +516,7 @@ public class SpecApiClient
                 if (user != null && !string.IsNullOrWhiteSpace(user.Token))
                 {
                     try { await _js.InvokeVoidAsync("localStorage.setItem", "spec_user_session", user.Token); } catch { }
+                    try { await _js.InvokeVoidAsync("localStorage.removeItem", "coengine_explicit_logout"); } catch { }
                 }
                 return user;
             }
@@ -552,6 +554,7 @@ public class SpecApiClient
         try
         {
             try { await _js.InvokeVoidAsync("localStorage.removeItem", "spec_user_session"); } catch { }
+            try { await _js.InvokeVoidAsync("localStorage.setItem", "coengine_explicit_logout", "true"); } catch { }
             await _http.PostAsync("api/auth/logout", null);
         }
         catch { }
