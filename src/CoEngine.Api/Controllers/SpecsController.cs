@@ -895,7 +895,7 @@ public class SpecsController : ControllerBase
             await _db.SaveChangesAsync();
         }
 
-        var allSorted = session.Messages.OrderBy(m => m.Timestamp).ToList();
+        var allSorted = session.Messages.OrderBy(m => m.Timestamp).ThenBy(m => m.Id).ToList();
         var totalCount = allSorted.Count;
 
         List<ChatMessageRecord> resultMessages = allSorted;
@@ -935,7 +935,8 @@ public class SpecsController : ControllerBase
                 Role = m.Role,
                 Content = m.Content,
                 AttachedFileName = m.AttachedFileName,
-                AttachedFileUrl = m.AttachedFileUrl
+                AttachedFileUrl = m.AttachedFileUrl,
+                Timestamp = m.Timestamp
             }).ToList()
         });
     }
@@ -968,8 +969,16 @@ public class SpecsController : ControllerBase
         }
 
         session.Messages.Clear();
+        DateTime lastTs = DateTime.MinValue;
         foreach (var msg in newMessages)
         {
+            var ts = msg.Timestamp != default ? msg.Timestamp : DateTime.UtcNow;
+            if (ts <= lastTs)
+            {
+                ts = lastTs.AddMilliseconds(10);
+            }
+            lastTs = ts;
+
             session.Messages.Add(new ChatMessageRecord
             {
                 ChatSessionId = session.Id,
@@ -977,7 +986,7 @@ public class SpecsController : ControllerBase
                 Content = msg.Content,
                 AttachedFileName = msg.AttachedFileName,
                 AttachedFileUrl = msg.AttachedFileUrl,
-                Timestamp = DateTime.UtcNow
+                Timestamp = ts
             });
         }
 
@@ -1571,7 +1580,8 @@ public class SpecsController : ControllerBase
             messagesToUse.AddRange(dbSession.Messages.OrderBy(m => m.Timestamp).Select(m => new ChatMessageDto
             {
                 Role = m.Role,
-                Content = m.Content
+                Content = m.Content,
+                Timestamp = m.Timestamp
             }));
         }
 
@@ -1725,13 +1735,14 @@ Extract the key features, workflows, and specifications into an initial draft.";
             await _db.SaveChangesAsync();
         }
 
+        var now = DateTime.UtcNow;
         dbSession.Messages.Add(new ChatMessageRecord
         {
             ChatSessionId = dbSession.Id,
             Role = "user",
             Content =
                 $"[Uploaded Raw Transcript - {request.SourceTag}]:\n{request.RawTranscript.Substring(0, Math.Min(500, request.RawTranscript.Length))}...",
-            Timestamp = DateTime.UtcNow
+            Timestamp = now
         });
 
         dbSession.Messages.Add(new ChatMessageRecord
@@ -1739,7 +1750,7 @@ Extract the key features, workflows, and specifications into an initial draft.";
             ChatSessionId = dbSession.Id,
             Role = "assistant",
             Content = summaryMarkdown,
-            Timestamp = DateTime.UtcNow
+            Timestamp = now.AddMilliseconds(20)
         });
 
         dbSession.UpdatedAt = DateTime.UtcNow;

@@ -112,8 +112,23 @@
                     bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
 
                     <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
-                        <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
-                            @(msg.Role == "user" ? "You" : "Q&A Assistant")
+                        <div class="flex items-center gap-1.5 mb-1 px-1 text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                            @if (msg.Role == "user")
+                            {
+                                <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                    @FormatMessageTime(msg.Timestamp)
+                                </span>
+                                <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                <span class="font-medium text-indigo-600 dark:text-indigo-400">You</span>
+                            }
+                            else
+                            {
+                                <span class="font-medium text-zinc-700 dark:text-zinc-300">Q&amp;A Assistant</span>
+                                <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                                <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                    @FormatMessageTime(msg.Timestamp)
+                                </span>
+                            }
                         </div>
 
                         @if (msg.Role == "user")
@@ -233,6 +248,36 @@
     private bool hasMoreOlderMessages => allMessages.Count > chatMessages.Count;
     private DotNetObjectReference<DevQaAssistant>? dotNetRef;
 
+    private ChatMessageDto CreateMessage(string role, string content)
+    {
+        var lastTs = allMessages.LastOrDefault()?.Timestamp ?? DateTime.UtcNow.AddMinutes(-1);
+        var now = DateTime.UtcNow;
+        var ts = now > lastTs ? now : lastTs.AddMilliseconds(20);
+        return new ChatMessageDto
+        {
+            Role = role,
+            Content = content,
+            Timestamp = ts
+        };
+    }
+
+    private static string FormatMessageTime(DateTime dt)
+    {
+        if (dt == default || dt == DateTime.MinValue) return "";
+        var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+        var local = utc.ToLocalTime();
+        return local.Date == DateTime.Today
+            ? local.ToString("h:mm tt")
+            : local.ToString("MMM d, h:mm tt");
+    }
+
+    private static string FormatMessageTooltip(DateTime dt)
+    {
+        if (dt == default || dt == DateTime.MinValue) return "";
+        var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+        return utc.ToLocalTime().ToString("f");
+    }
+
     private VectorStoreStatsDto? vectorStats;
     private string userPromptInput = "";
     private bool isThinking = false;
@@ -330,7 +375,7 @@
             var session = await ApiClient.GetChatSessionAsync(selectedProjectId, PersonaModeKey);
             if (session != null && session.Messages.Any())
             {
-                allMessages = session.Messages;
+                allMessages = session.Messages.OrderBy(m => m.Timestamp).ToList();
                 if (allMessages.Count > PageSize)
                 {
                     chatMessages = allMessages.Skip(allMessages.Count - PageSize).Take(PageSize).ToList();
@@ -415,8 +460,8 @@
         userPromptInput = "";
         await JS.InvokeVoidAsync("clearChatInputValue", "devQaAssistantInput");
 
-        var userMsg = new ChatMessageDto { Role = "user", Content = prompt };
-        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        var userMsg = CreateMessage("user", prompt);
+        var assistantMsg = CreateMessage("assistant", "");
 
         allMessages.Add(userMsg);
         allMessages.Add(assistantMsg);
@@ -467,7 +512,7 @@
 
         if (!chatMessages.Any(m => m.Role == "user")) return;
 
-        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        var assistantMsg = CreateMessage("assistant", "");
         allMessages.Add(assistantMsg);
         chatMessages.Add(assistantMsg);
 

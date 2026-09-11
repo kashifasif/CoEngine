@@ -6,6 +6,7 @@ public class ChatMessageDto
     public string Content { get; set; } = string.Empty;
     public string? AttachedFileName { get; set; }
     public string? AttachedFileUrl { get; set; }
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
 public class ChatRequestDto

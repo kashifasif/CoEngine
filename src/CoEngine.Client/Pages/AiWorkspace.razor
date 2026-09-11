@@ -184,8 +184,23 @@
                 bool isError = msg.Role == "assistant" && (msg.Content.Contains("[HTTP Error") || msg.Content.StartsWith("[Error") || msg.Content.Contains("[API Warning") || (!isThinking && string.IsNullOrWhiteSpace(msg.Content)));
 
                 <div class="flex flex-col @(msg.Role == "user" ? "items-end" : "items-start") w-full">
-                    <div class="text-[11px] font-mono font-medium text-zinc-400 dark:text-zinc-500 mb-1 px-1">
-                        @(msg.Role == "user" ? "You" : "SpecAI")
+                    <div class="flex items-center gap-1.5 mb-1 px-1 text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                        @if (msg.Role == "user")
+                        {
+                            <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                @FormatMessageTime(msg.Timestamp)
+                            </span>
+                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                            <span class="font-medium text-indigo-600 dark:text-indigo-400">You</span>
+                        }
+                        else
+                        {
+                            <span class="font-medium text-zinc-700 dark:text-zinc-300">SpecAI</span>
+                            <span class="text-zinc-300 dark:text-zinc-700">&bull;</span>
+                            <span class="text-[10px] text-zinc-400 dark:text-zinc-500" title="@FormatMessageTooltip(msg.Timestamp)">
+                                @FormatMessageTime(msg.Timestamp)
+                            </span>
+                        }
                     </div>
 
                     @if (msg.Role == "user")
@@ -627,6 +642,38 @@
     private int maxClarificationRounds = 3;
     private DotNetObjectReference<AiWorkspace>? dotNetRef;
 
+    private ChatMessageDto CreateMessage(string role, string content, string? fileName = null, string? fileUrl = null)
+    {
+        var lastTs = allMessages.LastOrDefault()?.Timestamp ?? DateTime.UtcNow.AddMinutes(-1);
+        var now = DateTime.UtcNow;
+        var ts = now > lastTs ? now : lastTs.AddMilliseconds(20);
+        return new ChatMessageDto
+        {
+            Role = role,
+            Content = content,
+            AttachedFileName = fileName,
+            AttachedFileUrl = fileUrl,
+            Timestamp = ts
+        };
+    }
+
+    private static string FormatMessageTime(DateTime dt)
+    {
+        if (dt == default || dt == DateTime.MinValue) return "";
+        var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+        var local = utc.ToLocalTime();
+        return local.Date == DateTime.Today
+            ? local.ToString("h:mm tt")
+            : local.ToString("MMM d, h:mm tt");
+    }
+
+    private static string FormatMessageTooltip(DateTime dt)
+    {
+        if (dt == default || dt == DateTime.MinValue) return "";
+        var utc = dt.Kind == DateTimeKind.Utc ? dt : DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+        return utc.ToLocalTime().ToString("f");
+    }
+
     private string specTitle = "";
     private string specTitleInputSetup = "";
 
@@ -713,16 +760,8 @@
 
             if (result != null && result.Success)
             {
-                var userMsg = new ChatMessageDto
-                {
-                    Role = "user",
-                    Content = $"[Uploaded Raw Transcript - {rawSourceTag}]:\n{rawTranscriptText.Substring(0, Math.Min(400, rawTranscriptText.Length))}..."
-                };
-                var aiMsg = new ChatMessageDto
-                {
-                    Role = "assistant",
-                    Content = result.SummaryReply
-                };
+                var userMsg = CreateMessage("user", $"[Uploaded Raw Transcript - {rawSourceTag}]:\n{rawTranscriptText.Substring(0, Math.Min(400, rawTranscriptText.Length))}...");
+                var aiMsg = CreateMessage("assistant", result.SummaryReply);
 
                 allMessages.Add(userMsg);
                 allMessages.Add(aiMsg);
@@ -863,7 +902,7 @@
             
             if (session != null && session.Messages.Any())
             {
-                allMessages = session.Messages;
+                allMessages = session.Messages.OrderBy(m => m.Timestamp).ToList();
                 if (allMessages.Count > PageSize)
                 {
                     chatMessages = allMessages.Skip(allMessages.Count - PageSize).Take(PageSize).ToList();
@@ -993,8 +1032,8 @@
                 
                 var prompt = $"[User uploaded file: {fileName}]\n\n{textContent}";
                 
-                var userMsg = new ChatMessageDto { Role = "user", Content = prompt, AttachedFileName = fileName, AttachedFileUrl = fileUrl };
-                var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+                var userMsg = CreateMessage("user", prompt, fileName, fileUrl);
+                var assistantMsg = CreateMessage("assistant", "");
 
                 allMessages.Add(userMsg);
                 allMessages.Add(assistantMsg);
@@ -1050,8 +1089,8 @@
         userPromptInput = "";
         await JS.InvokeVoidAsync("clearChatInputValue", "aiWorkspaceInput");
 
-        var userMsg = new ChatMessageDto { Role = "user", Content = prompt };
-        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        var userMsg = CreateMessage("user", prompt);
+        var assistantMsg = CreateMessage("assistant", "");
 
         allMessages.Add(userMsg);
         allMessages.Add(assistantMsg);
@@ -1094,7 +1133,7 @@
         {
             var prompt = userPromptInput.Trim();
             userPromptInput = "";
-            var userMsg = new ChatMessageDto { Role = "user", Content = prompt };
+            var userMsg = CreateMessage("user", prompt);
             chatMessages.Add(userMsg);
             allMessages.Add(userMsg);
         }
@@ -1109,11 +1148,7 @@
             if (unanswered.Any())
             {
                 var qNumbers = string.Join(", ", unanswered.Select(u => $"Q{u.Number}"));
-                var warningMsg = new ChatMessageDto
-                {
-                    Role = "assistant",
-                    Content = $"ℹ️ **Pending Questions Remaining:** Please select or skip the remaining unanswered question(s) above ({qNumbers}) before requesting further clarification."
-                };
+                var warningMsg = CreateMessage("assistant", $"ℹ️ **Pending Questions Remaining:** Please select or skip the remaining unanswered question(s) above ({qNumbers}) before requesting further clarification.");
                 chatMessages.Add(warningMsg);
                 allMessages.Add(warningMsg);
                 await SaveDbChatSession();
@@ -1133,7 +1168,7 @@
                     answerSummary.AppendLine($"- Q{q.Number}: {q.SelectedAnswer}");
                 }
                 answerSummary.AppendLine("\nPlease proceed with the next clarification round based on my answers. If everything is completely clear and there are absolutely no more functional questions left to ask, simply reply: 'Fully Clarified'. Do not ask any questions you have already asked.");
-                var injectedUserMsg = new ChatMessageDto { Role = "user", Content = answerSummary.ToString() };
+                var injectedUserMsg = CreateMessage("user", answerSummary.ToString());
                 chatMessages.Add(injectedUserMsg);
                 allMessages.Add(injectedUserMsg);
             }
@@ -1145,11 +1180,7 @@
              lastAssistantMsg.Content.Contains("No clarifying questions needed", StringComparison.OrdinalIgnoreCase) ||
              lastAssistantMsg.Content.Contains("Fully Clarified", StringComparison.OrdinalIgnoreCase)))
         {
-            var fullyClarifiedMsg = new ChatMessageDto
-            {
-                Role = "assistant",
-                Content = "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready."
-            };
+            var fullyClarifiedMsg = CreateMessage("assistant", "✅ **Fully Clarified:** All feature requirements have already been clarified! Click **Publish Spec** when ready.");
             chatMessages.Add(fullyClarifiedMsg);
             allMessages.Add(fullyClarifiedMsg);
             await SaveDbChatSession();
@@ -1158,7 +1189,7 @@
             return;
         }
 
-        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        var assistantMsg = CreateMessage("assistant", "");
         chatMessages.Add(assistantMsg);
         allMessages.Add(assistantMsg);
 
@@ -1176,7 +1207,7 @@
             
             await ApiClient.SendChatStreamAsync(
                 selectedProjectId,
-                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                allMessages.Take(allMessages.Count - 1).ToList(),
                 chunk =>
                 {
                     currentStreamingResponse += chunk;
@@ -1201,12 +1232,15 @@
 
         if (chatMessages.Any() && chatMessages.Last().Role == "assistant")
         {
+            var lastAssistant = chatMessages.Last();
             chatMessages.RemoveAt(chatMessages.Count - 1);
+            allMessages.Remove(lastAssistant);
         }
 
         if (!chatMessages.Any(m => m.Role == "user")) return;
 
-        var assistantMsg = new ChatMessageDto { Role = "assistant", Content = "" };
+        var assistantMsg = CreateMessage("assistant", "");
+        allMessages.Add(assistantMsg);
         chatMessages.Add(assistantMsg);
 
         isThinking = true;
@@ -1218,7 +1252,7 @@
         {
             await ApiClient.SendChatStreamAsync(
                 selectedProjectId,
-                chatMessages.Take(chatMessages.Count - 1).ToList(),
+                allMessages.Take(allMessages.Count - 1).ToList(),
                 chunk =>
                 {
                     currentStreamingResponse += chunk;
@@ -1274,11 +1308,9 @@
 
         if (string.IsNullOrWhiteSpace(specTitle))
         {
-            chatMessages.Add(new ChatMessageDto
-            {
-                Role = "assistant",
-                Content = "⚠️ **Cannot Publish Specification:** Please give a title or name to this specification before publishing."
-            });
+            var warnMsg = CreateMessage("assistant", "⚠️ **Cannot Publish Specification:** Please give a title or name to this specification before publishing.");
+            allMessages.Add(warnMsg);
+            chatMessages.Add(warnMsg);
             StateHasChanged();
             await ScrollToBottom();
             return;
@@ -1286,11 +1318,9 @@
 
         if (!HasSufficientDataToStructure())
         {
-            chatMessages.Add(new ChatMessageDto
-            {
-                Role = "assistant",
-                Content = "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation first."
-            });
+            var warnMsg = CreateMessage("assistant", "⚠️ **Cannot Publish Specification:** You have not provided any brainstorming data or draft information. Please start a conversation first.");
+            allMessages.Add(warnMsg);
+            chatMessages.Add(warnMsg);
             StateHasChanged();
             await ScrollToBottom();
             return;
@@ -1301,15 +1331,13 @@
 
         try
         {
-            var result = await ApiClient.StructureChatAsync(selectedProjectId, chatMessages);
+            var result = await ApiClient.StructureChatAsync(selectedProjectId, allMessages);
 
             if (result == null)
             {
-                chatMessages.Add(new ChatMessageDto
-                {
-                    Role = "assistant",
-                    Content = "⚠️ **Structuring failed.** The AI did not return a valid specification. Please try again."
-                });
+                var failMsg = CreateMessage("assistant", "⚠️ **Structuring failed.** The AI did not return a valid specification. Please try again.");
+                allMessages.Add(failMsg);
+                chatMessages.Add(failMsg);
                 StateHasChanged();
                 await ScrollToBottom();
                 return;
@@ -1386,11 +1414,7 @@
 
         if (publishedSpec != null)
         {
-            var pubMsg = new ChatMessageDto
-            {
-                Role = "assistant",
-                Content = $"✅ **Specification Published:** Version **v{publishedSpec.CurrentVersionNumber}** of '{publishedSpec.Title}' has been generated and saved."
-            };
+            var pubMsg = CreateMessage("assistant", $"✅ **Specification Published:** Version **v{publishedSpec.CurrentVersionNumber}** of '{publishedSpec.Title}' has been generated and saved.");
             allMessages.Add(pubMsg);
             chatMessages.Add(pubMsg);
             clarificationRoundNumber = 0;
