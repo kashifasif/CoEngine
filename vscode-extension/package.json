@@ -58,6 +58,15 @@
         ]
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "coengine.openEditor",
+          "group": "navigation",
+          "title": "CoEngine Studio"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "coengine.refresh",
