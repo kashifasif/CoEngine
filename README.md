@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Open Source](https://img.shields.io/badge/Edition-Community%20(Open%20Source)-blue.svg)](#-license)
 
-> **CoEngine** is an open-source, AI-powered Technical Specification & Requirements Engineering Platform designed for **Product Owners, Business Analysts, Software Architects, and QA/Dev Teams**. It bridges the gap between messy brainstorming and production-ready technical specifications through structured AI ideation, vector-grounded RAG, immutable versioning, and developer copilots.
+> **CoEngine** is an  AI-powered Technical Specification & Requirements Engineering Platform designed for **Product Owners, Business Analysts, Software Architects, and QA/Dev Teams**. It bridges the gap between messy brainstorming and production-ready technical specifications through structured AI ideation, vector-grounded RAG, immutable versioning, and developer copilots.
 
 ---
 
