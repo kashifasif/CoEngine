@@ -1,0 +1,120 @@
+{
+  "name": "coengine",
+  "displayName": "CoEngine - Requirements & Specs Copilot",
+  "description": "AI-powered Technical Specification & Requirements Engineering Platform with GitHub Copilot and pgvector grounding.",
+  "version": "0.1.0",
+  "publisher": "coengine",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "AI",
+    "Programming Languages",
+    "Education"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:coengine.specsView"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "coengine-sidebar",
+          "title": "CoEngine",
+          "icon": "media/coengine-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "coengine-sidebar": [
+        {
+          "type": "webview",
+          "id": "coengine.specsView",
+          "name": "CoEngine Studio"
+        }
+      ]
+    },
+    "chatParticipants": [
+      {
+        "id": "coengine.spec",
+        "name": "spec",
+        "description": "Query, validate, and explore technical specifications grounded by pgvector.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "ask",
+            "description": "Ask technical questions grounded strictly on published specifications."
+          },
+          {
+            "name": "list",
+            "description": "List all published specifications for the current project."
+          },
+          {
+            "name": "check",
+            "description": "Review selected code against published acceptance criteria."
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "coengine.refresh",
+        "title": "CoEngine: Refresh Specifications",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "coengine.openSidebar",
+        "title": "CoEngine: Open Specifications Studio"
+      },
+      {
+        "command": "coengine.openEditor",
+        "title": "CoEngine: Open Specifications Studio in Center Editor",
+        "icon": "$(layout-sidebar-right-off)"
+      },
+      {
+        "command": "coengine.configure",
+        "title": "CoEngine: Configure Settings"
+      }
+    ],
+    "configuration": {
+      "title": "CoEngine",
+      "properties": {
+        "coengine.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:5005",
+          "description": "CoEngine ASP.NET Core Backend API URL."
+        },
+        "coengine.sessionToken": {
+          "type": "string",
+          "default": "01a04ed5-a013-78a6-ad60-6542fa3f3b41",
+          "description": "Optional session token or user ID GUID for API authentication."
+        },
+        "coengine.copilotFamily": {
+          "type": "string",
+          "default": "gpt-4o",
+          "enum": [
+            "gpt-4o",
+            "claude-3.5-sonnet",
+            "o1-mini"
+          ],
+          "description": "GitHub Copilot model family to use for drafting and spec QA."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "build:blazor": "dotnet publish ../src/CoEngine.Client -c Release -o ./dist/blazor/wwwroot",
+    "build": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.4.5"
+  }
+}

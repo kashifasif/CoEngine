@@ -1,0 +1,14 @@
+# Output directories
+out/
+dist/
+node_modules/
+
+# VS Code test runner output
+.vscode-test/
+
+# Packaged extension artifacts
+*.vsix
+
+# OS metadata
+.DS_Store
+Thumbs.db

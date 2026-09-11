@@ -22,6 +22,36 @@ public class DevQaQueryRequestDto
     public List<ChatMessageDto> Messages { get; set; } = new();
 }
 
+public class DevQaContextResponseDto
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string ProjectDescription { get; set; } = string.Empty;
+    public string GroundedContext { get; set; } = string.Empty;
+    public string SystemPrompt { get; set; } = string.Empty;
+    public List<VectorMatchDto> VectorMatches { get; set; } = new();
+}
+
+public class BrainstormContextResponseDto
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectName { get; set; } = string.Empty;
+    public string ProjectDescription { get; set; } = string.Empty;
+    public string SystemPrompt { get; set; } = string.Empty;
+    public int ClarificationRoundNumber { get; set; }
+    public bool IsClarificationPhase { get; set; }
+    public List<VectorMatchDto> VectorMatches { get; set; } = new();
+}
+
+public class VectorMatchDto
+{
+    public string DocumentId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public double SimilarityScore { get; set; }
+    public string DocType { get; set; } = string.Empty;
+}
+
 public class ChatSessionDto
 {
     public Guid Id { get; set; }

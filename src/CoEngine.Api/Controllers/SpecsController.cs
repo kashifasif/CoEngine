@@ -1250,6 +1250,254 @@ public class SpecsController : ControllerBase
             streamAccumulator.ToString());
     }
 
+    [HttpPost("api/specs/query/context")]
+    public async Task<ActionResult<DevQaContextResponseDto>> GetDevQaContext(
+        [FromBody] DevQaQueryRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = await _currentUser.GetUserAsync();
+        if (currentUser == null)
+        {
+            return Unauthorized(new { message = "Authentication required." });
+        }
+
+        var project = await _db.Projects
+            .Include(p => p.Specs)
+            .ThenInclude(s => s.Versions)
+            .ThenInclude(v => v.AcceptanceCriteria)
+            .Include(p => p.Specs)
+            .ThenInclude(s => s.Versions)
+            .ThenInclude(v => v.ScopeTags)
+            .FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        
+        if (project == null)
+        {
+            return NotFound(new { message = "Project not found or access denied." });
+        }
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
+
+        var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
+
+        // Query Vector Store for top semantically relevant specs!
+        var allVectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 5);
+        var vectorMatches = allVectorMatches
+            .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
+
+        var specContext = new StringBuilder();
+        specContext.AppendLine($"--- ALL LATEST PROJECT SPECIFICATIONS (FULL LATEST REQUIREMENTS) ---");
+
+        if (project?.Specs != null && project.Specs.Any())
+        {
+            foreach (var spec in project.Specs)
+            {
+                var latestVer = spec.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+
+                specContext.AppendLine(
+                    $"\n[Spec #{spec.Id} | Title: {spec.Title} | Status: {spec.Status} | Latest Version: v{latestVer?.VersionNumber ?? 0}]");
+                specContext.AppendLine($"Description: {spec.Description}");
+
+                if (latestVer?.AcceptanceCriteria.Any() == true)
+                {
+                    specContext.AppendLine("Acceptance Criteria:");
+                    foreach (var ac in latestVer.AcceptanceCriteria)
+                    {
+                        specContext.AppendLine($" - {ac.Text}");
+                    }
+                }
+
+                if (latestVer?.ScopeTags.Any() == true)
+                {
+                    specContext.AppendLine("Scope Tags: " +
+                                           string.Join(", ", latestVer.ScopeTags.Select(t => t.TagName)));
+                }
+            }
+        }
+        else
+        {
+            specContext.AppendLine("\n[Notice: No specifications created for this project yet.]");
+        }
+
+        if (vectorMatches.Any())
+        {
+            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE VECTOR MATCHES ---");
+            foreach (var match in vectorMatches)
+            {
+                specContext.AppendLine(
+                    $"[Vector Match: {match.Title} | Similarity: {match.SimilarityScore:F2}] {match.Content}");
+            }
+        }
+
+        string roleInstructions =
+            $"You are an expert AI Technical Specification Q&A Assistant for Project: '{projectName}'. Help Developers, QA Engineers, Product Managers, and Team Members understand technical implementation details, microservice boundaries, API payloads, DB schema impacts, test scenarios, edge cases, and business logic BASED ON THE LATEST PROJECT SPECIFICATIONS ABOVE.";
+
+        var systemPrompt =
+            $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}).\n" +
+            "MANDATE: Answer the user's question accurately using the project specifications provided above. Do NOT mix, reference, or assume data from any other project.\n\n" +
+            $"{roleInstructions}\n\nProject Overview: {projectDesc}\n\n{specContext}\n\n" +
+            "STRICT QA RULES:\n" +
+            "1. Answers MUST be short and to the point. Directly quote or closely paraphrase the relevant part of the published spec. No elaboration, no added opinions, no information not explicitly present in the spec.\n" +
+            "2. If the answer isn't found in the published spec, say so plainly: \"Not specified in the published spec\" rather than inferring or guessing an answer.\n" +
+            "3. Do NOT ask follow-up questions back to the dev/QA user.\n\n" +
+            "Goal: Answer the query accurately based on the Specifications above.";
+
+        return Ok(new DevQaContextResponseDto
+        {
+            ProjectId = request.ProjectId,
+            ProjectName = projectName,
+            ProjectDescription = projectDesc,
+            GroundedContext = specContext.ToString(),
+            SystemPrompt = systemPrompt,
+            VectorMatches = vectorMatches.Select(m => new VectorMatchDto
+            {
+                Title = m.Title,
+                Content = m.Content,
+                SimilarityScore = m.SimilarityScore,
+                DocType = m.DocType
+            }).ToList()
+        });
+    }
+
+    [HttpPost("api/specs/draft/chat/context")]
+    public async Task<ActionResult<BrainstormContextResponseDto>> GetBrainstormChatContext(
+        [FromBody] ChatRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = await _currentUser.GetUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        int clarificationRoundNumber = 0;
+        if (request.IsClarificationPhase)
+        {
+            var session = await _db.ChatSessions.FirstOrDefaultAsync(cs => cs.ProjectId == request.ProjectId && cs.PersonaMode == "po_brainstorming", cancellationToken);
+            if (session != null)
+            {
+                if (session.ClarificationRoundNumber >= 3)
+                {
+                    return BadRequest(new { message = "Maximum clarification rounds (3) reached." });
+                }
+                session.ClarificationRoundNumber++;
+                await _db.SaveChangesAsync(cancellationToken);
+                clarificationRoundNumber = session.ClarificationRoundNumber;
+            }
+        }
+
+        var projectName = project.Name;
+        var projectDesc = project.Description;
+        var userQuery = request.Messages.LastOrDefault(m => m.Role == "user")?.Content ?? "";
+
+        var allVectorMatches = await _vectorStore.SearchSimilarityAsync(request.ProjectId, userQuery, topK: 3);
+        var vectorMatches = allVectorMatches
+            .Where(m => m.DocType == "spec" || m.DocType == "published_spec" || m.DocType == "draft_spec").ToList();
+
+        var specContext = new StringBuilder();
+        if (vectorMatches.Any())
+        {
+            specContext.AppendLine($"\n--- SEMANTIC RELEVANCE VECTOR MATCHES (EXISTING SPECS) ---");
+            foreach (var match in vectorMatches)
+            {
+                specContext.AppendLine($"[Match: {match.Title}] {match.Content}");
+            }
+        }
+
+        var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
+        if (!string.IsNullOrWhiteSpace(existingSpecContext))
+        {
+            specContext.AppendLine($"\n{existingSpecContext}");
+        }
+
+        string systemPrompt;
+        if (!request.IsClarificationPhase)
+        {
+            systemPrompt =
+                $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}). You must NEVER reference, mix, or assume requirements/knowledge from any other project.\n\n" +
+                "You are a Requirements Brainstorming Assistant, currently in LISTENING MODE.\n\n" +
+                $"CONTEXT: You are helping a Product Owner (PO) or Business Analyst (BA) brainstorm a feature for the project: {projectName} — {projectDesc}\n\n" +
+                $"{specContext}\n\n" +
+                "Your job right now is to let the PO/BA freely describe a feature idea, without interrupting with clarifying questions about the feature.\n\n" +
+                "STRICT RULES:\n" +
+                "1. Do NOT ask any clarifying questions in this phase to build the spec. Let the user talk.\n" +
+                "2. If the user is simply providing information or brainstorming, respond only with brief, natural acknowledgments.\n" +
+                "3. IF the user asks you a direct question, you MUST answer their question directly, helpfully, and concisely based on your knowledge and the existing spec context.\n" +
+                "4. Do NOT summarize or critique what they've said, UNLESS they explicitly ask for your opinion.\n" +
+                "5. Keep every response short and focused. You are listening and assisting, not leading the interrogation.\n" +
+                "Wait for the PO/BA to explicitly signal they are done before any clarification rounds happen.";
+        }
+        else
+        {
+            systemPrompt =
+                $"STRICT PROJECT ISOLATION BOUNDARY: You are strictly scoped ONLY to Project: '{projectName}' ({projectDesc}). You must NEVER reference, mix, or assume requirements/knowledge from any other project.\n\n" +
+                "You are a Requirements Clarification Assistant. Your ONLY job is to help a Product Owner (PO) or Business Analyst (BA) think through a feature idea by identifying what is unclear or missing, and asking clarifying questions.\n\n" +
+                $"CONTEXT: Project: {projectName} — {projectDesc}\n\n" +
+                $"{specContext}\n\n" +
+                "You will be given:\n" +
+                "1. EXISTING SPECIFICATION & UNRESOLVED OPEN BUSINESS QUESTIONS (via context above).\n" +
+                "2. The full brainstorming conversation so far.\n" +
+                "STRICT RULES:\n" +
+                "1. Your response must ALWAYS be a numbered list of clarifying questions. For EACH question, provide 2 to 4 suggested options (A, B, C...) to make it easy for the PO/BA to answer.\n" +
+                "2. Ask a MAXIMUM of 5 questions per round. Never more.\n" +
+                "3. PRIORITIZE UNRESOLVED OPEN BUSINESS QUESTIONS: If the existing spec or previous rounds have unresolved Open Business Questions, YOU MUST TURN THOSE INTO CLARIFYING QUESTIONS.\n" +
+                "4. SCOPE RESTRICTION - FUNCTIONAL REQUIREMENTS ONLY: Questions must stay strictly focused on functional/business requirements (what the system should do, for whom, under what conditions). Do NOT ask technical or implementation-level questions (e.g., \"how will the API authenticate this request?\", database design, architecture choices) — the people answering are business stakeholders, not developers.\n" +
+                "5. Only ask questions that are genuinely unclear, ambiguous, missing, or would cause a developer to guess.\n" +
+                "6. CRITICAL: CAREFULLY REVIEW THE ENTIRE CHAT HISTORY before asking a question. You MUST NOT ask any question that has already been asked and answered in a previous round.\n" +
+                "7. Do NOT ask about anything already clearly answered and established in the existing spec or the chat history.\n" +
+                "OUTPUT FORMAT (strict):\n" +
+                "1. [Question text]\n" +
+                "   - A) [Option 1]\n" +
+                "   - B) [Option 2]\n";
+        }
+
+        return Ok(new BrainstormContextResponseDto
+        {
+            ProjectId = request.ProjectId,
+            ProjectName = projectName,
+            ProjectDescription = projectDesc,
+            SystemPrompt = systemPrompt,
+            ClarificationRoundNumber = clarificationRoundNumber,
+            IsClarificationPhase = request.IsClarificationPhase,
+            VectorMatches = vectorMatches.Select(m => new VectorMatchDto
+            {
+                Title = m.Title,
+                Content = m.Content,
+                SimilarityScore = m.SimilarityScore,
+                DocType = m.DocType
+            }).ToList()
+        });
+    }
+
+    [HttpPost("api/specs/draft/structure/context")]
+    public async Task<ActionResult<BrainstormContextResponseDto>> GetStructureContext(
+        [FromBody] ChatRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var currentUser = await _currentUser.GetUserAsync();
+        if (currentUser == null) return Unauthorized(new { message = "Authentication required." });
+
+        var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId && p.CreatedByUserId == currentUser.Id, cancellationToken);
+        if (project == null) return NotFound(new { message = "Project not found or access denied." });
+
+        var existingSpecContext = await GetExistingSpecContextAsync(request.ProjectId);
+        var basePrompt = OpenRouterService.BuildStructurePrompt($"CONTEXT: Project: {project.Name} — {project.Description}\n\n{existingSpecContext}");
+
+        return Ok(new BrainstormContextResponseDto
+        {
+            ProjectId = request.ProjectId,
+            ProjectName = project.Name,
+            ProjectDescription = project.Description,
+            SystemPrompt = basePrompt
+        });
+    }
+
+    [HttpGet("api/specs/prompts/self-review")]
+    public ActionResult<string> GetSelfReviewPrompt()
+    {
+        return Ok(OpenRouterService.SelfReviewSystemPrompt);
+    }
+
     private async Task<string> GetExistingSpecContextAsync(Guid projectId)
     {
         var existingSpec = await _db.Specs

@@ -8,12 +8,17 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.AddTransient<CookieHandler>();
+builder.Services.AddScoped<CopilotAiClient>();
 
 builder.Services.AddHttpClient<SpecApiClient>((sp, client) =>
 {
     var config = sp.GetRequiredService<IConfiguration>();
     var apiBase = config["ApiBaseUrl"] ?? builder.HostEnvironment.BaseAddress;
-    client.BaseAddress = new Uri(apiBase);
+    if (string.IsNullOrWhiteSpace(apiBase) || apiBase.Contains(":5123"))
+    {
+        apiBase = "http://localhost:5005";
+    }
+    client.BaseAddress = new Uri(apiBase.TrimEnd('/') + "/");
 }).AddHttpMessageHandler<CookieHandler>();
 
 await builder.Build().RunAsync();

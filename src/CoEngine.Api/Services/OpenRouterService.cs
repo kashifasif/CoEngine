@@ -26,7 +26,7 @@ public class OpenRouterService : IOpenRouterService
     private readonly Kernel _kernel;
 
     // ─── Self-review system prompt (fixed, per spec) ──────────────────────────
-    private const string SelfReviewSystemPrompt =
+    public const string SelfReviewSystemPrompt =
         "You are a Specification Self-Review Assistant. Your ONLY job is to check a structured specification for quality issues before it is shown to a Product Owner (PO) or Business Analyst (BA) for final review.\n\n" +
         "You will be given the structured spec JSON (epicTitle, epicDescription, userStories with acceptance criteria and scope tags, openQuestions, changeSummary).\n\n" +
         "Run these four checks:\n\n" +
@@ -172,9 +172,9 @@ public class OpenRouterService : IOpenRouterService
         }
     }
 
-    public async Task<StructuredSpecResultDto> StructureIntoSpecAsync(string systemPrompt, List<ChatMessageDto> history)
+    public static string BuildStructurePrompt(string systemPrompt)
     {
-        var promptText =
+        return
             "You are an expert Lead Requirements Architect and Technical Product Owner. Your ONLY job is to write a comprehensive, production-grade Software Requirements Specification (SRS) in Agile format — either creating a new SRS, or merging changes into an existing published version.\n\n" +
             systemPrompt + "\n\n" +
             "You will be given:\n" +
@@ -221,6 +221,11 @@ public class OpenRouterService : IOpenRouterService
             "4. Do NOT invent unstated scope or assumptions.\n" +
             "5. If changeSummary is empty (brand new spec), omit it.\n" +
             "6. Output ONLY raw valid JSON matching the schema.";
+    }
+
+    public async Task<StructuredSpecResultDto> StructureIntoSpecAsync(string systemPrompt, List<ChatMessageDto> history)
+    {
+        var promptText = BuildStructurePrompt(systemPrompt);
 
         var historyWithTrigger = history.ToList();
         historyWithTrigger.Add(new ChatMessageDto

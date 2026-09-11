@@ -62,10 +62,33 @@
     {
         try
         {
+            var uri = Nav.ToAbsoluteUri(Nav.Uri);
+            if (!string.IsNullOrWhiteSpace(uri.Query))
+            {
+                var queryParams = System.Web.HttpUtility.ParseQueryString(uri.Query);
+                var apiUrlVal = queryParams["apiUrl"];
+                if (!string.IsNullOrWhiteSpace(apiUrlVal))
+                {
+                    await JS.InvokeVoidAsync("localStorage.setItem", "coengine_api_url", apiUrlVal);
+                }
+
+                var tokenVal = queryParams["token"];
+                if (!string.IsNullOrWhiteSpace(tokenVal) && Guid.TryParse(tokenVal, out var uid))
+                {
+                    var autoUser = await ApiClient.DevLoginAsync(uid);
+                    if (autoUser != null && autoUser.IsAuthenticated)
+                    {
+                        Nav.NavigateTo("/dashboard");
+                        return;
+                    }
+                }
+            }
+
             var user = await ApiClient.GetCurrentUserAsync();
             if (user != null && user.IsAuthenticated)
             {
                 Nav.NavigateTo("/dashboard");
+                return;
             }
         }
         catch { }
@@ -76,8 +99,15 @@
         isConnecting = true;
         try
         {
-            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync();
+            // Perform instant login for local dev / VS Code environment
+            var devUser = await ApiClient.DevLoginAsync();
+            if (devUser != null && devUser.IsAuthenticated)
+            {
+                Nav.NavigateTo("/dashboard");
+                return;
+            }
 
+            var authUrlDto = await ApiClient.GetGitHubAuthUrlAsync();
             if (authUrlDto != null && !string.IsNullOrWhiteSpace(authUrlDto.AuthUrl))
             {
                 Nav.NavigateTo(authUrlDto.AuthUrl, forceLoad: true);

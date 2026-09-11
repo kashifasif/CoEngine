@@ -4,14 +4,21 @@ using CoEngine.Shared.DTOs;
 using CoEngine.Shared.Models;
 using CoEngine.Client.Exceptions;
 
+using Microsoft.JSInterop;
+
 namespace CoEngine.Client.Services;
 
 public class SpecApiClient
 {
     private readonly HttpClient _http;
-    public SpecApiClient(HttpClient http)
+    private readonly IJSRuntime _js;
+    private readonly CopilotAiClient _copilot;
+
+    public SpecApiClient(HttpClient http, IJSRuntime js, CopilotAiClient copilot)
     {
         _http = http;
+        _js = js;
+        _copilot = copilot;
     }
 
     public async Task<HealthCheckResponse?> GetHealthAsync()
@@ -232,14 +239,43 @@ public class SpecApiClient
         bool isClarificationPhase = false,
         CancellationToken cancellationToken = default)
     {
+        var request = new ChatRequestDto
+        {
+            ProjectId = projectId,
+            IsClarificationPhase = isClarificationPhase,
+            Messages = messages
+        };
+
+        // 1. Try local Copilot bridge if available
+        if (await _copilot.IsCopilotAvailableAsync())
+        {
+            try
+            {
+                var ctxResponse = await _http.PostAsJsonAsync("api/specs/draft/chat/context", request, cancellationToken);
+                if (ctxResponse.IsSuccessStatusCode)
+                {
+                    var ctx = await ctxResponse.Content.ReadFromJsonAsync<BrainstormContextResponseDto>(cancellationToken: cancellationToken);
+                    if (ctx != null && !string.IsNullOrWhiteSpace(ctx.SystemPrompt))
+                    {
+                        var copilotSuccess = await _copilot.StreamChatCompletionAsync(
+                            ctx.SystemPrompt,
+                            messages,
+                            onChunkReceived,
+                            cancellationToken);
+
+                        if (copilotSuccess) return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _js.InvokeVoidAsync("console.warn", $"[SpecApiClient] Local Copilot error, falling back to server: {ex.Message}");
+            }
+        }
+
+        // 2. Fallback to server stream
         try
         {
-            var request = new ChatRequestDto
-            {
-                ProjectId = projectId,
-                IsClarificationPhase = isClarificationPhase,
-                Messages = messages
-            };
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/draft/chat/stream")
             {
                 Content = JsonContent.Create(request)
@@ -276,9 +312,38 @@ public class SpecApiClient
         Action<string> onChunkReceived,
         CancellationToken cancellationToken = default)
     {
+        var request = new DevQaQueryRequestDto { ProjectId = projectId, RoleMode = roleMode, Messages = messages };
+
+        // 1. Try local Copilot bridge if available (uses remote pgvector search context)
+        if (await _copilot.IsCopilotAvailableAsync())
+        {
+            try
+            {
+                var ctxResponse = await _http.PostAsJsonAsync("api/specs/query/context", request, cancellationToken);
+                if (ctxResponse.IsSuccessStatusCode)
+                {
+                    var ctx = await ctxResponse.Content.ReadFromJsonAsync<DevQaContextResponseDto>(cancellationToken: cancellationToken);
+                    if (ctx != null && !string.IsNullOrWhiteSpace(ctx.SystemPrompt))
+                    {
+                        var copilotSuccess = await _copilot.StreamChatCompletionAsync(
+                            ctx.SystemPrompt,
+                            messages,
+                            onChunkReceived,
+                            cancellationToken);
+
+                        if (copilotSuccess) return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _js.InvokeVoidAsync("console.warn", $"[SpecApiClient] Local Copilot error in Q/A, falling back to server: {ex.Message}");
+            }
+        }
+
+        // 2. Fallback to server stream
         try
         {
-            var request = new DevQaQueryRequestDto { ProjectId = projectId, RoleMode = roleMode, Messages = messages };
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "api/specs/query/chat/stream")
             {
                 Content = JsonContent.Create(request)
@@ -311,6 +376,34 @@ public class SpecApiClient
     public async Task<StructuredSpecResultDto?> StructureChatAsync(Guid projectId, List<ChatMessageDto> messages)
     {
         var request = new ChatRequestDto { ProjectId = projectId, Messages = messages };
+
+        // 1. Try local Copilot bridge if available
+        if (await _copilot.IsCopilotAvailableAsync())
+        {
+            try
+            {
+                var ctxRes = await _http.PostAsJsonAsync("api/specs/draft/structure/context", request);
+                var selfReviewPromptRes = await _http.GetAsync("api/specs/prompts/self-review");
+
+                if (ctxRes.IsSuccessStatusCode)
+                {
+                    var ctx = await ctxRes.Content.ReadFromJsonAsync<BrainstormContextResponseDto>();
+                    var selfReviewPrompt = selfReviewPromptRes.IsSuccessStatusCode ? await selfReviewPromptRes.Content.ReadAsStringAsync() : "";
+
+                    if (ctx != null && !string.IsNullOrWhiteSpace(ctx.SystemPrompt))
+                    {
+                        var structured = await _copilot.StructureSpecAsync(ctx.SystemPrompt, messages, selfReviewPrompt);
+                        if (structured != null) return structured;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                await _js.InvokeVoidAsync("console.warn", $"[SpecApiClient] Local Copilot structuring error, falling back to server: {ex.Message}");
+            }
+        }
+
+        // 2. Fallback to server structuring
         var response = await _http.PostAsJsonAsync("api/specs/draft/structure", request);
         if (response.IsSuccessStatusCode)
         {
@@ -347,6 +440,33 @@ public class SpecApiClient
         }
     }
 
+    public async Task<UserDto?> DevLoginAsync(Guid? userId = null)
+    {
+        try
+        {
+            var url = userId.HasValue ? $"api/auth/dev-login?userId={userId.Value}" : "api/auth/dev-login";
+            var response = await _http.PostAsync(url, null);
+            if (response.IsSuccessStatusCode)
+            {
+                var user = await response.Content.ReadFromJsonAsync<UserDto>();
+                if (user != null && user.IsAuthenticated)
+                {
+                    _cachedUser = user;
+                    if (!string.IsNullOrWhiteSpace(user.Token))
+                    {
+                        try { await _js.InvokeVoidAsync("localStorage.setItem", "spec_user_session", user.Token); } catch { }
+                    }
+                }
+                return user;
+            }
+            return null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public async Task<UserDto?> ProcessGitHubCallbackAsync(string code)
     {
         try
@@ -355,7 +475,12 @@ public class SpecApiClient
             var response = await _http.PostAsJsonAsync("api/auth/github/callback", req);
             if (response.IsSuccessStatusCode)
             {
-                return await response.Content.ReadFromJsonAsync<UserDto>();
+                var user = await response.Content.ReadFromJsonAsync<UserDto>();
+                if (user != null && !string.IsNullOrWhiteSpace(user.Token))
+                {
+                    try { await _js.InvokeVoidAsync("localStorage.setItem", "spec_user_session", user.Token); } catch { }
+                }
+                return user;
             }
             return null;
         }
@@ -390,6 +515,7 @@ public class SpecApiClient
         _cachedUser = null;
         try
         {
+            try { await _js.InvokeVoidAsync("localStorage.removeItem", "spec_user_session"); } catch { }
             await _http.PostAsync("api/auth/logout", null);
         }
         catch { }

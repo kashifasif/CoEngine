@@ -49,3 +49,9 @@ appsettings.*.json
 
 node_modules
 .agents
+
+# VS Code extension build artifacts
+dist/
+out/
+.vscode-test/
+*.vsix
